@@ -1,0 +1,1 @@
+for %%f in (*.js) do ren "%%f" "%%~nf.txt"

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Île des 100 Jours</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="main-area">
+            <!-- ### PANNEAU DE GAUCHE ### -->
+            <div id="left-panel" class="ui-panel">
+                <section id="player-stats">
+                    <h3>Statut</h3>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container"><div id="health-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container"><div id="thirst-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-squares-container" class="stat-squares-container"></div></div></div> 
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
+                </section>
+                <section id="bottom-bar-ground-items" class="droppable" data-owner="ground">
+                    <h3>Objets au sol</h3>
+                    <ul class="inventory-list ground-items-list">
+                    </ul>
+                </section>
+            </div>
+
+            <!-- ### VUE PRINCIPALE ### -->
+            <div id="main-view-wrapper">
+                <div id="main-view-container">
+                    <div id="survival-vignette"></div><div id="action-flash"></div>
+                    <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
+                    <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
+                    <div id="hud-overlay">
+                        <div id="tile-info-hud">
+                            <h3></h3>
+                            <p id="tile-details-hud" class="tile-detail"></p>
+                            <p id="biome-display" class="tile-detail">Biome: Forêt</p>
+                            <p id="position-display" class="tile-detail">Position: (0, 0)</p>
+                        </div>
+                    </div> 
+                    <div id="main-view-overlay">
+                        <div id="navigation-edge-panel">
+                            <div id="game-info-hud" style="position: absolute; top: 10px; left: 100px; color: white; font-weight: bold; background: rgba(0, 0, 0, 0.5); padding: 5px; border-radius: 5px;">
+                                <p id="day-display">Jour: 1</p>
+                                <p id="time-display">Heure: 08:00</p>
+                                <p id="position-display-nav">Position: (0, 0)</p>
+                            </div>
+                            <button class="nav-button-overlay" id="nav-nw">↖</button><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-ne">↗</button>
+                            <button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button>
+                            <button class="nav-button-overlay" id="nav-sw">↙</button><button class="nav-button-overlay" id="nav-south">↓</button><button class="nav-button-overlay" id="nav-se">↘</button>
+                        </div>
+                        <div id="central-actions-panel" class="hidden">
+                            <button class="central-action-button" data-action="build" title="Construire">🛠️</button>
+                            <button class="central-action-button" data-action="harvest" title="Récolter">🪓</button>
+                            <button class="central-action-button" data-action="search" title="Fouiller">🔍</button>
+                            <button class="central-action-button" data-action="interact" title="Interagir">🤝</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ### PANNEAU DE DROITE ### -->
+            <div id="right-panel" class="ui-panel">
+                <div id="right-panel-tabs">
+                    <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
+                    <button class="tab-button active" data-tab="actions-tab">Actions</button>
+                </div>
+                <section id="inventory-tab" class="tab-content">
+                    <h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
+                    <input type="text" id="inventory-search" placeholder="Rechercher un objet...">
+                    <div id="quick-slots" class="droppable" data-owner="quick-slots"></div>
+                    <div id="inventory-categories" class="droppable" data-owner="player-inventory"></div>
+                </section>
+                <section id="actions-tab" class="tab-content active-tab">
+                    <h3>Actions Possibles</h3>
+                    <div id="actions-tab-content"></div>
+                </section>
+            </div>
+        </div>
+
+        <!-- ### BARRE INFÉRIEURE ### -->
+        <div id="bottom-bar">
+            <div id="bottom-bar-chat-panel" class="bottom-bar-section">
+                <div id="chat-header"><h3>Journal / Chat</h3><button id="toggle-chat-size-btn" title="Agrandir/Réduire le chat">⌃</button></div>
+                <div id="chat-messages"></div>
+                <div id="chat-input-area"><div id="quick-chat-menu"><div class="quick-chat-item">J'ai besoin de bois.</div><div class="quick-chat-item">J'ai besoin de nourriture.</div><div class="quick-chat-item">Suivez-moi !</div><div class="quick-chat-item">Danger par ici !</div><div class="quick-chat-item">Oui.</div><div class="quick-chat-item">Non.</div></div><button id="quick-chat-button">+</button><input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu..."></div>
+            </div>
+
+            <div id="bottom-bar-equipment-panel" class="bottom-bar-section">
+                <h4>Équipements</h4>
+                <div class="equipment-preview-area">
+                    <div class="player-character-placeholder-small"><div class="player-head-small"></div><div class="player-body-small"></div></div>
+                    <div id="bottom-bar-equipment-slots" class="droppable" data-owner="equipment">
+                    </div>
+                </div>
+            </div>
+
+            <div id="minimap-section" class="bottom-bar-section">
+                <h4 style="display: flex; justify-content: space-between; align-items: center;">Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h4>
+                <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALES COMPLETES -->
+    <div id="large-map-modal" class="hidden">
+        <button id="close-large-map-btn">&times;</button>
+        <div id="large-map-content-wrapper">
+            <canvas id="large-map-canvas"></canvas>
+            <div id="large-map-legend"></div>
+        </div>
+    </div>
+
+    <div id="inventory-modal" class="hidden">
+        <div id="inventory-modal-content">
+            <button id="close-inventory-modal-btn">&times;</button>
+            <h2>Gestion du Stockage</h2>
+            <div id="inventory-modal-grid">
+                <div class="inventory-container">
+                    <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
+                    <div class="inventory-list-wrapper">
+                        <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                    </div>
+                </div>
+                <div class="inventory-container">
+                    <h3>Stockage Commun (<span id="modal-shared-capacity">0 / ∞</span>)</h3>
+                    <div class="search-bar-wrapper">
+                        <input type="text" id="shared-inventory-search" placeholder="Rechercher un objet...">
+                    </div>
+                    <div class="inventory-list-wrapper">
+                        <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quantity-modal" class="hidden">
+        <div id="quantity-modal-content">
+            <h3 id="quantity-modal-title">Transférer l'objet</h3>
+            <div id="quantity-controls">
+                <input type="range" id="quantity-slider" min="1" max="100" value="1">
+                <input type="number" id="quantity-input" min="1" max="100" value="1">
+            </div>
+            <div id="quantity-shortcuts">
+                <button data-amount="1">1</button>
+                <button data-amount="5">5</button>
+                <button id="quantity-max-btn">Max</button>
+            </div>
+            <div id="quantity-actions">
+                <button id="quantity-cancel-btn">Annuler</button>
+                <button id="quantity-confirm-btn">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="combat-modal" class="hidden">
+        <div id="combat-modal-content">
+            <h2>COMBAT</h2>
+            <div id="combat-participants">
+                <div class="combatant-info" id="combat-player-info">
+                    <h3>Vous</h3>
+                    <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>
+                    <span id="combat-player-health-text">10 / 10</span>
+                </div>
+                <span id="vs-text">VS</span>
+                <div class="combatant-info" id="combat-enemy-info">
+                    <h3 id="combat-enemy-name">Loup Agressif</h3>
+                    <div class="combat-health-bar-container"><div id="combat-enemy-health-bar" class="combat-health-bar"></div></div>
+                    <span id="combat-enemy-health-text">10 / 10</span>
+                </div>
+            </div>
+            <div id="combat-log"></div>
+            <div id="combat-actions"></div>
+        </div>
+    </div>
+
+    <div id="equipment-modal" class="hidden">
+        <div id="equipment-modal-content">
+            <button id="close-equipment-modal-btn">&times;</button>
+            <h2>Équipement & Inventaire</h2>
+            <div id="equipment-grid">
+                <div id="equipment-player-view">
+                    <div class="player-character-placeholder"><div class="player-head"></div><div class="player-body"></div></div>
+                    <div id="equipment-player-stats"><h3>Statistiques de Combat</h3><p>Attaque: <span id="player-stat-attack">1</span></p><p>Défense: <span id="player-stat-defense">0</span></p></div>
+                </div> 
+                <div id="equipment-slots">
+                    <div class="equipment-slot-container"><label>Tête</label><div class="equipment-slot droppable" data-slot-type="head" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Arme/Outil</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Bouclier</label><div class="equipment-slot droppable" data-slot-type="shield" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Habits</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div> 
+                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
+                </div>
+                <div class="inventory-container">
+                    <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
+                    <ul id="equipment-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE DE CONSTRUCTION -->
+    <div id="build-modal" class="hidden">
+        <div id="build-modal-content">
+            <button id="close-build-modal-btn">&times;</button>
+            <h2>Constructions Disponibles</h2>
+            <div id="build-modal-grid">
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE D'ATELIER -->
+    <div id="workshop-modal" class="hidden">
+        <div id="workshop-modal-content">
+            <button id="close-workshop-modal-btn">&times;</button>
+            <h2>Atelier d'Artisanat</h2>
+            <div class="workshop-controls">
+                <input type="text" id="workshop-search-input" placeholder="Rechercher une recette...">
+                <select id="workshop-category-filter">
+                    <option value="all">Toutes les catégories</option>
+                    <option value="tool">Outils</option>
+                    <option value="weapon">Armes</option>
+                    <option value="resource">Ressources transformées</option>
+                </select>
+            </div>
+            <div id="workshop-recipes-container">
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CODE CADENAS -->
+    <div id="lock-modal" class="hidden">
+        <div id="lock-modal-content">
+            <h3 id="lock-modal-title">Définir le code</h3>
+            <div id="lock-code-inputs">
+                <input type="number" id="lock-code-input-1" min="0" max="9" maxlength="1">
+                <input type="number" id="lock-code-input-2" min="0" max="9" maxlength="1">
+                <input type="number" id="lock-code-input-3" min="0" max="9" maxlength="1">
+            </div>
+            <div id="lock-actions">
+                <button id="lock-cancel-btn">Annuler</button>
+                <button id="lock-unlock-btn">Définir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE ADMIN (cachée par défaut) -->
+    <div id="admin-modal" class="hidden">
+        <div id="admin-modal-content">
+            <h2>Menu Admin</h2>
+            <button id="admin-give-all-resources-btn">Donner Toutes les Ressources de Base</button>
+            <button id="admin-close-modal-btn">Fermer</button>
+        </div>
+    </div>
+
+    <!-- OVERLAY TUTORIEL -->
+    <div id="tutorial-overlay" class="hidden">
+        <div id="tutorial-box">
+            <p id="tutorial-message">Message du tutoriel ici.</p>
+            <div id="tutorial-buttons">
+                <button id="tutorial-skip-btn">Passer le Tutoriel</button>
+                <button id="tutorial-next-btn">Suivant</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENU CONTEXTUEL (caché par défaut) -->
+    <div id="item-context-menu" class="hidden">
+        <div id="context-menu-title">Titre de l'objet</div>
+        <div id="context-menu-actions">
+            <!-- Les boutons d'action seront ajoutés ici par JS -->
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

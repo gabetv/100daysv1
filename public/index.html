@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Île des 100 Jours - Connexion</title>
+    
+    <!-- Polices de caractères depuis Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lien vers la feuille de style (le chemin commence par /) -->
+    <link rel="stylesheet" href="/style.css">
+    
+    <!-- Styles spécifiques pour cette page, pour un meilleur rendu visuel -->
+    <style>
+        :root {
+            /* Ces variables doivent correspondre à celles dans style.css pour la cohérence */
+            --bg-panel: rgba(38, 70, 83, 0.85);
+            --border-radius: 12px;
+            --text-light: #f8f9fa;
+            --accent-color: #ff4d6d;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            /* Assurez-vous d'avoir cette image dans public/assets/ */
+            background: url('/assets/bg_forest_1.png') center/cover no-repeat fixed;
+            font-family: 'Poppins', sans-serif;
+            color: var(--text-light);
+        }
+
+        .auth-container {
+            background-color: var(--bg-panel);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .auth-container h2 {
+            margin-bottom: 25px;
+            font-weight: 700;
+        }
+
+        .auth-container form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .auth-container input[type="text"], 
+        .auth-container input[type="password"] {
+            padding: 12px 15px;
+            background-color: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-family: 'Poppins', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .auth-container input[type="text"]:focus, 
+        .auth-container input[type="password"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        
+        /* Garder le style du texte lors de l'autocomplétion du navigateur */
+        .auth-container input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 30px rgba(0,0,0,0.3) inset !important;
+            -webkit-text-fill-color: var(--text-light) !important;
+        }
+
+        .auth-container button[type="submit"] {
+            padding: 12px 20px;
+            margin-top: 10px;
+        }
+
+        .auth-container p {
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+
+        .auth-container a {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .auth-container a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-container" class="auth-container">
+        <h2>Connexion</h2>
+        <form id="login-form">
+            <input type="text" id="login-username" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="login-password" placeholder="Mot de passe" required>
+            <button type="submit">Se connecter</button>
+        </form>
+        <p>Pas de compte ? <a href="#" id="show-register">Inscrivez-vous ici</a></p>
+    </div>
+
+    <div id="register-container" class="auth-container" style="display: none;">
+        <h2>Inscription</h2>
+        <form id="register-form">
+            <input type="text" id="register-username" placeholder="Nom d'utilisateur" required>
+            <input type="password" id="register-password" placeholder="Mot de passe" required>
+            <button type="submit">S'inscrire</button>
+        </form>
+        <p>Déjà un compte ? <a href="#" id="show-login">Connectez-vous ici</a></p>
+    </div>
+
+    <!-- Ce script gère UNIQUEMENT la logique de cette page -->
+    <script src="/js/login.js"></script>
+</body>
+</html>
