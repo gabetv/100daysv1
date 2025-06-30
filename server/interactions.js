@@ -124,6 +124,43 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             break;
 
         // --- ACTIONS TO BE IMPLEMENTED ---
+        case ACTIONS.FISH:
+        case ACTIONS.NET_FISH:
+        case ACTIONS.PLANT_TREE:
+        case ACTIONS.SLEEP_BY_CAMPFIRE:
+        case ACTIONS.USE_BUILDING_ACTION:
+        case ACTIONS.DISMANTLE_BUILDING:
+            Player.dismantleBuilding(player);
+            break;
+        case ACTIONS.OPEN_ALL_PARCHEMINS:
+        case ACTIONS.FIRE_DISTRESS_GUN:
+        case ACTIONS.FIRE_DISTRESS_FLARE:
+        case ACTIONS.PLACE_SOLAR_PANEL_FIXED:
+        case ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR:
+        case ACTIONS.PLACE_TRAP:
+        case ACTIONS.ATTRACT_NPC_ATTENTION:
+        case ACTIONS.FIND_MINE_COMPASS:
+        case ACTIONS.REPAIR_BUILDING:
+        case ACTIONS.SET_LOCK:
+        case ACTIONS.REMOVE_LOCK:
+        case ACTIONS.OPEN_LARGE_MAP:
+        case ACTIONS.TALK_TO_NPC:
+        case ACTIONS.OPEN_BUILDING_INVENTORY:
+            // Handled client-side by opening the modal
+            break;
+        case ACTIONS.SEARCH_ORE_TILE:
+        case ACTIONS.PLAY_ELECTRIC_GUITAR:
+        case ACTIONS.USE_ATELIER:
+        case ACTIONS.USE_ETABLI:
+        case ACTIONS.USE_FORGE:
+        case ACTIONS.OBSERVE_WEATHER:
+        case ACTIONS.GENERATE_PLAN:
+        case ACTIONS.TUTORIAL_HIDE_AND_MOVE:
+        case ACTIONS.TUTORIAL_NEXT:
+        case ACTIONS.TUTORIAL_SKIP:
+             player.notifications.push({ type: 'chat', message: `L'action '${actionId}' n'est pas encore implémentée.`, style: 'system_warning' });
+             console.warn(`Action not yet implemented: ${actionId}`);
+             break;
 
         default:
             console.warn(`Action non reconnue ou non gérée par le serveur: ${actionId}`);

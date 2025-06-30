@@ -426,8 +426,10 @@ export const TILE_TYPES = {
                      { id: 'cook_egg_campfire', name: 'Cuisiner Oeuf', costItem: 'Oeuf cru', costWood: 1, result: { 'Oeuf cuit': 1 } },
                      { id: 'boil_stagnant_water_campfire', name: 'Bouillir Eau Croupie', costItem: 'Eau croupie', costWood: 1, result: { 'Eau pure': 1 } },
                      { id: 'boil_salt_water_campfire', name: 'Bouillir Eau Salée', costItem: 'Eau salée', costWood: 1, result: { 'Sel': 1 } },
-                     { id: 'sleep_by_campfire', name: 'Dormir près du feu (1h)'}
-                 ]
+                     { id: 'sleep_by_campfire', name: 'Dormir près du feu (1h)'},
+                     { id: ACTIONS.OPEN_BUILDING_INVENTORY, name: 'Ouvrir le coffre' }
+                 ],
+                 isShelter: true, maxInventory: 10
                 },
     SHELTER_INDIVIDUAL: {
         name: 'Abri Individuel', accessible: true, color: '#fefae0', icon: '⛺',

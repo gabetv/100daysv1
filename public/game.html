@@ -139,6 +139,27 @@
         </div>
     </div>
 
+    <div id="chest-modal" class="hidden">
+        <div id="chest-modal-content">
+            <button id="close-chest-modal-btn">&times;</button>
+            <h2>Contenu du Coffre</h2>
+            <div id="chest-modal-grid">
+                <div class="inventory-container">
+                    <h3>Votre Inventaire (<span id="chest-player-capacity">0 / 0</span>)</h3>
+                    <div class="inventory-list-wrapper">
+                        <ul id="chest-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                    </div>
+                </div>
+                <div class="inventory-container">
+                    <h3>Coffre (<span id="chest-building-capacity">0 / 0</span>)</h3>
+                    <div class="inventory-list-wrapper">
+                        <ul id="chest-building-inventory" class="inventory-list droppable" data-owner="building-inventory"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="quantity-modal" class="hidden">
         <div id="quantity-modal-content">
             <h3 id="quantity-modal-title">Transférer l'objet</h3>

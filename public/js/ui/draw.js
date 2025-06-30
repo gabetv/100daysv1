@@ -366,15 +366,19 @@ export function drawMinimap(gameState, config) {
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tileKey = `${x},${y}`;
-            if (!player.visitedTiles.has(tileKey) && !globallyRevealedTiles.has(tileKey)) {
+            const tile = map[y]?.[x];
+            const isWater = tile?.type.name === 'Lagon';
+            const isVisible = player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey) || isWater;
+
+            if (!isVisible) {
                 minimapCtx.fillStyle = '#111'; // Non découvert
                 minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-            } else if (map[y] && map[y][x] && map[y][x].type) {
+            } else if (tile && tile.type) {
                 minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; // Couleur par défaut pour type inconnu
                 minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
                 
                 // Ajouter un indicateur pour le nombre total d'actions restantes
-                const tile = map[y][x];
+                const currentTile = map[y][x];
                 let totalActions = 0;
                 if (tile.type.name === TILE_TYPES.FOREST.name) {
                     totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
@@ -498,14 +502,18 @@ export function drawLargeMap(gameState, config) {
             const drawX = headerSize + x * cellSize;
             const drawY = headerSize + y * cellSize;
 
-            if (!player.visitedTiles.has(tileKey) && !globallyRevealedTiles.has(tileKey)) {
+            const tile = map[y]?.[x];
+            const isWater = tile?.type.name === 'Lagon';
+            const isVisible = player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey) || isWater;
+
+            if (!isVisible) {
                 largeMapCtx.fillStyle = '#000'; // Non découvert
                 largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
                 continue;
             }
 
             if (!map[y] || !map[y][x] || !map[y][x].type) continue;
-            const tile = map[y][x];
+            const currentTile = map[y][x];
             largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
             largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
 

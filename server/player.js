@@ -134,7 +134,7 @@ export function dropItem(player, itemKey, quantity = 1) {
         tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + amountToDrop;
         player.notifications.push({ type: 'chat', message: `Vous avez jeté ${amountToDrop} ${itemName} au sol.`, style: 'system_info' });
     } else {
-        player.notifications.push({ type: 'chat', message: `Impossible de jeter l\'objet.`, style: 'system_error' });
+        player.notifications.push({ type: 'chat', message: `Impossible de jeter l'objet.`, style: 'system_error' });
     }
 }
 
@@ -444,6 +444,35 @@ export function moveItem(player, data) {
         pickupItem(player, data.itemName, quantity);
         return;
     }
+
+    // Case 5: Inventory -> Building
+    if (source.owner === 'player-inventory' && target.owner === 'building-inventory') {
+        const tile = gameState.map[player.y][player.x];
+        const building = tile.buildings[0];
+        if (building && TILE_TYPES[building.key]?.maxInventory) {
+            if (Object.keys(building.inventory).length < TILE_TYPES[building.key].maxInventory) {
+                if (removeItemFromInventory(player, itemKey, quantity)) {
+                    building.inventory[itemKey] = (building.inventory[itemKey] || 0) + quantity;
+                }
+            }
+        }
+        return;
+    }
+
+    // Case 6: Building -> Inventory
+    if (source.owner === 'building-inventory' && target.owner === 'player-inventory') {
+        const tile = gameState.map[player.y][player.x];
+        const building = tile.buildings[0];
+        if (building && building.inventory[itemKey]) {
+            if (addItemToInventory(player, itemName, quantity)) {
+                building.inventory[itemKey] -= quantity;
+                if (building.inventory[itemKey] <= 0) {
+                    delete building.inventory[itemKey];
+                }
+            }
+        }
+        return;
+    }
     
     // TODO: Add cases for moving items to/from building inventories.
 
@@ -528,6 +557,35 @@ export function cookOnTile(player, rawItem) {
     }
 }
 
+export function dismantleBuilding(player) {
+    const tile = gameState.map[player.y][player.x];
+    if (!tile.buildings || tile.buildings.length === 0) {
+        player.notifications.push({ type: 'chat', message: "Il n'y a rien à démanteler ici.", style: 'system_warning' });
+        return;
+    }
+
+    const building = tile.buildings[0]; // Assuming one building per tile for now
+    if (building.ownerId !== player.id) {
+        player.notifications.push({ type: 'chat', message: "Vous ne pouvez pas démanteler un bâtiment qui ne vous appartient pas.", style: 'system_error' });
+        return;
+    }
+
+    const buildingDef = TILE_TYPES[building.key];
+    if (buildingDef && buildingDef.cost) {
+        for (const resource in buildingDef.cost) {
+            if (resource === 'toolRequired') continue;
+            const refundAmount = Math.floor(buildingDef.cost[resource] * 0.5); // 50% refund
+            if (refundAmount > 0) {
+                addItemToInventory(player, resource, refundAmount);
+                player.notifications.push({ type: 'floatingText', message: `+${refundAmount} ${resource}`, style: 'gain' });
+            }
+        }
+    }
+
+    tile.buildings = []; // Remove the building
+    player.notifications.push({ type: 'chat', message: `Vous avez démantelé : ${buildingDef.name}.`, style: 'system_info' });
+}
+
 // --- ACTION AVAILABILITY ---
 
 /**
@@ -569,7 +627,7 @@ export function getAvailableActions(player) {
     }
     if (tile.type.name === 'Plage') {
         availableActions.push({ id: ACTIONS.HARVEST_SAND, name: 'Récolter du sable' });
-        availableActions.push({ id: ACTIONS.HARVEST_SALT_WATER, name: 'Prendre de l\'eau salée' });
+        availableActions.push({ id: ACTIONS.HARVEST_SALT_WATER, name: "Prendre de l'eau salée" });
     }
 
     // Build
@@ -593,6 +651,12 @@ export function getAvailableActions(player) {
         }
 
         const building = tile.buildings[0];
+        if (building.ownerId === player.id) {
+            availableActions.push({ id: ACTIONS.DISMANTLE_BUILDING, name: 'Démanteler' });
+        }
+        if (TILE_TYPES[building.key]?.maxInventory) {
+            availableActions.push({ id: ACTIONS.OPEN_BUILDING_INVENTORY, name: 'Ouvrir le coffre' });
+        }
         const buildingDef = TILE_TYPES[building.key];
         // Ensure buildingDef exists before trying to access its properties
         if (buildingDef) {

@@ -34,13 +34,13 @@ function populateInventoryList(inventory, listElement, owner, searchTerm = '') {
     }
     
     Object.keys(groupedItems).sort().forEach(itemName => {
-        itemsToRender = groupedItems[itemName];
+        const itemsToRender = groupedItems[itemName];
         const firstItem = itemsToRender[0].value;
         const count = typeof firstItem === 'number' ? firstItem : 1;
         const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
         
         const li = document.createElement('li');
-        li.className = 'inventory-item';
+        li.className = 'inventory-item clickable';
         li.draggable = true;
         li.dataset.itemName = itemName;
         li.dataset.itemKey = itemsToRender[0].key;
@@ -90,6 +90,39 @@ export function showInventoryModal(gameState) {
 
 export function hideInventoryModal() {
     if(DOM.inventoryModal) DOM.inventoryModal.classList.add('hidden');
+}
+
+export function showChestModal(gameState) {
+    if (!gameState || !gameState.player || !gameState.map) return;
+    const { player, map } = gameState;
+    const tile = map[player.y]?.[player.x];
+    if (!tile) return;
+
+    let buildingWithInventory = tile.buildings?.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
+    if (!buildingWithInventory) return;
+
+    let buildingDef = TILE_TYPES[buildingWithInventory.key];
+    if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {};
+    let currentBuildingInventory = buildingWithInventory.inventory;
+    let currentBuildingMaxInventory = buildingDef.maxInventory || Infinity;
+
+    const { chestModal, chestPlayerInventoryEl, chestBuildingInventoryEl, chestPlayerCapacityEl, chestBuildingCapacityEl } = DOM;
+
+    populateInventoryList(player.inventory, chestPlayerInventoryEl, 'player-inventory');
+    populateInventoryList(currentBuildingInventory, chestBuildingInventoryEl, 'building-inventory');
+
+    if (chestPlayerCapacityEl) chestPlayerCapacityEl.textContent = `${Object.keys(player.inventory).length} / ${player.maxInventory}`;
+    if (chestBuildingCapacityEl) chestBuildingCapacityEl.textContent = `${Object.keys(currentBuildingInventory).length} / ${currentBuildingMaxInventory === Infinity ? "∞" : currentBuildingMaxInventory}`;
+
+    if (chestModal) chestModal.classList.remove('hidden');
+}
+
+export function hideChestModal() {
+    if (DOM.chestModal) DOM.chestModal.classList.add('hidden');
+}
+
+export function setupChestModalListeners() {
+    DOM.closeChestModalBtn?.addEventListener('click', hideChestModal);
 }
 
 export function showEquipmentModal(gameState) {

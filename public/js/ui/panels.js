@@ -1,6 +1,7 @@
 import { ITEM_TYPES, TILE_TYPES, ACTIONS } from '../config.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
+import { showChestModal } from './modals.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -246,6 +247,8 @@ export function updateActionsPanel(gameState) {
         button.addEventListener('click', () => {
             if (action.id === ACTIONS.OPEN_BUILD_MODAL) {
                 window.UI.showBuildModal(gameState);
+            } else if (action.id === ACTIONS.OPEN_BUILDING_INVENTORY) {
+                showChestModal(gameState);
             } else if (action.id === ACTIONS.USE_ETABLI || action.id === ACTIONS.USE_ATELIER || action.id === ACTIONS.USE_FORGE) {
                 window.UI.showWorkshopModal(gameState);
             } else {

@@ -111,11 +111,7 @@ function init() {
     console.log("Initializing game client...");
     UI.loadAssets(SPRITESHEET_PATHS).then(() => {
         console.log('Assets loaded.');
-
-        window.UI = UI; 
-        if(UI.setupQuantityModalListeners) UI.setupQuantityModalListeners();
-        if(UI.setupLockModalListeners) UI.setupLockModalListeners();
-        if(UI.setupBuildModalListeners) UI.setupBuildModalListeners();
+        setupUIListeners();
 
         try {
             UI.initializeTabs();
@@ -132,6 +128,14 @@ function init() {
         console.error("Failed to load assets:", err);
         UI.addChatMessage("Échec du chargement des ressources: " + err.message, "system_error");
     });
+}
+
+function setupUIListeners() {
+    window.UI = UI; 
+    if(UI.setupQuantityModalListeners) UI.setupQuantityModalListeners();
+    if(UI.setupLockModalListeners) UI.setupLockModalListeners();
+    if(UI.setupBuildModalListeners) UI.setupBuildModalListeners();
+    if(UI.setupChestModalListeners) UI.setupChestModalListeners();
 }
 
 document.addEventListener('DOMContentLoaded', init);
