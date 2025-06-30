@@ -169,8 +169,8 @@ export function updateCombatUI(combatState) {
         const isPlayerTurn = turn === player.id;
         combatActionsEl.innerHTML = `<button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button><button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>`;
         if (isPlayerTurn) {
-            document.getElementById('combat-attack-btn')?.addEventListener('click', () => sendAction('combat_action', { move: 'attack' }));
-            document.getElementById('combat-flee-btn')?.addEventListener('click', () => sendAction('combat_action', { move: 'flee' }));
+            document.getElementById('combat-attack-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'attack' }));
+            document.getElementById('combat-flee-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'flee' }));
         }
     }
 }

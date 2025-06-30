@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Importations du code serveur
-import { initializeGameState, addNewPlayer, removePlayer, gameState } from './server/state.js';
+import { initializeGameState, addNewPlayer, removePlayer, gameState, dailyUpdate } from './server/state.js';
 import { handlePlayerAction } from './server/interactions.js';
 import { getAvailableActions, updatePlayerState } from './server/player.js'; // Import the new function
 import { updateNpcs } from './server/npc.js';
@@ -115,6 +115,12 @@ function gameLoop() {
     });
 }
 setInterval(gameLoop, 500); // Réduit à 2 fois par seconde
+
+// Boucle de mise à jour quotidienne
+const DAY_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+setInterval(() => {
+    dailyUpdate().catch(err => console.error("Error in daily update:", err));
+}, DAY_DURATION_MS);
 
 // --- DÉMARRAGE DU SERVEUR ---
 const PORT = process.env.PORT || 3000;

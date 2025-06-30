@@ -173,7 +173,18 @@ export function consumeItem(player, itemKey) {
             if(itemDef.effects.thirst) player.thirst = Math.min(player.maxThirst, player.thirst + itemDef.effects.thirst);
             if(itemDef.effects.hunger) player.hunger = Math.min(player.maxHunger, player.hunger + itemDef.effects.hunger);
             if(itemDef.effects.sleep) player.sleep = Math.min(player.maxSleep, player.sleep + itemDef.effects.sleep);
-            // TODO: Apply status effects
+            
+            // Appliquer les effets de statut
+            if (itemDef.effects.status) {
+                itemDef.effects.status.forEach(statusEffect => {
+                    if (Math.random() < statusEffect.chance) {
+                        if (!player.status.includes(statusEffect.name)) {
+                            player.status.push(statusEffect.name);
+                            player.notifications.push({ type: 'chat', message: `Vous vous sentez maintenant : ${statusEffect.name}.`, style: 'damage' });
+                        }
+                    }
+                });
+            }
         }
         if (itemDef.teachesRecipe) {
             player.knownRecipes[itemDef.teachesRecipe] = true;
@@ -427,6 +438,84 @@ export function moveItem(player, data) {
     player.notifications.push({ type: 'chat', message: `Déplacement d'objet non géré.`, style: 'system_warning' });
 }
 
+export function fishOnTile(player, action) {
+    const tile = gameState.map[player.y][player.x];
+    if (tile.type.name !== 'Plage') {
+        player.notifications.push({ type: 'chat', message: "Vous ne pouvez pêcher que sur la plage.", style: 'system_warning' });
+        return;
+    }
+
+    const requiredTool = action === 'fish' ? 'Canne à pêche' : 'Filet de pêche';
+    const tool = player.equipment.weapon;
+
+    if (!tool || tool.name !== requiredTool) {
+        player.notifications.push({ type: 'chat', message: `Vous avez besoin d'un(e) ${requiredTool} équipé(e).`, style: 'system_warning' });
+        return;
+    }
+
+    // Logique de pêche simple
+    const fishCaught = Math.random() < 0.6; // 60% de chance d'attraper quelque chose
+
+    if (fishCaught) {
+        const amount = action === 'fish' ? 1 : Math.floor(Math.random() * 3) + 1; // Le filet attrape plus
+        addItemToInventory(player, 'Poisson cru', amount);
+        player.notifications.push({ type: 'floatingText', message: `+${amount} Poisson cru`, style: 'gain' });
+    } else {
+        player.notifications.push({ type: 'chat', message: "Ça ne mord pas cette fois...", style: 'system_info' });
+    }
+
+    // Gérer la durabilité de l'outil (simplifié)
+    if (tool.durability) {
+        tool.durability--;
+        if (tool.durability <= 0) {
+            player.equipment.weapon = null;
+            player.notifications.push({ type: 'chat', message: `${tool.name} s'est cassé !`, style: 'damage' });
+        }
+    }
+}
+
+export function cookOnTile(player, rawItem) {
+    const tile = gameState.map[player.y][player.x];
+    const campfire = tile.buildings.find(b => b.key === 'CAMPFIRE' && b.durability > 0);
+
+    if (!campfire) {
+        player.notifications.push({ type: 'chat', message: "Vous avez besoin d'un feu de camp pour cuisiner.", style: 'system_warning' });
+        return;
+    }
+
+    const cookable = {
+        'Poisson cru': 'Poisson cuit',
+        'Viande crue': 'Viande cuite',
+        'Oeuf cru': 'Oeuf cuit'
+    };
+
+    const cookedItem = cookable[rawItem];
+
+    if (!cookedItem) {
+        player.notifications.push({ type: 'chat', message: `Vous ne pouvez pas cuisiner cela.`, style: 'system_warning' });
+        return;
+    }
+
+    if (!player.inventory[rawItem] || player.inventory[rawItem] < 1) {
+        player.notifications.push({ type: 'chat', message: `Vous n'avez pas de ${rawItem}.`, style: 'system_warning' });
+        return;
+    }
+
+    // Consommer l'objet cru et ajouter l'objet cuit
+    removeItemFromInventory(player, rawItem, 1);
+    addItemToInventory(player, cookedItem, 1);
+
+    player.notifications.push({ type: 'floatingText', message: `+1 ${cookedItem}`, style: 'gain' });
+
+    // Endommager le feu de camp
+    campfire.durability--;
+    if (campfire.durability <= 0) {
+        player.notifications.push({ type: 'chat', message: "Le feu de camp s'est éteint.", style: 'damage' });
+        // Optionnel : retirer le feu de camp de la tuile
+        tile.buildings = tile.buildings.filter(b => b.key !== 'CAMPFIRE');
+    }
+}
+
 // --- ACTION AVAILABILITY ---
 
 /**
@@ -518,19 +607,32 @@ export function getAvailableActions(player) {
 // --- PLAYER STATE UPDATE ---
 
 export function updatePlayerState(player, deltaTime) {
-    // deltaTime est le temps écoulé en ms depuis la dernière mise à jour
     const secondsPassed = deltaTime / 1000;
 
-    // Définir les taux de dégradation par seconde
-    const hungerDecayRate = 0.1; // Points de faim perdus par seconde
-    const thirstDecayRate = 0.15; // Points de soif perdus par seconde
+    // Taux de dégradation par seconde
+    const decayRates = {
+        hunger: 0.1,
+        thirst: 0.15,
+        sleep: 0.05,
+    };
 
-    player.hunger -= hungerDecayRate * secondsPassed;
-    player.thirst -= thirstDecayRate * secondsPassed;
+    player.hunger = Math.max(0, player.hunger - decayRates.hunger * secondsPassed);
+    player.thirst = Math.max(0, player.thirst - decayRates.thirst * secondsPassed);
+    player.sleep = Math.max(0, player.sleep - decayRates.sleep * secondsPassed);
 
-    // S'assurer que les stats ne tombent pas en dessous de 0
-    if (player.hunger < 0) player.hunger = 0;
-    if (player.thirst < 0) player.thirst = 0;
+    // Conséquences des stats à zéro
+    if (player.hunger === 0) {
+        player.health = Math.max(0, player.health - 0.1 * secondsPassed); // Dégâts de faim
+        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Faim)', style: 'damage' });
+    }
+    if (player.thirst === 0) {
+        player.health = Math.max(0, player.health - 0.15 * secondsPassed); // Dégâts de soif
+        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Soif)', style: 'damage' });
+    }
 
-    // TODO: Ajouter la logique pour les autres stats et les effets de statut (faim, soif, etc.)
+    // Effets des statuts
+    if (player.status.includes('Malade')) {
+        player.health = Math.max(0, player.health - 0.05 * secondsPassed);
+        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
+    }
 }
