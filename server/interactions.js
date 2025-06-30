@@ -5,10 +5,13 @@ import { ACTIONS } from '../public/js/config.js';
 import * as Player from './player.js';
 import { handleCombatAction } from './combat.js'; // Importer la logique de combat
 import { findEnemyOnTile } from './enemy.js';
+import { applyActionCost } from './player.js';
 
 export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
     const player = gameState.players[playerId];
     if (!player) return;
+
+    applyActionCost(player);
 
     // Basic busy check
     // if (player.isBusy) {

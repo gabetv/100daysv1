@@ -1,7 +1,7 @@
 // server/player.js
 
 import { gameState } from './state.js';
-import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS } from '../public/js/config.js';
+import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS, ACTION_COST_CONFIG } from '../public/js/config.js';
 
 // --- UTILITIES ---
 
@@ -178,10 +178,22 @@ export function consumeItem(player, itemKey) {
             if (itemDef.effects.status) {
                 itemDef.effects.status.forEach(statusEffect => {
                     if (Math.random() < statusEffect.chance) {
-                        if (!player.status.includes(statusEffect.name)) {
-                            player.status.push(statusEffect.name);
+                        // Si le statut n'est pas déjà actif, ou si la nouvelle durée est plus longue
+                        if (!player.status[statusEffect.name] || player.status[statusEffect.name].duration < statusEffect.duration) {
+                            player.status[statusEffect.name] = { duration: statusEffect.duration };
                             player.notifications.push({ type: 'chat', message: `Vous vous sentez maintenant : ${statusEffect.name}.`, style: 'damage' });
                         }
+                    }
+                });
+            }
+
+            // Gérer les objets qui soignent les statuts
+            if (itemDef.effects.ifStatus && itemDef.effects.status === 'normale') {
+                const statusesToCure = Array.isArray(itemDef.effects.ifStatus) ? itemDef.effects.ifStatus : [itemDef.effects.ifStatus];
+                statusesToCure.forEach(statusName => {
+                    if (player.status[statusName]) {
+                        delete player.status[statusName];
+                        player.notifications.push({ type: 'chat', message: `Vous ne vous sentez plus : ${statusName}.`, style: 'gain' });
                     }
                 });
             }
@@ -609,17 +621,6 @@ export function getAvailableActions(player) {
 export function updatePlayerState(player, deltaTime) {
     const secondsPassed = deltaTime / 1000;
 
-    // Taux de dégradation par seconde
-    const decayRates = {
-        hunger: 0.1,
-        thirst: 0.15,
-        sleep: 0.05,
-    };
-
-    player.hunger = Math.max(0, player.hunger - decayRates.hunger * secondsPassed);
-    player.thirst = Math.max(0, player.thirst - decayRates.thirst * secondsPassed);
-    player.sleep = Math.max(0, player.sleep - decayRates.sleep * secondsPassed);
-
     // Conséquences des stats à zéro
     if (player.hunger === 0) {
         player.health = Math.max(0, player.health - 0.1 * secondsPassed); // Dégâts de faim
@@ -630,9 +631,38 @@ export function updatePlayerState(player, deltaTime) {
         player.notifications.push({ type: 'floatingText', message: '-1 Santé (Soif)', style: 'damage' });
     }
 
-    // Effets des statuts
-    if (player.status.includes('Malade')) {
-        player.health = Math.max(0, player.health - 0.05 * secondsPassed);
-        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
+    // Gérer les effets et la durée des statuts
+    for (const statusName in player.status) {
+        const status = player.status[statusName];
+        
+        // Appliquer l'effet du statut
+        switch (statusName) {
+            case 'Malade':
+                player.health = Math.max(0, player.health - 0.05 * secondsPassed);
+                player.notifications.push({ type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
+                break;
+            case 'Empoisonné':
+                player.health = Math.max(0, player.health - 0.2 * secondsPassed);
+                player.notifications.push({ type: 'floatingText', message: '-2 Santé (Poison)', style: 'damage' });
+                break;
+            case 'Alcoolisé':
+                // Effet potentiellement amusant, comme une chance de se déplacer dans la mauvaise direction (géré dans movePlayer)
+                break;
+        }
+
+        // Décrémenter la durée
+        status.duration -= secondsPassed;
+        if (status.duration <= 0) {
+            delete player.status[statusName];
+            player.notifications.push({ type: 'chat', message: `Vous ne vous sentez plus : ${statusName}.`, style: 'gain' });
+        }
     }
+}
+
+export function applyActionCost(player) {
+    if (!player) return;
+
+    player.hunger = Math.max(0, player.hunger - (ACTION_COST_CONFIG.costRange.hunger.min + Math.random() * (ACTION_COST_CONFIG.costRange.hunger.max - ACTION_COST_CONFIG.costRange.hunger.min)));
+    player.thirst = Math.max(0, player.thirst - (ACTION_COST_CONFIG.costRange.thirst.min + Math.random() * (ACTION_COST_CONFIG.costRange.thirst.max - ACTION_COST_CONFIG.costRange.thirst.min)));
+    player.sleep = Math.max(0, player.sleep - (ACTION_COST_CONFIG.costRange.sleep.min + Math.random() * (ACTION_COST_CONFIG.costRange.sleep.max - ACTION_COST_CONFIG.costRange.sleep.min)));
 }

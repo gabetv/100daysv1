@@ -37,7 +37,8 @@ export function updateStatsPanel(player) {
     updateSquaresBar(sleepSquaresContainerEl, player.sleep, player.maxSleep, 'sleep');
 
     if (healthStatusEl) {
-        healthStatusEl.textContent = player.status.join(', ') || 'normale';
+        const statusNames = Object.keys(player.status);
+        healthStatusEl.textContent = statusNames.length > 0 ? statusNames.join(', ') : 'normale';
     }
 
     if (healthSquaresContainerEl) healthSquaresContainerEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));

@@ -88,6 +88,15 @@ export const COMBAT_CONFIG = {
     FLEE_CHANCE: 0.5,
 };
 
+export const ACTION_COST_CONFIG = {
+    stats: ['hunger', 'thirst', 'sleep'], // Statistiques pouvant être affectées
+    costRange: { // Plage de coût pour chaque statistique
+        hunger: { min: 0, max: 1.5 },
+        thirst: { min: 0, max: 1.2 },
+        sleep:  { min: 0, max: 0.8 }
+    }
+};
+
 export const ACTION_DURATIONS = {
     HARVEST: 500, CRAFT: 200, SLEEP: 1000, MOVE_TRANSITION: 200,
     DIG: 1000,
@@ -248,11 +257,11 @@ export const ITEM_TYPES = {
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
     'Eau salée': { type: 'consumable', icon: '🌊💧', effects: { thirst: 3, health: -1, custom: 'eauSaleeEffect' } },
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
-    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: [{ name: 'Malade', chance: 0.3 }] } },
+    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: [{ name: 'Malade', chance: 0.3, duration: 180 }] } },
     'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
-    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: [{ name: 'Malade', chance: 0.8}] } },
+    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: [{ name: 'Malade', chance: 0.8, duration: 180 }] } },
     'Poisson cuit': { type: 'consumable', icon: '🐠🔥', effects: { hunger: 2 } },
-    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: [{ name: 'Malade', chance: 0.6 }] } },
+    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: [{ name: 'Malade', chance: 0.6, duration: 180 }] } },
     'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 3 } },
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
     'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
@@ -264,13 +273,13 @@ export const ITEM_TYPES = {
     'Bandage': { type: 'consumable', icon: '🩹', effects: { health: 2 } },
     'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Malade'], status: 'normale', health: 3 } },
     'Batterie déchargée': {type: 'resource', icon: '🔋❌'},
-    'Venin': { type: 'consumable', icon: '🧪', effects: { status: [{ name: 'Empoisonné', chance: 1.0 }] } },
+    'Venin': { type: 'consumable', icon: '🧪', effects: { status: [{ name: 'Empoisonné', chance: 1.0, duration: 300 }] } },
     'Fiole empoisonnée': { type: 'consumable', icon: '☠️', effects: { health: -1000 } },
     'Fiole anti-poison': { type: 'consumable', icon: '🧪✨', effects: { ifStatus: 'Empoisonné', status: 'normale', health: 10 } },
     'Drogue': { type: 'consumable', icon: '😵‍💫', effects: { sleep: 5, hunger: 5, custom: 'drogueEffect' } },
     'Porte bonheur': { type: 'consumable', icon: '🍀', effects: { custom: 'porteBonheur' } },
     'Carte': {type: 'usable', icon: '🗺️', uses: 30, action: 'open_large_map' },
-    'Alcool': { type: 'consumable', icon: '🍺', effects: { thirst: 10, health: -2, status: [{ name: 'Alcoolisé', chance: 1.0 }] } },
+    'Alcool': { type: 'consumable', icon: '🍺', effects: { thirst: 10, health: -2, status: [{ name: 'Alcoolisé', chance: 1.0, duration: 120 }] } },
     'Breuvage étrange': { type: 'consumable', icon: '🧪❓', effects: { custom: 'breuvageEtrangeEffect' } },
 
     // Parchemins

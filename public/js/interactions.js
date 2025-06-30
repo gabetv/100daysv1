@@ -239,4 +239,53 @@ export function initInteractions() {
     });
 
     console.log('Interaction handlers initialized.');
+
+    function findAndConsume(stat) {
+        const player = window.gameState ? window.gameState.player : null;
+        if (!player || !player.inventory) return;
+
+        let bestItem = null;
+
+        for (const itemKey in player.inventory) {
+            const item = ITEM_TYPES[itemKey];
+            if (item && item.effects && item.effects[stat] > 0) {
+                if (!bestItem || item.effects[stat] > ITEM_TYPES[bestItem].effects[stat]) {
+                    bestItem = itemKey;
+                }
+            }
+        }
+
+        if (bestItem) {
+            sendAction(ACTIONS.CONSUME_ITEM_CONTEXT, { itemKey: bestItem });
+        } else {
+            window.UI.addChatMessage(`Vous n'avez rien pour restaurer votre ${stat}.`, 'system_warning');
+        }
+    }
+
+    // Consume buttons
+    if (DOM.consumeHealthBtn) {
+        DOM.consumeHealthBtn.addEventListener('click', () => findAndConsume('health'));
+    }
+    if (DOM.consumeThirstBtn) {
+        DOM.consumeThirstBtn.addEventListener('click', () => findAndConsume('thirst'));
+    }
+    if (DOM.consumeHungerBtn) {
+        DOM.consumeHungerBtn.addEventListener('click', () => findAndConsume('hunger'));
+    }
+
+    // Enlarge map button
+    if (DOM.enlargeMapBtn) {
+        DOM.enlargeMapBtn.addEventListener('click', () => {
+            if (window.gameState) {
+                window.UI.showLargeMap(window.gameState);
+            }
+        });
+    }
+
+    // Close large map button
+    if (DOM.closeLargeMapBtn) {
+        DOM.closeLargeMapBtn.addEventListener('click', () => {
+            window.UI.hideLargeMap();
+        });
+    }
 }
