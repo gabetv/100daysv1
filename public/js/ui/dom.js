@@ -28,6 +28,7 @@ const DOM = {
     tileHarvestsInfoEl: document.getElementById('tile-details-hud'),
     bottomBarChatPanelEl: document.getElementById('bottom-bar-chat-panel'),
     chatMessagesEl: document.getElementById('chat-messages'),
+    chatInputEl: document.getElementById('chat-input-field'),
     quickChatButton: document.getElementById('quick-chat-button'),
     bottomBarEquipmentPanelEl: document.getElementById('bottom-bar-equipment-panel'),
     bottomBarEquipmentSlotsEl: document.getElementById('bottom-bar-equipment-slots'),

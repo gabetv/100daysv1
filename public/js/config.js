@@ -65,6 +65,7 @@ export const ACTIONS = {
     DROP_ITEM_CONTEXT: 'drop_item_context',
     PICKUP_ITEM_CONTEXT: 'pickup_item_context',
     OPEN_BUILD_MODAL: 'open_build_modal',
+    SEND_CHAT_MESSAGE: 'send_chat_message',
 };
 
 export const CONFIG = {

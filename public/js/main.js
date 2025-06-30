@@ -32,6 +32,10 @@ function handleServerMessage(event) {
             console.log("Player ID received:", myPlayerId);
             return;
         }
+        if (data.type === 'chat') {
+            UI.addChatMessage(data.payload.message, 'player', data.payload.sender);
+            return;
+        }
         if (data.type === 'gameState') {
             console.log('Received gameState from server:', data.payload); // DEBUG
             gameState = data.payload;

@@ -162,6 +162,44 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
     ctx.arc(x + 5, bodyTopY - headRadius + 3, 1.5, 0, Math.PI * 2); // Pupille droite
     ctx.fill();
 
+    // Display chat message above head
+    if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) { // Display for 5 seconds
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.font = '14px Poppins';
+        const text = character.chatMessage.text;
+        const textWidth = ctx.measureText(text).width;
+        const bubbleX = x - textWidth / 2 - 10;
+        const bubbleY = y - bodyHeight - 40;
+        const bubbleWidth = textWidth + 20;
+        const bubbleHeight = 25;
+
+        // Bubble
+        ctx.beginPath();
+        ctx.moveTo(bubbleX + 10, bubbleY);
+        ctx.lineTo(bubbleX + bubbleWidth - 10, bubbleY);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 10);
+        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 10);
+        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 10, bubbleY + bubbleHeight);
+        ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
+        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 10);
+        ctx.lineTo(bubbleX, bubbleY + 10);
+        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 10, bubbleY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Pointer
+        ctx.beginPath();
+        ctx.moveTo(x - 5, bubbleY + bubbleHeight + 5);
+        ctx.lineTo(x, bubbleY + bubbleHeight -1);
+        ctx.lineTo(x + 5, bubbleY + bubbleHeight + 5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, bubbleY + bubbleHeight / 2 + 2);
+    }
 
     ctx.restore();
 }

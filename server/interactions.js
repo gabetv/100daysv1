@@ -6,7 +6,7 @@ import * as Player from './player.js';
 import { handleCombatAction } from './combat.js'; // Importer la logique de combat
 import { findEnemyOnTile } from './enemy.js';
 
-export function handlePlayerAction(actionId, data, playerId) {
+export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
     const player = gameState.players[playerId];
     if (!player) return;
 
@@ -19,6 +19,28 @@ export function handlePlayerAction(actionId, data, playerId) {
     console.log(`[SERVER] Action received from ${playerId}: ${actionId}`, data || '');
 
     switch (actionId) {
+        case ACTIONS.SEND_CHAT_MESSAGE:
+            if (data && data.message && broadcastToClients) {
+                const sender = gameState.players[playerId];
+                // Add message to player state to be displayed above their head
+                if (sender) {
+                    sender.chatMessage = {
+                        text: data.message,
+                        timestamp: Date.now()
+                    };
+                }
+
+                // Broadcast to all clients for chat window
+                const chatMessage = {
+                    type: 'chat',
+                    payload: {
+                        sender: sender ? sender.name : 'Unknown',
+                        message: data.message,
+                    },
+                };
+                broadcastToClients(JSON.stringify(chatMessage));
+            }
+            break;
         // --- INVENTORY & MOVEMENT ---
         case ACTIONS.MOVE:
             if (data && data.direction) Player.movePlayer(player, data.direction);

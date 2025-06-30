@@ -169,6 +169,17 @@ export function initInteractions() {
     const gameContainer = document.getElementById('game-container');
     if (!gameContainer) return;
 
+    // Chat listener
+    if (DOM.chatInputEl) {
+        DOM.chatInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && DOM.chatInputEl.value.trim() !== '') {
+                e.preventDefault();
+                sendAction(ACTIONS.SEND_CHAT_MESSAGE, { message: DOM.chatInputEl.value });
+                DOM.chatInputEl.value = '';
+            }
+        });
+    }
+
     gameContainer.addEventListener('click', (e) => {
         if (!e.target.closest('#item-context-menu')) {
             hideContextMenu();

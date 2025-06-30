@@ -66,7 +66,7 @@ wss.on('connection', (ws) => {
         try {
             const action = JSON.parse(message);
             // On utilise maintenant notre handler externe
-            handlePlayerAction(action.id, action.data, playerId);
+            handlePlayerAction(action.id, action.data, playerId, broadcastToClients);
         } catch (e) {
             console.error("Failed to parse message or handle action:", e);
         }
@@ -77,6 +77,14 @@ wss.on('connection', (ws) => {
         removePlayer(playerId);
     });
 });
+
+function broadcastToClients(message) {
+    wss.clients.forEach((client) => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+            client.send(message);
+        }
+    });
+}
 
 // --- BOUCLE DE JEU (MODIFIÉ) ---
 let lastUpdateTime = Date.now();
@@ -100,19 +108,15 @@ function gameLoop() {
 
     const stateToSend = JSON.stringify({ type: 'gameState', payload: gameState }, (key, value) => value instanceof Set ? Array.from(value) : value);
 
-    wss.clients.forEach((client) => {
-        if (client.readyState === 1) { // WebSocket.OPEN
-            client.send(stateToSend);
-            
-            // Effacer les notifications pour ce joueur APRÈS les avoir envoyées
-            if (client.playerId && gameState.players[client.playerId]) {
-                const player = gameState.players[client.playerId];
-                if (player.notifications && player.notifications.length > 0) {
-                    player.notifications = [];
-                }
-            }
+    broadcastToClients(stateToSend);
+
+    // Effacer les notifications pour chaque joueur APRÈS les avoir envoyées
+    for (const playerId in gameState.players) {
+        const player = gameState.players[playerId];
+        if (player.notifications && player.notifications.length > 0) {
+            player.notifications = [];
         }
-    });
+    }
 }
 setInterval(gameLoop, 500); // Réduit à 2 fois par seconde
 
