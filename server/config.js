@@ -38,4 +38,7 @@ const TILE_TYPES = {
     },
 };
 
-module.exports = { CONFIG, ENEMY_TYPES, TILE_TYPES };
+export { CONFIG, ENEMY_TYPES, TILE_TYPES };
+
+// Note: Le reste du fichier de configuration (ITEMS, BUILDINGS, etc.) n'est pas inclus ici pour la brièveté.
+// Assurez-vous que ces objets sont bien définis dans votre fichier `server/config.js` complet.

@@ -11,7 +11,7 @@ import { initializeGameState, addNewPlayer, removePlayer, gameState } from './se
 import { handlePlayerAction } from './server/interactions.js';
 import { getAvailableActions, updatePlayerState } from './server/player.js'; // Import the new function
 import { updateNpcs } from './server/npc.js';
-import { CONFIG } from './public/js/config.js';
+import { CONFIG } from './server/config.js';
 
 // Configuration des chemins
 const __filename = fileURLToPath(import.meta.url);

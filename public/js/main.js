@@ -11,7 +11,8 @@ let ws;
 window.gameState = {};
 
 function connect() {
-    ws = new WebSocket(`ws://${window.location.host}`);
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${protocol}://${window.location.host}`);
     ws.onopen = () => console.log('Connected to server.');
     ws.onclose = () => {
         console.log('Disconnected. Retrying in 3 seconds...');
