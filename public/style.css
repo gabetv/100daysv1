@@ -2129,3 +2129,129 @@ button::after {
     #navigation-edge-panel { --dpad-u: 48px; }
     #objectives-hud { display: none !important; }
 }
+
+/* =======================================================================
+   POLISH GRAPHIQUE — profondeur, lumière et lisibilité
+   ======================================================================= */
+
+/* --- Badge heure du jour --- */
+#daytime-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: color 0.8s ease, text-shadow 0.8s ease;
+}
+#daytime-display[data-phase="jour"] { color: #ffe9a8; text-shadow: 0 0 10px rgba(255, 216, 110, 0.45); }
+#daytime-display[data-phase="aube"] { color: #ffc49b; text-shadow: 0 0 10px rgba(255, 150, 90, 0.45); }
+#daytime-display[data-phase="crepuscule"] { color: #ff9f7a; text-shadow: 0 0 10px rgba(255, 110, 60, 0.45); }
+#daytime-display[data-phase="nuit"] { color: #a9c6ff; text-shadow: 0 0 12px rgba(120, 160, 255, 0.5); }
+
+/* --- Cadre de la scène --- */
+#main-view-container {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+                inset 0 -40px 80px -40px rgba(0, 0, 0, 0.8),
+                0 18px 40px -18px rgba(0, 0, 0, 0.8);
+}
+#main-view-canvas, #characters-canvas { image-rendering: auto; }
+
+/* --- Panneaux : verre dépoli + liseré lumineux --- */
+.ui-panel {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 55%);
+    box-shadow: 0 10px 30px -12px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.ui-panel section {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(0,0,0,0.12));
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.ui-panel h3, .bottom-bar-section h3, .bottom-bar-section h4 {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* --- Jauges de survie : dégradé + lueur --- */
+.stat-square { box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(0,0,0,0.35); }
+.stat-square.filled-health { background-image: linear-gradient(180deg, #ff8a8a, #d63b3b); box-shadow: 0 0 8px rgba(230, 70, 70, 0.55); }
+.stat-square.filled-thirst { background-image: linear-gradient(180deg, #9fe3ff, #2b8fc7); box-shadow: 0 0 8px rgba(70, 170, 230, 0.5); }
+.stat-square.filled-hunger { background-image: linear-gradient(180deg, #ffd08a, #e08a2b); box-shadow: 0 0 8px rgba(230, 150, 50, 0.5); }
+.stat-square.filled-sleep { background-image: linear-gradient(180deg, #ffe9a3, #c9992b); box-shadow: 0 0 8px rgba(220, 180, 60, 0.5); }
+
+/* --- Barre d'XP --- */
+#xp-bar-container { background: rgba(0,0,0,0.45); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.6); }
+#xp-bar {
+    background-image: linear-gradient(90deg, #ffd479, #ffa53d);
+    box-shadow: 0 0 10px rgba(255, 180, 80, 0.6);
+    transition: width 0.6s cubic-bezier(.22,.8,.3,1);
+}
+
+/* --- Objets d'inventaire : petites cartes --- */
+.inventory-item {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01));
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.inventory-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -8px rgba(0,0,0,0.9), 0 0 0 1px rgba(120, 190, 240, 0.25);
+}
+.inventory-item .inventory-icon { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+
+/* --- Boutons : relief et réaction --- */
+#actions-tab-content button, .tab-button, #quantity-shortcuts button,
+#combat-actions button, #quantity-actions button {
+    background-image: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0));
+    box-shadow: 0 2px 6px -2px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+#actions-tab-content button:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+#actions-tab-content button:active:not(:disabled) { transform: translateY(1px) scale(0.99); }
+button:disabled { filter: grayscale(0.5) brightness(0.8); }
+
+/* --- Boutons de navigation : halo --- */
+.nav-button-overlay { box-shadow: 0 4px 14px -6px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12); }
+.nav-button-overlay:hover:not(:disabled) { box-shadow: 0 0 18px rgba(69, 123, 157, 0.75), inset 0 1px 0 rgba(255,255,255,0.2); }
+
+/* --- Texte flottant : plus lisible et plus vivant --- */
+.floating-text {
+    font-weight: 700;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 14px currentColor;
+    animation: float-up-glow 2s cubic-bezier(.16,.8,.3,1) forwards;
+    letter-spacing: 0.3px;
+}
+@keyframes float-up-glow {
+    0%   { transform: translate(-50%, 0) scale(0.7); opacity: 0; }
+    18%  { transform: translate(-50%, -14px) scale(1.12); opacity: 1; }
+    30%  { transform: translate(-50%, -18px) scale(1); }
+    100% { transform: translate(-50%, -80px) scale(0.95); opacity: 0; }
+}
+
+/* --- Mini-carte : cadre carte marine --- */
+#minimap-container {
+    border-radius: 10px;
+    padding: 6px;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.06), transparent 60%),
+        linear-gradient(160deg, rgba(12, 32, 44, 0.9), rgba(6, 18, 26, 0.95));
+    box-shadow: inset 0 0 0 1px rgba(255, 212, 121, 0.18), 0 8px 20px -12px #000;
+}
+#minimap-canvas { border-radius: 6px; display: block; }
+
+/* --- Journal / chat --- */
+.chat-message { border-left: 3px solid transparent; padding-left: 8px; border-radius: 0 6px 6px 0; }
+.chat-message.gain { border-left-color: #4ade80; background: rgba(74, 222, 128, 0.07); }
+.chat-message.damage, .chat-message.system_error { border-left-color: #f87171; background: rgba(248, 113, 113, 0.07); }
+.chat-message.system_event { border-left-color: #ffd479; background: rgba(255, 212, 121, 0.08); }
+.chat-message.system_warning { border-left-color: #fbbf24; background: rgba(251, 191, 36, 0.07); }
+.chat-message.player { border-left-color: #60a5fa; background: rgba(96, 165, 250, 0.06); }
+
+/* --- Barres de défilement harmonisées --- */
+* { scrollbar-width: thin; scrollbar-color: rgba(120, 180, 220, 0.45) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(120, 180, 220, 0.4); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 180, 220, 0.7); }
+
+/* --- Accessibilité : respect des préférences de mouvement --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.05ms !important; }
+}

@@ -293,6 +293,7 @@ function init() {
             UI.resizeGameView();
             window.addEventListener('resize', UI.resizeGameView);
             setupEventListeners();
+            UI.startRenderLoop();
             connect();
         } catch (e) {
             console.error('Error during initialization:', e);

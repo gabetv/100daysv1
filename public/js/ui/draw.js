@@ -1,5 +1,5 @@
 // js/ui/draw.js
-import { TILE_TYPES, CONFIG } from '../config.js';
+import { TILE_TYPES, ITEM_TYPES, CONFIG } from '../config.js';
 import DOM from './dom.js';
 
 const loadedAssets = {};
@@ -13,77 +13,171 @@ const TILE_ICONS = { // Utilisé comme fallback si tile.type.icon n'est pas déf
 };
 
 export function loadAssets(paths) {
-    const promises = Object.entries(paths).map(([key, src]) => new Promise((resolve, reject) => {
+    const promises = Object.entries(paths).map(([key, src]) => new Promise((resolve) => {
         const img = new Image();
-        img.src = src + '?v=' + new Date().getTime(); // Cache busting for development
-        img.onload = () => {
-            loadedAssets[key] = img;
+        img.src = src;
+        img.onload = () => { loadedAssets[key] = img; resolve(); };
+        img.onerror = () => {
+            console.warn(`Asset non chargé : ${key} (${src}) — le jeu continue sans.`);
             resolve();
-        };
-        img.onerror = (err) => {
-            console.error(`Failed to load ${key} from ${src}:`, err);
-            reject(new Error(`Failed to load ${src}: ${err}`));
         };
     }));
     return Promise.all(promises);
 }
 
+export function getAsset(key) { return loadedAssets[key]; }
+
+let bgState = { key: null, prevKey: null, since: 0 };
+const BG_FADE_MS = 420;
+
+function paintBackgroundImage(ctx, img, w, h, alpha, zoom) {
+    if (!img || !img.complete || !img.naturalWidth) return false;
+    const canvasAspect = w / h;
+    const imageAspect = img.naturalWidth / img.naturalHeight;
+    let sx = 0, sy = 0, sWidth = img.naturalWidth, sHeight = img.naturalHeight;
+
+    // Léger balancement + respiration de la caméra (parallaxe douce)
+    const t = Date.now();
+    const swayX = Math.sin(t / 5200) * (img.naturalWidth * 0.012);
+    const swayY = Math.cos(t / 7100) * (img.naturalHeight * 0.008);
+
+    if (imageAspect > canvasAspect) {
+        sHeight = img.naturalHeight;
+        sWidth = sHeight * canvasAspect;
+    } else {
+        sWidth = img.naturalWidth;
+        sHeight = sWidth / canvasAspect;
+    }
+    // Zoom d'entrée lors d'un changement de case
+    sWidth /= zoom; sHeight /= zoom;
+    sx = (img.naturalWidth - sWidth) / 2 + swayX;
+    sy = (img.naturalHeight - sHeight) / 2 + swayY;
+    sx = Math.max(0, Math.min(img.naturalWidth - sWidth, sx));
+    sy = Math.max(0, Math.min(img.naturalHeight - sHeight, sy));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, w, h);
+    ctx.restore();
+    return true;
+}
+
 export function drawMainBackground(gameState) {
     const { mainViewCtx, mainViewCanvas } = DOM;
-    if (!mainViewCtx || !mainViewCanvas) {
-        // console.error("[draw.js] drawMainBackground: Canvas context or element not found!"); // Removed to reduce console noise
-        return;
-    }
+    if (!mainViewCtx || !mainViewCanvas) return;
+
+    const w = mainViewCanvas.width, h = mainViewCanvas.height;
 
     if (!gameState || !gameState.player || !gameState.map ||
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
-        mainViewCtx.fillStyle = 'grey';
-        mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
-        mainViewCtx.fillStyle = 'white';
-        mainViewCtx.fillText("Données de jeu manquantes pour le fond", 20, 40);
+        mainViewCtx.fillStyle = '#12202a';
+        mainViewCtx.fillRect(0, 0, w, h);
         return;
     }
 
     const playerTile = gameState.map[gameState.player.y][gameState.player.x];
-    const backgroundKey = playerTile.backgroundKey;
-    const imageToDraw = loadedAssets[backgroundKey];
+    const key = playerTile.backgroundKey;
 
-    mainViewCtx.fillStyle = 'black'; // Fond noir par défaut
-    mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
-
-    if (imageToDraw) {
-        if (imageToDraw.complete && imageToDraw.naturalWidth > 0 && imageToDraw.naturalHeight > 0) {
-            const canvasAspect = mainViewCanvas.width / mainViewCanvas.height;
-            const imageAspect = imageToDraw.naturalWidth / imageToDraw.naturalHeight; // Should be 1408 / 768
-            let sx = 0, sy = 0, sWidth = imageToDraw.naturalWidth, sHeight = imageToDraw.naturalHeight;
-
-            // Ajout de l'animation de balancement
-            const sway = Math.sin(Date.now() / 2000) * 10; // Mouvement de balancement lent
-
-            // Calcul pour rogner l'image et remplir le canvas en gardant l'aspect ratio (cover)
-            if (imageAspect > canvasAspect) { // Image plus large que le canvas (relativement)
-                sHeight = imageToDraw.naturalHeight;
-                sWidth = sHeight * canvasAspect;
-                sx = (imageToDraw.naturalWidth - sWidth) / 2 + sway;
-            } else if (imageAspect < canvasAspect) { // Image plus haute que le canvas (relativement)
-                sWidth = imageToDraw.naturalWidth;
-                sHeight = sWidth / canvasAspect;
-                sy = (imageToDraw.naturalHeight - sHeight) / 2 + sway;
-            }
-            mainViewCtx.drawImage(imageToDraw, sx, sy, sWidth, sHeight, 0, 0, mainViewCanvas.width, mainViewCanvas.height);
-        } else {
-            // L'image n'est pas encore chargée ou a des dimensions invalides
-            mainViewCtx.fillStyle = '#333'; // Couleur de secours si l'image n'est pas prête
-            mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
-        }
-    } else {
-        // Point 5: Si Bois (Forêt) ou Pierre (Gisement de Pierre) n'ont pas d'image de fond, afficher une couleur
-        // Cette logique est déjà dans config.js pour TILE_TYPES.FOREST.color et TILE_TYPES.MINE_TERRAIN.color (anciennement STONE_DEPOSIT)
-        // On utilise la couleur définie dans TILE_TYPES si backgroundKey est manquant
-        let fallbackColor = playerTile.type.color || '#222'; // Couleur par défaut si aucune image et aucune couleur de tuile
-        mainViewCtx.fillStyle = fallbackColor;
-        mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
+    if (key !== bgState.key) {
+        bgState = { key, prevKey: bgState.key, since: Date.now() };
     }
+    const elapsed = Date.now() - bgState.since;
+    const fade = Math.min(1, elapsed / BG_FADE_MS);
+    const ease = 1 - Math.pow(1 - fade, 3);
+
+    mainViewCtx.fillStyle = playerTile.type.color || '#0d1a22';
+    mainViewCtx.fillRect(0, 0, w, h);
+
+    // Ancienne image en fondu sortant + zoom léger
+    if (bgState.prevKey && fade < 1) {
+        paintBackgroundImage(mainViewCtx, loadedAssets[bgState.prevKey], w, h, 1 - ease, 1 + 0.05 * ease);
+    }
+    const drawn = paintBackgroundImage(mainViewCtx, loadedAssets[key], w, h, ease, 1.05 - 0.05 * ease);
+    if (!drawn && fade >= 1) {
+        mainViewCtx.fillStyle = playerTile.type.color || '#222';
+        mainViewCtx.fillRect(0, 0, w, h);
+    }
+
+    // Constructions présentes sur la case
+    drawTileProps(mainViewCtx, w, h, playerTile);
+}
+
+const PROP_FOR_BUILDING = {
+    CAMPFIRE: { asset: 'prop_campfire', scale: 0.30, y: 0.80, x: 0.50 },
+    SHELTER_INDIVIDUAL: { asset: 'prop_shelter', scale: 0.42, y: 0.74, x: 0.26 },
+    SHELTER_COLLECTIVE: { asset: 'prop_shelter', scale: 0.55, y: 0.74, x: 0.26 },
+    FORTERESSE: { asset: 'prop_shelter', scale: 0.62, y: 0.74, x: 0.24 },
+    MINE: { asset: 'prop_mine', scale: 0.46, y: 0.76, x: 0.78 },
+    ATELIER: { asset: 'prop_workbench', scale: 0.34, y: 0.80, x: 0.74 },
+    ETABLI: { asset: 'prop_workbench', scale: 0.28, y: 0.80, x: 0.76 },
+    FORGE: { asset: 'prop_workbench', scale: 0.34, y: 0.80, x: 0.20 },
+};
+
+/**
+ * Dessine les constructions de la case dans le décor (sprites si dispo, sinon pastille icône).
+ */
+function drawTileProps(ctx, w, h, tile) {
+    const buildings = tile.buildings || [];
+    if (!buildings.length) return;
+
+    const flicker = 0.85 + Math.sin(Date.now() / 110) * 0.15;
+
+    buildings.slice(0, 4).forEach((b, i) => {
+        const def = TILE_TYPES[b.key];
+        const prop = PROP_FOR_BUILDING[b.key];
+        const img = prop ? loadedAssets[prop.asset] : null;
+
+        if (img && img.complete && img.naturalWidth) {
+            const targetH = h * prop.scale;
+            const ratio = img.naturalWidth / img.naturalHeight;
+            const targetW = targetH * ratio;
+            const cx = w * (prop.x + (i > 0 ? (i % 2 ? 0.14 : -0.14) : 0));
+            const baseY = h * prop.y;
+
+            // Ombre au sol
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.ellipse(cx, baseY, targetW * 0.4, targetH * 0.08, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            if (b.key === 'CAMPFIRE') {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const g = ctx.createRadialGradient(cx, baseY - targetH * 0.35, 0, cx, baseY - targetH * 0.35, targetH * 1.1);
+                g.addColorStop(0, `rgba(255, 180, 80, ${0.35 * flicker})`);
+                g.addColorStop(1, 'rgba(255, 120, 30, 0)');
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(cx, baseY - targetH * 0.35, targetH * 1.1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            ctx.drawImage(img, cx - targetW / 2, baseY - targetH, targetW, targetH);
+        } else if (def) {
+            // Pastille d'icône élégante en repli
+            const size = Math.max(34, h * 0.075);
+            const cx = w * (0.22 + i * 0.16);
+            const cy = h * 0.72;
+            ctx.save();
+            ctx.globalAlpha = 0.92;
+            ctx.fillStyle = 'rgba(8, 18, 25, 0.55)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, size * 0.62, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 212, 121, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+            ctx.restore();
+        }
+    });
 }
 
 // --- Utilitaires de style pour les personnages ---
@@ -307,6 +401,37 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
+    // --- Équipement visible : arme/outil dans la main avant, bouclier au bras arrière ---
+    const equip = character.equipment || {};
+    const handX = x + bodyW * 0.5 + armSwing * 0.3;
+    const handY = shoulderY + armLen + armSwing;
+    if (equip.shield) {
+        const shieldDef = ITEM_TYPES[equip.shield.name] || {};
+        ctx.save();
+        ctx.fillStyle = 'rgba(12, 22, 30, 0.55)';
+        ctx.beginPath();
+        ctx.arc(x - bodyW * 0.62, shoulderY + armLen * 0.75, 11 * s, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${Math.round(16 * s)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(shieldDef.icon || '🛡️', x - bodyW * 0.62, shoulderY + armLen * 0.75);
+        ctx.restore();
+    }
+    if (equip.weapon) {
+        const wDef = ITEM_TYPES[equip.weapon.name] || {};
+        ctx.save();
+        ctx.translate(handX + 4 * s, handY - 2 * s);
+        ctx.rotate(-0.35 + walk * 0.18);
+        ctx.font = `${Math.round(20 * s)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = 4 * s;
+        ctx.fillText(wDef.icon || '🔧', 0, 0);
+        ctx.restore();
+    }
+
     // --- Cou ---
     ctx.fillStyle = shadeColor(look.skin, -30);
     roundedRectPath(ctx, x - 4 * s, bodyTopY - 6 * s, 8 * s, 9 * s, 3 * s);
@@ -368,6 +493,19 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
                 ctx.fill();
             }
         }
+    }
+
+    // Couvre-chef équipé
+    if (character.equipment && character.equipment.head) {
+        const hDef = ITEM_TYPES[character.equipment.head.name] || {};
+        ctx.save();
+        ctx.font = `${Math.round(22 * s)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4 * s;
+        ctx.fillText(hDef.icon || '🎩', x, headCY - headR * 0.95);
+        ctx.restore();
     }
 
     // Yeux (avec clignement)
@@ -546,20 +684,60 @@ export function drawSceneCharacters(gameState) {
         });
     }
 
-    // Dessiner les ennemis (simplifié, comme un "sprite" de texte)
-    const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !player.combatState); // Ne pas afficher si en combat
-    if (visibleEnemies.length > 0) {
-        const enemy = visibleEnemies[0]; // Afficher le premier ennemi sur la tuile
-        const enemyX = canvasWidth / 2; // Centré
-        const enemyY = canvasHeight * 0.30; // Plus haut sur l'écran
+    // --- Ennemis présents sur la case ---
+    const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !player.combatState);
+    visibleEnemies.slice(0, 3).forEach((enemy, i) => {
+        const side = i === 0 ? 0 : (i % 2 ? 1 : -1);
+        const enemyX = canvasWidth / 2 + side * 120 * scale;
+        const enemyY = canvasHeight * 0.42 + (i === 0 ? 0 : 18 * scale);
+        const size = (i === 0 ? 66 : 50) * scale;
+        const t = Date.now() / 1000;
+        const bob = Math.sin(t * 2 + i) * 4 * scale;
+
         charactersCtx.save();
-        charactersCtx.fillStyle = enemy.color || '#ff0000';
-        charactersCtx.font = `${Math.round(64 * scale)}px sans-serif`; // Grande taille pour l'icône
+
+        // Ombre
+        charactersCtx.globalAlpha = 0.3;
+        charactersCtx.fillStyle = '#000';
+        charactersCtx.beginPath();
+        charactersCtx.ellipse(enemyX, enemyY + size * 0.48, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
+        charactersCtx.fill();
+        charactersCtx.globalAlpha = 1;
+
+        // Aura menaçante
+        const aura = charactersCtx.createRadialGradient(enemyX, enemyY + bob, 0, enemyX, enemyY + bob, size * 0.85);
+        aura.addColorStop(0, 'rgba(220, 40, 40, 0.28)');
+        aura.addColorStop(1, 'rgba(220, 40, 40, 0)');
+        charactersCtx.fillStyle = aura;
+        charactersCtx.beginPath();
+        charactersCtx.arc(enemyX, enemyY + bob, size * 0.85, 0, Math.PI * 2);
+        charactersCtx.fill();
+
+        // Créature
+        charactersCtx.font = `${Math.round(size)}px sans-serif`;
         charactersCtx.textAlign = 'center';
         charactersCtx.textBaseline = 'middle';
-        charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY);
+        charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+
+        // Nom + barre de vie
+        const label = enemy.name || 'Créature hostile';
+        const barW = Math.max(60, size * 1.15);
+        const barY = enemyY - size * 0.62 + bob;
+        const ratio = enemy.maxHealth ? Math.max(0, Math.min(1, (enemy.health ?? enemy.maxHealth) / enemy.maxHealth)) : 1;
+
+        charactersCtx.fillStyle = 'rgba(8, 16, 22, 0.72)';
+        roundedRectPath(charactersCtx, enemyX - barW / 2, barY, barW, 7 * scale, 3.5 * scale);
+        charactersCtx.fill();
+        charactersCtx.fillStyle = ratio > 0.5 ? '#e05252' : '#ff8a3d';
+        roundedRectPath(charactersCtx, enemyX - barW / 2 + 1, barY + 1, Math.max(2, (barW - 2) * ratio), 5 * scale, 2.5 * scale);
+        charactersCtx.fill();
+
+        charactersCtx.font = `600 ${Math.max(10, 11 * scale)}px Poppins, sans-serif`;
+        charactersCtx.fillStyle = '#ffd7d7';
+        charactersCtx.fillText(label, enemyX, barY - 9 * scale);
+
         charactersCtx.restore();
-    }
+    });
 
     // 🪤 Piège armé sur la case actuelle
     if (map?.[player.y]?.[player.x]?.trap) {
@@ -621,127 +799,161 @@ export function drawSceneCharacters(gameState) {
 }
 
 export function drawMinimap(gameState, config) {
-    if (!gameState || !gameState.map || !gameState.player || !config) {
-        // console.error("[draw.js] drawMinimap: Missing critical game data or config."); // Removed to reduce console noise
-        return;
-    }
+    if (!gameState || !gameState.map || !gameState.player || !config) return;
     const { map, player, npcs, enemies, globallyRevealedTiles } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
     const { minimapCanvas, minimapCtx } = DOM;
-    if(!minimapCtx || !minimapCanvas) {
-        // console.error("[draw.js] drawMinimap: Minimap canvas context or element not found!"); // Removed to reduce console noise
-        return;
+    if (!minimapCtx || !minimapCanvas) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const cell = MINIMAP_DOT_SIZE;
+    const W = MAP_WIDTH * cell, H = MAP_HEIGHT * cell;
+    if (minimapCanvas.width !== Math.round(W * dpr)) {
+        minimapCanvas.width = Math.round(W * dpr);
+        minimapCanvas.height = Math.round(H * dpr);
+        minimapCanvas.style.width = '100%';
+        minimapCanvas.style.height = 'auto';
     }
+    const ctx = minimapCtx;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
 
-    // Ajuster la taille du canvas de la minimap dynamiquement
-    minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
-    minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE;
-    minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    // Fond océan dégradé
+    const ocean = ctx.createLinearGradient(0, 0, W, H);
+    ocean.addColorStop(0, '#0b2a3a');
+    ocean.addColorStop(1, '#06161f');
+    ctx.fillStyle = ocean;
+    ctx.fillRect(0, 0, W, H);
 
-    // Dessiner les tuiles
+    const pad = 0.6;
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
-            const tileKey = `${x},${y}`;
             const tile = map[y]?.[x];
-            const isWater = tile?.type.name === 'Lagon';
+            if (!tile || !tile.type) continue;
+            const tileKey = `${x},${y}`;
+            const isWater = tile.type.name === 'Lagon';
             const isVisible = player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey) || isWater;
+            const px = x * cell, py = y * cell;
 
             if (!isVisible) {
-                minimapCtx.fillStyle = '#111'; // Non découvert
-                minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-            } else if (tile && tile.type) {
-                minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; // Couleur par défaut pour type inconnu
-                minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-                
-                // Ajouter un indicateur pour le nombre total d'actions restantes
-                const currentTile = map[y][x];
-                let totalActions = 0;
-                if (tile.type.name === TILE_TYPES.FOREST.name) {
-                    totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
-                } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
-                    totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
-                } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
-                    totalActions = tile.harvestsLeft || 0;
-                } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
-                    totalActions = (tile.actionsLeft.search_zone || 0) + (tile.actionsLeft.harvest_sand || 0) + (tile.actionsLeft.fish || 0) + (tile.actionsLeft.harvest_salt_water || 0);
-                } else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
-                    totalActions = tile.buildings[0].harvestsAvailable || 0;
-                }
-                
-                if (totalActions > 0) {
-                    minimapCtx.fillStyle = 'white';
-                    minimapCtx.font = `${MINIMAP_DOT_SIZE * 0.6}px sans-serif`;
-                    minimapCtx.textAlign = 'right';
-                    minimapCtx.textBaseline = 'bottom';
-                    minimapCtx.fillText(totalActions, (x + 1) * MINIMAP_DOT_SIZE - 1, (y + 1) * MINIMAP_DOT_SIZE - 1);
-                }
+                ctx.fillStyle = 'rgba(10, 18, 24, 0.92)';
+                ctx.fillRect(px, py, cell, cell);
+                continue;
+            }
+
+            const base = tile.type.color || '#888';
+            if (isWater) {
+                const shimmer = 0.5 + 0.5 * Math.sin(Date.now() / 900 + (x + y) * 0.6);
+                ctx.fillStyle = shadeColor(base, -35 + shimmer * 12);
+                ctx.fillRect(px, py, cell, cell);
+            } else {
+                ctx.fillStyle = base;
+                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, cell - pad * 2, Math.max(1.5, cell * 0.22));
+                ctx.fill();
+                // Relief léger
+                ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, (cell - pad * 2) * 0.45, Math.max(1.5, cell * 0.22));
+                ctx.fill();
+            }
+
+            // Constructions : petit point doré
+            if (tile.buildings && tile.buildings.length > 0) {
+                ctx.fillStyle = '#ffd479';
+                ctx.beginPath();
+                ctx.arc(px + cell * 0.5, py + cell * 0.5, Math.max(1.4, cell * 0.16), 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Ressources restantes : petite jauge en bas de case
+            let totalActions = 0;
+            if (tile.type.name === TILE_TYPES.FOREST.name) {
+                totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+            } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
+                totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+            } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
+                totalActions = tile.harvestsLeft || 0;
+            } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
+                const a = tile.actionsLeft;
+                totalActions = (a.search_zone || 0) + (a.harvest_sand || 0) + (a.fish || 0) + (a.harvest_salt_water || 0);
+            } else if (tile.buildings?.length && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
+                totalActions = tile.buildings[0].harvestsAvailable || 0;
+            }
+            if (totalActions > 0) {
+                const ratio = Math.min(1, totalActions / 30);
+                ctx.fillStyle = 'rgba(255,255,255,0.75)';
+                ctx.fillRect(px + 1.5, py + cell - 3, (cell - 3) * ratio, 1.8);
             }
         }
     }
-    // Grille optionnelle
-    minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    minimapCtx.lineWidth = 1;
-    for (let x = 0; x <= MAP_WIDTH; x++) { minimapCtx.beginPath(); minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, minimapCanvas.height); minimapCtx.stroke(); }
-    for (let y = 0; y <= MAP_HEIGHT; y++) { minimapCtx.beginPath(); minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); minimapCtx.lineTo(minimapCanvas.width, y * MINIMAP_DOT_SIZE); minimapCtx.stroke(); }
 
-    // Dessiner les PNJ (points)
+    // Halo de découverte autour du joueur
+    const cx = (player.x + 0.5) * cell, cy = (player.y + 0.5) * cell;
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 4);
+    halo.addColorStop(0, 'rgba(255, 212, 121, 0.18)');
+    halo.addColorStop(1, 'rgba(255, 212, 121, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, H);
+
+    // PNJ
     npcs.forEach(npc => {
-        const tileKey = `${npc.x},${npc.y}`;
-        if (player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey)) {
-            minimapCtx.fillStyle = npc.color;
-            minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-        }
+        const k = `${npc.x},${npc.y}`;
+        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) return;
+        ctx.fillStyle = npc.color || '#ff6347';
+        ctx.beginPath();
+        ctx.arc((npc.x + 0.5) * cell, (npc.y + 0.5) * cell, cell * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke();
     });
 
-    // Dessiner les Ennemis (triangles)
+    // Ennemis
     enemies.forEach(enemy => {
-        const tileKey = `${enemy.x},${enemy.y}`;
-        if (player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey)) {
-            minimapCtx.fillStyle = enemy.color || '#ff0000';
-            const ex = enemy.x * MINIMAP_DOT_SIZE;
-            const ey = enemy.y * MINIMAP_DOT_SIZE;
-            minimapCtx.beginPath();
-            minimapCtx.moveTo(ex, ey + MINIMAP_DOT_SIZE);
-            minimapCtx.lineTo(ex + MINIMAP_DOT_SIZE / 2, ey);
-            minimapCtx.lineTo(ex + MINIMAP_DOT_SIZE, ey + MINIMAP_DOT_SIZE);
-            minimapCtx.closePath();
-            minimapCtx.fill();
-        }
+        const k = `${enemy.x},${enemy.y}`;
+        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) return;
+        const ex = (enemy.x + 0.5) * cell, ey = (enemy.y + 0.5) * cell;
+        ctx.fillStyle = enemy.color || '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(ex, ey - cell * 0.32);
+        ctx.lineTo(ex + cell * 0.3, ey + cell * 0.26);
+        ctx.lineTo(ex - cell * 0.3, ey + cell * 0.26);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
     });
 
-    // Dessiner le camp tile (shelterLocation) avec un contour noir
+    // Camp
     if (gameState.shelterLocation) {
-        minimapCtx.strokeStyle = 'black';
-        minimapCtx.lineWidth = 2;
-        minimapCtx.strokeRect(
-            gameState.shelterLocation.x * MINIMAP_DOT_SIZE - 1, 
-            gameState.shelterLocation.y * MINIMAP_DOT_SIZE - 1, 
-            MINIMAP_DOT_SIZE + 2, 
-            MINIMAP_DOT_SIZE + 2
-        );
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.setLineDash([2, 2]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(gameState.shelterLocation.x * cell + 0.5, gameState.shelterLocation.y * cell + 0.5, cell - 1, cell - 1);
+        ctx.setLineDash([]);
     }
 
-    // Dessiner le joueur (carré avec contour)
-    minimapCtx.fillStyle = player.color || 'yellow';
-    minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-    minimapCtx.strokeStyle = 'white';
-    minimapCtx.lineWidth = 2; // Contour plus épais
-    minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2);
-
-    // Dessiner les autres joueurs
-    for (const playerId in gameState.players) {
-        if (playerId !== player.id) {
-            const otherPlayer = gameState.players[playerId];
-            const tileKey = `${otherPlayer.x},${otherPlayer.y}`;
-            if (player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey)) {
-                minimapCtx.fillStyle = '#4299e1'; // Blue for other players
-                minimapCtx.fillRect(otherPlayer.x * MINIMAP_DOT_SIZE, otherPlayer.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-                minimapCtx.strokeStyle = 'black';
-                minimapCtx.lineWidth = 1;
-                minimapCtx.strokeRect(otherPlayer.x * MINIMAP_DOT_SIZE, otherPlayer.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-            }
-        }
+    // Autres joueurs
+    for (const pid in gameState.players) {
+        if (pid === player.id) continue;
+        const op = gameState.players[pid];
+        const k = `${op.x},${op.y}`;
+        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) continue;
+        ctx.fillStyle = '#4299e1';
+        ctx.beginPath();
+        ctx.arc((op.x + 0.5) * cell, (op.y + 0.5) * cell, cell * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
     }
+
+    // Joueur : point doré avec anneau pulsant
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 420);
+    ctx.strokeStyle = `rgba(255, 212, 121, ${0.25 + 0.5 * pulse})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * (0.45 + 0.3 * pulse), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd479';
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#0d1a22'; ctx.lineWidth = 1.4; ctx.stroke();
 }
 
 export function drawLargeMap(gameState, config) {
