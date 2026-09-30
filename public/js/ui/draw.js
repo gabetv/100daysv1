@@ -99,8 +99,201 @@ export function drawMainBackground(gameState) {
         mainViewCtx.fillRect(0, 0, w, h);
     }
 
+    // Décor contextuel : ajoute un premier plan vivant au-dessus du fond fixe.
+    // Il reste sous les personnages afin de préserver la lisibilité des interactions.
+    drawBiomeDressing(mainViewCtx, w, h, playerTile);
+
     // Constructions présentes sur la case
     drawTileProps(mainViewCtx, w, h, playerTile);
+}
+
+/* -------------------------------------------------------------------------
+ * Décor de scène procédural
+ * -------------------------------------------------------------------------
+ * Les illustrations de fond donnent l'identité de chaque biome. Cette couche
+ * légère ajoute de la profondeur et un mouvement très discret sans multiplier
+ * les gros fichiers image : les détails restent déterministes pour une tuile.
+ */
+function seededRandom(seed) {
+    let value = seed >>> 0;
+    return () => {
+        value += 0x6D2B79F5;
+        let t = value;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+function getTileSeed(tile) {
+    const pos = `${tile?.x ?? 0}:${tile?.y ?? 0}:${tile?.type?.name ?? ''}`;
+    return hashString(pos);
+}
+
+function drawGrassBlade(ctx, x, baseY, height, lean, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, height * 0.055);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, baseY);
+    ctx.quadraticCurveTo(x + lean * 0.3, baseY - height * 0.55, x + lean, baseY - height);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawWaterGlints(ctx, w, h, rand, strength = 1) {
+    const time = Date.now() / 1250;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 13; i++) {
+        const y = h * (0.42 + rand() * 0.43);
+        const x = ((rand() * 1.16 + time * (0.012 + rand() * 0.012)) % 1.16 - 0.08) * w;
+        const len = w * (0.035 + rand() * 0.08);
+        ctx.globalAlpha = (0.09 + rand() * 0.13) * strength;
+        ctx.strokeStyle = '#e8ffff';
+        ctx.lineWidth = 1.1 + rand() * 1.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + len * 0.45, y - 1.5, x + len, y + Math.sin(time + i) * 1.4);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawForestCanopy(ctx, w, h, rand) {
+    const time = Date.now() / 2800;
+    ctx.save();
+    for (const side of [-1, 1]) {
+        const originX = side < 0 ? -w * 0.06 : w * 1.06;
+        const originY = h * (0.05 + rand() * 0.12);
+        const radius = w * (0.14 + rand() * 0.05);
+        const g = ctx.createRadialGradient(originX, originY, 0, originX, originY, radius * 1.45);
+        g.addColorStop(0, 'rgba(8, 36, 28, 0.52)');
+        g.addColorStop(0.72, 'rgba(12, 62, 40, 0.23)');
+        g.addColorStop(1, 'rgba(12, 62, 40, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(originX, originY, radius * 1.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        for (let i = 0; i < 8; i++) {
+            const x = originX + side * (radius * (0.2 + rand() * 0.9));
+            const y = originY + radius * (-0.1 + rand() * 0.85) + Math.sin(time + i) * 2;
+            ctx.globalAlpha = 0.16 + rand() * 0.16;
+            ctx.fillStyle = i % 2 ? '#174c34' : '#0f3d2c';
+            ctx.beginPath();
+            ctx.ellipse(x, y, radius * (0.18 + rand() * 0.1), radius * (0.1 + rand() * 0.08), side * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.restore();
+}
+
+function drawGroundDetails(ctx, w, h, tile, rand) {
+    const biome = tile?.type?.name || '';
+    const time = Date.now() / 1500;
+
+    if (biome === 'Lagon') {
+        drawWaterGlints(ctx, w, h, rand, 1.35);
+        return;
+    }
+
+    if (biome === 'Plage') {
+        drawWaterGlints(ctx, w, h, rand, 0.85);
+        ctx.save();
+        for (let i = 0; i < 9; i++) {
+            const x = w * (0.06 + rand() * 0.88);
+            const y = h * (0.77 + rand() * 0.17);
+            const r = 1.5 + rand() * 3.5;
+            ctx.fillStyle = i % 3 === 0 ? 'rgba(160, 105, 65, 0.34)' : 'rgba(255, 244, 204, 0.48)';
+            ctx.beginPath();
+            ctx.ellipse(x, y, r * 1.4, r * 0.62, rand() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        for (let i = 0; i < 13; i++) {
+            const x = w * (0.02 + rand() * 0.28);
+            const baseY = h * (0.94 + rand() * 0.07);
+            drawGrassBlade(ctx, x, baseY, h * (0.035 + rand() * 0.045), Math.sin(time + i) * 5, '#6f8d42', 0.72);
+        }
+        ctx.restore();
+        return;
+    }
+
+    if (biome === 'Forêt') {
+        drawForestCanopy(ctx, w, h, rand);
+    }
+
+    if (biome === 'Mine (Terrain)' || biome === 'Mine (Bâtiment)') {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const x = w * 0.18, y = h * 0.48;
+        const glow = 0.25 + Math.sin(Date.now() / 140) * 0.07;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, h * 0.16);
+        g.addColorStop(0, `rgba(255, 181, 83, ${glow})`);
+        g.addColorStop(1, 'rgba(255, 181, 83, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+    }
+
+    const palette = biome === 'Friche'
+        ? ['#704a30', '#8b6239', '#a87b48']
+        : biome === 'Mine (Terrain)'
+            ? ['#515b5e', '#788286', '#3c464c']
+            : biome === 'Forêt'
+                ? ['#1b5b38', '#2e7843', '#4c9145']
+                : ['#3f8b36', '#5ba444', '#86bf54'];
+
+    // Pierres / touffes discrètes ancrées vers le bas de l'image.
+    ctx.save();
+    for (let i = 0; i < 17; i++) {
+        const x = w * (0.015 + rand() * 0.97);
+        const y = h * (0.79 + rand() * 0.18);
+        const size = h * (0.006 + rand() * 0.014);
+        if (i % 3 === 0 || biome === 'Mine (Terrain)') {
+            ctx.globalAlpha = 0.28 + rand() * 0.23;
+            ctx.fillStyle = palette[i % palette.length];
+            ctx.beginPath();
+            ctx.ellipse(x, y, size * (1.1 + rand()), size * 0.62, rand() * Math.PI, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            drawGrassBlade(ctx, x, y + size, h * (0.028 + rand() * 0.045), Math.sin(time * 1.2 + i) * (3 + rand() * 6), palette[i % palette.length], 0.52);
+        }
+    }
+    ctx.restore();
+}
+
+function drawTreasureGlints(ctx, w, h, tile) {
+    if (tile?.type?.name !== 'Trésor Caché' || tile?.isOpened) return;
+    const t = Date.now() / 450;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(255, 224, 105, 0.92)';
+    for (let i = 0; i < 4; i++) {
+        const pulse = (Math.sin(t + i * 1.7) + 1) * 0.5;
+        const x = w * (0.27 + i * 0.15);
+        const y = h * (0.55 + (i % 2) * 0.10);
+        const r = 1.2 + pulse * 2.2;
+        ctx.globalAlpha = 0.25 + pulse * 0.65;
+        ctx.beginPath();
+        ctx.moveTo(x, y - r * 2.2); ctx.lineTo(x + r, y - r);
+        ctx.lineTo(x + r * 2.2, y); ctx.lineTo(x + r, y + r);
+        ctx.lineTo(x, y + r * 2.2); ctx.lineTo(x - r, y + r);
+        ctx.lineTo(x - r * 2.2, y); ctx.lineTo(x - r, y - r);
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawBiomeDressing(ctx, w, h, tile) {
+    if (!tile?.type) return;
+    const rand = seededRandom(getTileSeed(tile));
+    drawGroundDetails(ctx, w, h, tile, rand);
+    drawTreasureGlints(ctx, w, h, tile);
 }
 
 const PROP_FOR_BUILDING = {
@@ -159,28 +352,43 @@ function drawTileProps(ctx, w, h, tile) {
 
             ctx.drawImage(img, cx - targetW / 2, baseY - targetH, targetW, targetH);
         } else if (def) {
-            // Pastille d'icône élégante en repli
-            const size = Math.max(34, h * 0.075);
-            const cx = w * (0.22 + i * 0.16);
-            const cy = h * 0.72;
-            ctx.save();
-            ctx.globalAlpha = 0.92;
-            ctx.fillStyle = 'rgba(8, 18, 25, 0.55)';
-            ctx.beginPath();
-            ctx.arc(cx, cy, size * 0.62, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 212, 121, 0.5)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Pour les bâtiments qui n'ont pas encore leur grand prop, les
+            // illustrations de tuile deviennent de vrais petits repères dans
+            // le paysage plutôt qu'une simple icône flottante.
             const tileImg = getTileImage(def.name);
+            const cx = w * (0.22 + i * 0.19);
+            const baseY = h * (0.79 - (i % 2) * 0.035);
+            const landmarkH = h * (0.16 + (i % 2) * 0.025);
+
+            ctx.save();
+            ctx.globalAlpha = 0.34;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.ellipse(cx, baseY, landmarkH * 0.48, landmarkH * 0.085, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
             if (tileImg) {
-                const imgSize = size * 0.94;
-                ctx.drawImage(tileImg, cx - imgSize / 2, cy - imgSize / 2, imgSize, imgSize);
+                const ratio = tileImg.naturalWidth / tileImg.naturalHeight || 1;
+                const landmarkW = landmarkH * ratio;
+                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                ctx.shadowBlur = 9;
+                ctx.drawImage(tileImg, cx - landmarkW / 2, baseY - landmarkH, landmarkW, landmarkH);
             } else {
+                const size = Math.max(34, h * 0.075);
+                ctx.globalAlpha = 0.94;
+                ctx.fillStyle = 'rgba(8, 18, 25, 0.63)';
+                ctx.beginPath();
+                ctx.arc(cx, baseY - size * 0.52, size * 0.62, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 212, 121, 0.55)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
                 ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+                ctx.fillText(def.icon || '🏗️', cx, baseY - size * 0.5);
             }
             ctx.restore();
         }
@@ -613,6 +821,99 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
 }
 
 
+/** Dessine quelques objets laissés au sol pour relier l'inventaire au monde. */
+function drawGroundLoot(ctx, w, h, tile, scale) {
+    const entries = Object.entries(tile?.groundItems || {}).filter(([, amount]) => Number(amount) > 0).slice(0, 3);
+    if (!entries.length) return;
+
+    const positions = [
+        [0.24, 0.735], [0.77, 0.75], [0.14, 0.81],
+    ];
+    const pulse = (Math.sin(Date.now() / 420) + 1) * 0.5;
+
+    entries.forEach(([name, amount], index) => {
+        const [px, py] = positions[index];
+        const x = w * px;
+        const y = h * py;
+        const size = Math.max(24, 34 * scale);
+        const itemDef = ITEM_TYPES[name] || {};
+        const img = getItemImage(name);
+
+        ctx.save();
+        // Petit halo : les objets restent visibles, y compris la nuit.
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, size * 1.28);
+        glow.addColorStop(0, `rgba(255, 218, 116, ${0.18 + pulse * 0.12})`);
+        glow.addColorStop(1, 'rgba(255, 218, 116, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 1.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(8, 20, 24, 0.58)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + size * 0.31, size * 0.46, size * 0.12, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (img) {
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 4 * scale;
+            ctx.drawImage(img, x - size / 2, y - size * 0.75, size, size);
+        } else {
+            ctx.font = `${Math.round(size * 0.8)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(itemDef.icon || '📦', x, y - size * 0.23);
+        }
+
+        if (Number(amount) > 1) {
+            const text = String(amount > 99 ? '99+' : amount);
+            const fs = Math.max(9, 10 * scale);
+            ctx.font = `700 ${fs}px Poppins, sans-serif`;
+            const badgeW = ctx.measureText(text).width + 8 * scale;
+            const bx = x + size * 0.3;
+            const by = y - size * 0.42;
+            ctx.fillStyle = 'rgba(8, 18, 24, 0.86)';
+            roundedRectPath(ctx, bx - badgeW / 2, by - fs * 0.7, badgeW, fs * 1.4, fs * 0.6);
+            ctx.fill();
+            ctx.fillStyle = '#fff0c5';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, bx, by);
+        }
+        ctx.restore();
+    });
+}
+
+/**
+ * Quelques silhouettes au tout premier plan. Elles complètent le décor sans
+ * recouvrir les cibles de jeu (le joueur se trouve volontairement au-dessus).
+ */
+function drawSceneForeground(ctx, w, h, tile, scale) {
+    const biome = tile?.type?.name || '';
+    if (!['Forêt', 'Plaine', 'Plage', 'Friche'].includes(biome)) return;
+
+    const rand = seededRandom(getTileSeed(tile) ^ 0x9E3779B9);
+    const time = Date.now() / 1200;
+    const colors = biome === 'Friche'
+        ? ['#3c2b1f', '#59402a', '#785535']
+        : biome === 'Plage'
+            ? ['#637d43', '#809b54', '#ac9a5a']
+            : biome === 'Forêt'
+                ? ['#0e3928', '#174b30', '#28633a']
+                : ['#296c35', '#3f8d3c', '#62a044'];
+
+    ctx.save();
+    for (let i = 0; i < 33; i++) {
+        const x = w * (rand() * 1.08 - 0.04);
+        const baseY = h * (0.93 + rand() * 0.09);
+        const height = h * (0.027 + rand() * 0.052) * Math.max(0.85, scale * 0.85);
+        const sway = Math.sin(time * 1.25 + i * 0.79) * (3 + rand() * 5);
+        drawGrassBlade(ctx, x, baseY, height, sway, colors[i % colors.length], 0.48 + rand() * 0.28);
+    }
+    ctx.restore();
+}
+
+
 export function drawSceneCharacters(gameState) {
     if (!gameState || !gameState.player) return;
     const { player, npcs, enemies, map } = gameState;
@@ -622,9 +923,13 @@ export function drawSceneCharacters(gameState) {
     charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height);
     const canvasWidth = charactersCanvas.width;
     const canvasHeight = charactersCanvas.height;
+    const currentTile = map?.[player.y]?.[player.x];
 
     // Échelle des personnages : lisible aussi bien sur mobile que sur grand écran
     const scale = Math.max(0.75, Math.min(1.6, canvasHeight / 620));
+
+    // Les objets déposés deviennent visibles directement dans la scène.
+    drawGroundLoot(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
 
     // Position de base du joueur (plus bas sur l'écran)
     const playerBaseX = canvasWidth / 2;
@@ -766,6 +1071,9 @@ export function drawSceneCharacters(gameState) {
 
         charactersCtx.restore();
     });
+
+    // Premier plan végétal / sable : il ancre la scène après les personnages.
+    drawSceneForeground(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
 
     // 🪤 Piège armé sur la case actuelle
     if (map?.[player.y]?.[player.x]?.trap) {
