@@ -74,7 +74,7 @@ export const CONFIG = {
     NPC_BASE_HEALTH: 8,
     NPC_BASE_DAMAGE: 1,
     NPC_AGGRO_RADIUS: 3,
-    INITIAL_ENEMIES: 0, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
+    INITIAL_ENEMIES: 3, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
     DAY_DURATION_MS: 120000, STAT_DECAY_INTERVAL_MS: 180000,
     NPC_ACTION_INTERVAL_MS: 3000, CHAT_MESSAGE_INTERVAL_MS: 25000,
     PLAYER_BASE_MAX_RESOURCES: 50,
@@ -388,7 +388,8 @@ export const TREASURE_COMBAT_KIT = {
     'Épée en fer': 1,
     'Bouclier en fer': 1,
     'Kit de Secours': 3,
-    'Barre Énergétique': 5
+    'Barre Énergétique': 5,
+    'Fusée de détresse': 1 // La clé de l'évasion : à tirer depuis une plage !
 };
 
 export const SPRITESHEET_PATHS = {

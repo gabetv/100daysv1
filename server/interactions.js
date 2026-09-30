@@ -1,10 +1,11 @@
 // server/interactions.js
 
-import { gameState, startCombat } from './state.js';
+import { gameState, startCombat, triggerRescueVictory } from './state.js';
 import { ACTIONS } from '../public/js/config.js';
 import * as Player from './player.js';
 import { handleCombatAction } from './combat.js'; // Importer la logique de combat
 import { findEnemyOnTile } from './enemy.js';
+import { handleNpcInteraction } from './npc.js';
 import { applyActionCost } from './player.js';
 
 // Actions "gratuites" qui ne doivent pas consommer faim/soif/sommeil
@@ -90,10 +91,43 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             break;
 
         case ACTIONS.TAKE_HIDDEN_ITEM:
+            Player.takeHiddenItem(player);
+            break;
+
+        case ACTIONS.FISH:
+        case ACTIONS.NET_FISH:
             Player.fishOnTile(player, actionId);
             break;
 
+        case ACTIONS.PLANT_TREE:
+            Player.plantTree(player);
+            break;
+
         case ACTIONS.REGENERATE_FOREST:
+            Player.regenerateForest(player);
+            break;
+
+        case ACTIONS.SLEEP_BY_CAMPFIRE:
+            Player.sleepByCampfire(player);
+            break;
+
+        case ACTIONS.SEARCH_ORE_TILE:
+        case 'search_ore_building':
+            Player.searchOreTile(player, actionId);
+            break;
+
+        case ACTIONS.FIRE_DISTRESS_GUN:
+        case ACTIONS.FIRE_DISTRESS_FLARE:
+            Player.fireDistressSignal(player, triggerRescueVictory);
+            break;
+
+        case ACTIONS.TALK_TO_NPC: {
+            const npc = gameState.npcs.find(n => n.x === player.x && n.y === player.y);
+            if (npc) handleNpcInteraction(player, npc);
+            else player.notifications.push({ type: 'chat', message: "Il n'y a personne à qui parler ici.", style: 'system_info' });
+            break;
+        }
+
         case ACTIONS.HARVEST_SAND:
         case ACTIONS.HARVEST_STONE:
         case ACTIONS.HARVEST_SALT_WATER:
@@ -132,42 +166,35 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             }
             break;
 
-        case 'combat_action': // Nouvelle action pour gérer les tours de combat
+        case 'combat_action': // Tours de combat (par joueur)
             if (data && data.type) {
-                handleCombatAction(data.type); // ex: 'attack' ou 'flee'
+                handleCombatAction(playerId, data.type); // ex: 'attack' ou 'flee'
             }
             break;
 
-        // --- ACTIONS TO BE IMPLEMENTED ---
-        case ACTIONS.FISH:
-        case ACTIONS.NET_FISH:
-        case ACTIONS.PLANT_TREE:
-        case ACTIONS.SLEEP_BY_CAMPFIRE:
-        case ACTIONS.USE_BUILDING_ACTION:
         case ACTIONS.DISMANTLE_BUILDING:
             Player.dismantleBuilding(player);
             break;
+
+        // --- ACTIONS GÉRÉES CÔTÉ CLIENT (modales) ---
+        case ACTIONS.OPEN_LARGE_MAP:
+        case ACTIONS.OPEN_BUILDING_INVENTORY:
+        case ACTIONS.USE_ATELIER:
+        case ACTIONS.USE_ETABLI:
+        case ACTIONS.USE_FORGE:
+        case ACTIONS.SET_LOCK:
+        case ACTIONS.REMOVE_LOCK:
+            break;
+
+        // --- ACTIONS PAS ENCORE IMPLÉMENTÉES ---
         case ACTIONS.OPEN_ALL_PARCHEMINS:
-        case ACTIONS.FIRE_DISTRESS_GUN:
-        case ACTIONS.FIRE_DISTRESS_FLARE:
         case ACTIONS.PLACE_SOLAR_PANEL_FIXED:
         case ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR:
         case ACTIONS.PLACE_TRAP:
         case ACTIONS.ATTRACT_NPC_ATTENTION:
         case ACTIONS.FIND_MINE_COMPASS:
         case ACTIONS.REPAIR_BUILDING:
-        case ACTIONS.SET_LOCK:
-        case ACTIONS.REMOVE_LOCK:
-        case ACTIONS.OPEN_LARGE_MAP:
-        case ACTIONS.TALK_TO_NPC:
-        case ACTIONS.OPEN_BUILDING_INVENTORY:
-            // Handled client-side by opening the modal
-            break;
-        case ACTIONS.SEARCH_ORE_TILE:
         case ACTIONS.PLAY_ELECTRIC_GUITAR:
-        case ACTIONS.USE_ATELIER:
-        case ACTIONS.USE_ETABLI:
-        case ACTIONS.USE_FORGE:
         case ACTIONS.OBSERVE_WEATHER:
         case ACTIONS.GENERATE_PLAN:
         case ACTIONS.TUTORIAL_HIDE_AND_MOVE:
@@ -178,7 +205,10 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
              break;
 
         default:
-            console.warn(`Action non reconnue ou non gérée par le serveur: ${actionId}`);
+            // Peut-être une action de bâtiment (cuisiner, bouillir, puiser, récolter une plantation...)
+            if (!Player.useBuildingAction(player, actionId)) {
+                console.warn(`Action non reconnue ou non gérée par le serveur: ${actionId}`);
+            }
             break;
     }
 }

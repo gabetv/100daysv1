@@ -299,5 +299,39 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
+    <!-- ### ÉCRAN DE VICTOIRE ### -->
+    <div id="victory-overlay" class="hidden">
+        <div id="victory-content">
+            <h1 id="victory-title">🏆 VICTOIRE !</h1>
+            <p id="victory-message"></p>
+            <div id="victory-stats"></div>
+            <button id="victory-menu-btn" onclick="window.location.href='/'">Retour au menu</button>
+        </div>
+    </div>
+    <style>
+        #victory-overlay {
+            position: fixed; inset: 0; z-index: 9000;
+            background: rgba(0, 0, 0, 0.88); backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 1; transition: opacity 0.8s ease;
+        }
+        #victory-overlay.hidden { opacity: 0; pointer-events: none; }
+        #victory-content {
+            text-align: center; color: #fff; max-width: 560px; padding: 40px;
+            background: linear-gradient(160deg, #1a2a32, #0d1b22);
+            border: 2px solid #ffd700; border-radius: 16px;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.35);
+            animation: victory-pop 0.7s ease;
+        }
+        @keyframes victory-pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        #victory-title { font-size: 2.6rem; color: #ffd700; margin-bottom: 16px; letter-spacing: 3px; }
+        #victory-message { font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px; color: #cfe8f3; }
+        #victory-stats p { margin: 6px 0; font-size: 1rem; color: #9fd6a8; }
+        #victory-menu-btn {
+            margin-top: 24px; padding: 12px 32px; font-size: 1.05rem; cursor: pointer;
+            background: #ffd700; color: #14232b; border: none; border-radius: 8px; font-weight: bold;
+        }
+        #victory-menu-btn:hover { background: #ffe44d; }
+    </style>
 </body>
 </html>

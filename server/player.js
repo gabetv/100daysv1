@@ -1,6 +1,6 @@
 // server/player.js
 
-import { gameState } from './state.js';
+import { gameState, endCombat } from './state.js';
 import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS, ACTION_COST_CONFIG } from '../public/js/config.js';
 
 // --- UTILITIES ---
@@ -319,7 +319,6 @@ export function craftItem(player, recipeName, costs, quantity) {
 }
 
 export function searchZone(player) {
-    console.log(`[SERVER] Entering searchZone for player ${player.id}`); // DEBUG
     const tile = gameState.map[player.y][player.x];
     const zoneConfig = SEARCH_ZONE_CONFIG[tile.key]; // Utilise la clé de la tuile (ex: 'FOREST')
     if (!zoneConfig) return;
@@ -333,15 +332,256 @@ export function searchZone(player) {
         tile.searchActionsLeft--;
     }
 
-    // Simple loot logic for now
-    const lootTable = zoneConfig.specificLoot.common;
-    if (lootTable.length > 0) {
+    // Objet caché sur cette case (ex : la Clé du Trésor) — 35% de chance de le dénicher
+    if (tile.hiddenItem && Math.random() < 0.35) {
+        const found = tile.hiddenItem;
+        delete tile.hiddenItem;
+        addItemToInventory(player, found, 1);
+        player.notifications.push({ type: 'chat', message: `✨ Incroyable ! En fouillant, vous avez déniché : ${found} !`, style: 'gain' });
+        player.notifications.push({ type: 'floatingText', message: `+1 ${found}`, style: 'gain' });
+        return;
+    }
+
+    // Rien trouvé cette fois ?
+    if (Math.random() < (zoneConfig.noLootChance || 0.2)) {
+        player.notifications.push({ type: 'chat', message: "Vous n'avez rien trouvé d'intéressant.", style: 'system_info' });
+        return;
+    }
+
+    // Tirage du palier de rareté (common / uncommon / rare / veryRare / offTable)
+    const tiers = zoneConfig.lootTiers || { common: 1 };
+    const roll = Math.random();
+    let cumulative = 0;
+    let chosenTier = 'common';
+    for (const [tier, weight] of Object.entries(tiers)) {
+        cumulative += weight;
+        if (roll <= cumulative) { chosenTier = tier; break; }
+    }
+
+    let lootTable = zoneConfig.specificLoot[chosenTier];
+    if (!lootTable || lootTable.length === 0) lootTable = zoneConfig.specificLoot.common;
+
+    if (lootTable && lootTable.length > 0) {
         const foundItem = lootTable[Math.floor(Math.random() * lootTable.length)];
         addItemToInventory(player, foundItem, 1);
-        player.notifications.push({ type: 'chat', message: `En fouillant, vous avez trouvé : ${foundItem}.`, style: 'system_info' });
+        const rarityLabel = { rare: ' (rare !)', veryRare: ' (très rare !)', offTable: ' (exceptionnel !!)' }[chosenTier] || '';
+        player.notifications.push({ type: 'chat', message: `En fouillant, vous avez trouvé : ${foundItem}${rarityLabel}.`, style: chosenTier === 'common' ? 'system_info' : 'gain' });
+        player.notifications.push({ type: 'floatingText', message: `+1 ${foundItem}`, style: 'gain' });
     } else {
         player.notifications.push({ type: 'chat', message: "Vous n'avez rien trouvé d'intéressant.", style: 'system_info' });
     }
+}
+
+/**
+ * Ramasse l'objet caché de la case (utilisé par le tutoriel / actions directes).
+ */
+export function takeHiddenItem(player) {
+    const tile = gameState.map[player.y][player.x];
+    if (!tile.hiddenItem) {
+        player.notifications.push({ type: 'chat', message: "Il n'y a rien de caché ici... ou vous ne l'avez pas encore trouvé.", style: 'system_info' });
+        return;
+    }
+    const found = tile.hiddenItem;
+    delete tile.hiddenItem;
+    addItemToInventory(player, found, 1);
+    player.notifications.push({ type: 'chat', message: `Vous récupérez : ${found} !`, style: 'gain' });
+}
+
+/**
+ * Cherche du minerai sur un terrain de mine ou via un bâtiment de mine.
+ */
+export function searchOreTile(player, actionId) {
+    const tile = gameState.map[player.y][player.x];
+
+    // Trouver la table de résultats : action du terrain ou d'un bâtiment
+    let results = null;
+    if (tile.type.action && tile.type.action.id === actionId) {
+        results = tile.type.action.results;
+    } else {
+        for (const building of (tile.buildings || [])) {
+            const def = TILE_TYPES[building.key];
+            if (def?.action?.id === actionId) { results = def.action.results; break; }
+        }
+    }
+
+    if (!results) {
+        player.notifications.push({ type: 'chat', message: "Impossible de chercher du minerai ici.", style: 'system_warning' });
+        return;
+    }
+
+    // Tirage : chaque minerai a sa propre chance, on prend le premier obtenu (du plus rare au plus commun)
+    const sorted = [...results].sort((a, b) => a.chance - b.chance);
+    let found = null;
+    for (const entry of sorted) {
+        if (Math.random() < entry.chance) { found = entry.item; break; }
+    }
+
+    if (found) {
+        addItemToInventory(player, found, 1);
+        player.notifications.push({ type: 'floatingText', message: `+1 ${found}`, style: 'gain' });
+        player.notifications.push({ type: 'chat', message: `⛏️ Vous avez extrait : ${found} !`, style: 'gain' });
+    } else {
+        player.notifications.push({ type: 'chat', message: "Vous creusez... mais ne trouvez que de la roche sans valeur.", style: 'system_info' });
+    }
+}
+
+/**
+ * Plante une graine d'arbre : transforme la case (Plaine/Friche) en Forêt.
+ */
+export function plantTree(player) {
+    const tile = gameState.map[player.y][player.x];
+    if (!['PLAINS', 'WASTELAND'].includes(tile.key)) {
+        player.notifications.push({ type: 'chat', message: "Vous ne pouvez planter d'arbre que sur une plaine ou une friche.", style: 'system_warning' });
+        return;
+    }
+    if ((player.inventory["Graine d'arbre"] || 0) < 1) {
+        player.notifications.push({ type: 'chat', message: "Il vous faut une Graine d'arbre.", style: 'system_warning' });
+        return;
+    }
+    removeItemFromInventory(player, "Graine d'arbre", 1);
+    convertTileToForest(tile);
+    player.notifications.push({ type: 'chat', message: "🌱 Vous plantez une graine... et une jeune forêt s'épanouit !", style: 'gain' });
+}
+
+/**
+ * Régénère une friche en forêt (coût : 5 Eau pure + 10 Graines d'arbre).
+ */
+export function regenerateForest(player) {
+    const tile = gameState.map[player.y][player.x];
+    if (tile.key !== 'WASTELAND') {
+        player.notifications.push({ type: 'chat', message: "Seule une friche peut être régénérée.", style: 'system_warning' });
+        return;
+    }
+    const cost = TILE_TYPES.WASTELAND.regeneration?.cost || { 'Eau pure': 5, "Graine d'arbre": 10 };
+    for (const item in cost) {
+        if ((player.inventory[item] || 0) < cost[item]) {
+            player.notifications.push({ type: 'chat', message: `Ressources manquantes : ${cost[item]} ${item}.`, style: 'system_error' });
+            return;
+        }
+    }
+    for (const item in cost) removeItemFromInventory(player, item, cost[item]);
+    convertTileToForest(tile);
+    player.notifications.push({ type: 'chat', message: "🌳 La friche reprend vie et devient une forêt luxuriante !", style: 'gain' });
+}
+
+function convertTileToForest(tile) {
+    const forestType = TILE_TYPES.FOREST;
+    tile.type = forestType;
+    tile.key = 'FOREST';
+    tile.backgroundKey = forestType.background[Math.floor(Math.random() * forestType.background.length)];
+    tile.woodActionsLeft = forestType.woodActionsLeft;
+    tile.huntActionsLeft = forestType.huntActionsLeft;
+    tile.searchActionsLeft = forestType.searchActionsLeft;
+}
+
+/**
+ * Sieste près du feu de camp : petit regain de sommeil et de vie.
+ */
+export function sleepByCampfire(player) {
+    const tile = gameState.map[player.y][player.x];
+    const campfire = tile.buildings.find(b => b.key === 'CAMPFIRE' && b.durability > 0);
+    if (!campfire) {
+        player.notifications.push({ type: 'chat', message: "Il n'y a pas de feu de camp allumé ici.", style: 'system_warning' });
+        return;
+    }
+    player.sleep = Math.min(player.maxSleep, player.sleep + 8);
+    player.health = Math.min(player.maxHealth, player.health + 2);
+    campfire.durability--;
+    player.notifications.push({ type: 'chat', message: "🔥 Vous somnolez près du feu... (+8 Sommeil, +2 Santé)", style: 'gain' });
+    if (campfire.durability <= 0) {
+        tile.buildings = tile.buildings.filter(b => b !== campfire);
+        player.notifications.push({ type: 'chat', message: "Le feu de camp s'est éteint.", style: 'damage' });
+    }
+}
+
+/**
+ * Action générique d'un bâtiment (cuisiner, bouillir, puiser de l'eau, récolter une plantation...).
+ * Gère costItem / costWood / costAmount et le résultat défini dans la config du bâtiment.
+ */
+export function useBuildingAction(player, actionId) {
+    const tile = gameState.map[player.y][player.x];
+
+    for (const building of (tile.buildings || [])) {
+        const def = TILE_TYPES[building.key];
+        if (!def) continue;
+        const actionsList = Array.isArray(def.actions) ? def.actions : (def.action ? [def.action] : []);
+        const act = actionsList.find(a => a && a.id === actionId);
+        if (!act) continue;
+
+        // Cas particuliers délégués
+        if (actionId === 'sleep_by_campfire') { sleepByCampfire(player); return true; }
+
+        // Vérifier les coûts
+        const costs = {};
+        if (act.costItem) costs[act.costItem] = act.costAmount || 1;
+        if (act.costWood) costs['Bois'] = (costs['Bois'] || 0) + act.costWood;
+        for (const item in costs) {
+            if ((player.inventory[item] || 0) < costs[item]) {
+                player.notifications.push({ type: 'chat', message: `Il vous manque : ${costs[item]} ${item}.`, style: 'system_warning' });
+                return true;
+            }
+        }
+        for (const item in costs) removeItemFromInventory(player, item, costs[item]);
+
+        // Donner le résultat
+        if (act.result) {
+            for (const item in act.result) {
+                addItemToInventory(player, item, act.result[item]);
+                player.notifications.push({ type: 'floatingText', message: `+${act.result[item]} ${item}`, style: 'gain' });
+            }
+        }
+
+        // User le bâtiment
+        building.durability--;
+        if (building.durability <= 0) {
+            tile.buildings = tile.buildings.filter(b => b !== building);
+            player.notifications.push({ type: 'chat', message: `${def.name} est hors d'usage et s'effondre.`, style: 'damage' });
+        }
+        return true;
+    }
+
+    return false; // Aucun bâtiment ne propose cette action ici
+}
+
+/**
+ * Tire une fusée / un pistolet de détresse : si les secours voient le signal, c'est GAGNÉ.
+ * Doit être utilisé depuis une plage pour être visible du large.
+ */
+export function fireDistressSignal(player, triggerRescueVictory) {
+    const tile = gameState.map[player.y][player.x];
+
+    // Trouver l'objet de détresse dans l'inventaire
+    let signalKey = null, signalName = null;
+    for (const key in player.inventory) {
+        const item = player.inventory[key];
+        const name = typeof item === 'object' ? item.name : key;
+        if (name === 'Fusée de détresse' || name === 'Pistolet de détresse') {
+            signalKey = key; signalName = name;
+            if (name === 'Fusée de détresse') break; // Priorité à la fusée (consommable)
+        }
+    }
+    // Ou équipé en arme (pistolet de détresse)
+    if (!signalKey && player.equipment.weapon &&
+        ['Pistolet de détresse', 'Fusée de détresse'].includes(player.equipment.weapon.name)) {
+        signalKey = '__equipped__';
+        signalName = player.equipment.weapon.name;
+    }
+
+    if (!signalName) {
+        player.notifications.push({ type: 'chat', message: "Vous n'avez aucun signal de détresse (fusée ou pistolet).", style: 'system_warning' });
+        return;
+    }
+    if (tile.type.name !== 'Plage') {
+        player.notifications.push({ type: 'chat', message: "🏖️ Allez sur une plage : le signal doit être visible depuis le large !", style: 'system_warning' });
+        return;
+    }
+
+    // Consommer le signal
+    if (signalKey === '__equipped__') player.equipment.weapon = null;
+    else removeItemFromInventory(player, signalKey, 1);
+
+    player.notifications.push({ type: 'chat', message: `🎆 Vous tirez ${signalName} vers le ciel... une lueur rouge illumine l'horizon !`, style: 'gain' });
+    triggerRescueVictory(player);
 }
 
 export function openTreasure(player) {
@@ -360,7 +600,7 @@ export function openTreasure(player) {
         addItemToInventory(player, item, TREASURE_COMBAT_KIT[item]);
     }
 
-    player.notifications.push({ type: 'chat', message: "Vous avez ouvert le trésor et trouvé un équipement de combat !", style: 'gain' });
+    player.notifications.push({ type: 'chat', message: "💎 Vous avez ouvert le trésor : équipement de combat... et une FUSÉE DE DÉTRESSE ! Tirez-la depuis une plage pour alerter les secours !", style: 'gain' });
 }
 
 export function huntOnTile(player) {
@@ -396,25 +636,20 @@ export function huntOnTile(player) {
 
 export function sleep(player) {
     const tile = gameState.map[player.y][player.x];
-    const hasShelter = tile.buildings.some(b => TILE_TYPES[b.key]?.isShelter);
+    const shelterBuilding = tile.buildings.find(b => TILE_TYPES[b.key]?.isShelter || TILE_TYPES[b.key]?.sleepEffect);
 
-    if (!hasShelter) {
+    if (!shelterBuilding) {
         player.notifications.push({ type: 'chat', message: "Vous avez besoin d'un abri pour dormir en toute sécurité.", style: 'system_warning' });
         return;
     }
 
-    // Restore sleep
+    // Restaurer le sommeil + bonus de l'abri (les meilleurs abris soignent davantage)
+    const effect = TILE_TYPES[shelterBuilding.key]?.sleepEffect;
     player.sleep = player.maxSleep;
+    const healthBonus = effect?.health || 2;
+    player.health = Math.min(player.maxHealth, player.health + healthBonus);
 
-    // Advance time (e.g., by 8 hours)
-    // Note: This is a simple implementation. A full time/day cycle would be more complex.
-    gameState.time += 8 * 60; // Advance time by 8 hours (in minutes)
-    if (gameState.time >= 24 * 60) {
-        gameState.time -= 24 * 60;
-        gameState.day++;
-    }
-
-    player.notifications.push({ type: 'chat', message: "Vous vous réveillez reposé et en pleine forme.", style: 'gain' });
+    player.notifications.push({ type: 'chat', message: `😴 Vous vous réveillez reposé et en pleine forme. (+${healthBonus} Santé)`, style: 'gain' });
 }
 
 export function moveItem(player, data) {
@@ -486,11 +721,21 @@ export function fishOnTile(player, action) {
         return;
     }
 
-    const requiredTool = action === 'fish' ? 'Canne à pêche' : 'Filet de pêche';
-    const tool = player.equipment.weapon;
+    const requiredTool = action === 'net_fish' ? 'Filet de pêche' : 'Canne à pêche';
 
-    if (!tool || tool.name !== requiredTool) {
-        player.notifications.push({ type: 'chat', message: `Vous avez besoin d'un(e) ${requiredTool} équipé(e).`, style: 'system_warning' });
+    // L'outil peut être équipé... ou simplement dans l'inventaire
+    let tool = null;
+    if (player.equipment.weapon?.name === requiredTool) {
+        tool = player.equipment.weapon;
+    } else {
+        for (const key in player.inventory) {
+            const item = player.inventory[key];
+            if (typeof item === 'object' && item.name === requiredTool) { tool = item; break; }
+        }
+    }
+
+    if (!tool) {
+        player.notifications.push({ type: 'chat', message: `Vous avez besoin d'un(e) ${requiredTool}.`, style: 'system_warning' });
         return;
     }
 
@@ -505,12 +750,18 @@ export function fishOnTile(player, action) {
         player.notifications.push({ type: 'chat', message: "Ça ne mord pas cette fois...", style: 'system_info' });
     }
 
-    // Gérer la durabilité de l'outil (simplifié)
-    if (tool.durability) {
-        tool.durability--;
-        if (tool.durability <= 0) {
-            player.equipment.weapon = null;
-            player.notifications.push({ type: 'chat', message: `${tool.name} s'est cassé !`, style: 'damage' });
+    // Gérer la durabilité de l'outil
+    if (tool.currentDurability !== undefined) {
+        tool.currentDurability--;
+        if (tool.currentDurability <= 0) {
+            if (player.equipment.weapon === tool) {
+                player.equipment.weapon = null;
+            } else {
+                for (const key in player.inventory) {
+                    if (player.inventory[key] === tool) { delete player.inventory[key]; break; }
+                }
+            }
+            player.notifications.push({ type: 'chat', message: `${tool.name} s'est cassé(e) !`, style: 'damage' });
         }
     }
 }
@@ -598,11 +849,22 @@ export function getAvailableActions(player) {
     if (!player || !gameState.map) return availableActions;
 
     const tile = gameState.map[player.y]?.[player.x];
-    console.log('Current tile for action check:', tile); // DEBUG
     if (!tile) return availableActions;
 
+    // Combat : un ennemi rôde sur cette case
+    const enemyHere = gameState.enemies.find(e => e.x === player.x && e.y === player.y);
+    if (enemyHere && !player.combatState) {
+        availableActions.push({ id: ACTIONS.INITIATE_COMBAT, name: `⚔️ Attaquer ${enemyHere.name}` });
+    }
+
+    // PNJ : un survivant est là
+    const npcHere = gameState.npcs.find(n => n.x === player.x && n.y === player.y);
+    if (npcHere) {
+        availableActions.push({ id: ACTIONS.TALK_TO_NPC, name: `💬 Parler à ${npcHere.name}` });
+    }
+
     // Search Zone
-    if (['Forêt', 'Plage', 'Plaine'].includes(tile.type.name)) {
+    if (['Forêt', 'Plage', 'Plaine', 'Friche'].includes(tile.type.name) && (tile.searchActionsLeft === undefined || tile.searchActionsLeft > 0)) {
         availableActions.push({ id: ACTIONS.SEARCH_ZONE, name: 'Fouiller la zone' });
     }
 
@@ -625,9 +887,37 @@ export function getAvailableActions(player) {
     if (tile.type.name === 'Mine (Terrain)' && tile.harvests > 0) {
         availableActions.push({ id: ACTIONS.HARVEST_STONE, name: 'Récolter de la pierre' });
     }
+    // Minerai : action propre au terrain (ex : Mine)
+    if (tile.type.action && tile.type.action.id && tile.type.action.name) {
+        availableActions.push({ id: tile.type.action.id, name: tile.type.action.name });
+    }
     if (tile.type.name === 'Plage') {
         availableActions.push({ id: ACTIONS.HARVEST_SAND, name: 'Récolter du sable' });
         availableActions.push({ id: ACTIONS.HARVEST_SALT_WATER, name: "Prendre de l'eau salée" });
+
+        // Pêche (canne ou filet, équipé ou dans le sac)
+        const hasTool = (name) => player.equipment.weapon?.name === name ||
+            Object.values(player.inventory).some(it => typeof it === 'object' && it.name === name);
+        if (hasTool('Canne à pêche')) availableActions.push({ id: ACTIONS.FISH, name: '🎣 Pêcher (Canne)' });
+        if (hasTool('Filet de pêche')) availableActions.push({ id: ACTIONS.NET_FISH, name: '🕸️ Pêcher (Filet)' });
+
+        // Signal de détresse : LA porte de sortie de l'île !
+        const hasSignal = Object.values(player.inventory).some(it => {
+            const n = typeof it === 'object' ? it.name : null;
+            return n === 'Fusée de détresse' || n === 'Pistolet de détresse';
+        }) || player.inventory['Fusée de détresse'] || player.inventory['Pistolet de détresse'] ||
+            ['Fusée de détresse', 'Pistolet de détresse'].includes(player.equipment.weapon?.name);
+        if (hasSignal && !gameState.victory) {
+            availableActions.push({ id: ACTIONS.FIRE_DISTRESS_FLARE, name: '🎆 Tirer le signal de détresse !' });
+        }
+    }
+
+    // Plantation / régénération
+    if (['PLAINS', 'WASTELAND'].includes(tile.key) && (player.inventory["Graine d'arbre"] || 0) >= 1) {
+        availableActions.push({ id: ACTIONS.PLANT_TREE, name: '🌱 Planter un arbre' });
+    }
+    if (tile.key === 'WASTELAND') {
+        availableActions.push({ id: ACTIONS.REGENERATE_FOREST, name: '🌳 Régénérer la forêt (5 Eau pure, 10 Graines)' });
     }
 
     // Build
@@ -733,6 +1023,12 @@ export function updatePlayerState(player, deltaTime) {
         }
     }
 
+    // Régénération passive : bien nourri et hydraté, le corps récupère doucement
+    if (player.health > 0 && player.health < player.maxHealth &&
+        player.hunger > player.maxHunger * 0.5 && player.thirst > player.maxThirst * 0.5) {
+        player.health = Math.min(player.maxHealth, player.health + 0.03 * secondsPassed);
+    }
+
     // Mort et réapparition au camp de départ
     if (player.health <= 0) {
         respawnPlayer(player);
@@ -744,6 +1040,7 @@ export function updatePlayerState(player, deltaTime) {
  * @param {object} player - Le joueur à faire réapparaître.
  */
 function respawnPlayer(player) {
+    if (player.combatState) endCombat(player, false); // Sortir du combat en cours
     player.deaths = (player.deaths || 0) + 1;
     player.x = 10;
     player.y = 10;

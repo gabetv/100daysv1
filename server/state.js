@@ -1,6 +1,8 @@
 // server/state.js
 
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from '../public/js/config.js';
+import { initNpcs } from './npc.js';
+import { initEnemies } from './enemy.js';
 
 export let gameState = {};
 
@@ -10,8 +12,9 @@ export let gameState = {};
  */
 export function initializeGameState(config) {
     console.log("Initializing game state...");
+    const map = generateMap(config.MAP_WIDTH, config.MAP_HEIGHT);
     gameState = {
-        map: generateMap(config.MAP_WIDTH, config.MAP_HEIGHT),
+        map: map,
         players: {},
         npcs: [],
         enemies: [],
@@ -19,7 +22,7 @@ export function initializeGameState(config) {
         day: 1,
         time: 0,
         config: config,
-        combatState: null,
+        victory: null,
         knownRecipes: {}, // Recettes connues par tous les joueurs
         tutorialState: {
             active: false,
@@ -29,7 +32,10 @@ export function initializeGameState(config) {
             welcomeMessageShown: false,
         }
     };
-    // Initialiser quelques PNJ et ennemis si nécessaire
+    // Peupler l'île : survivants PNJ et premiers dangers
+    gameState.npcs = initNpcs(config, map);
+    gameState.enemies = initEnemies(config, map);
+    console.log(`Spawned ${gameState.npcs.length} NPCs and ${gameState.enemies.length} enemies.`);
 }
 
 // --- Mise à jour quotidienne ---
@@ -47,7 +53,7 @@ export async function dailyUpdate() {
 
     // Condition de victoire : survivre 100 jours
     if (gameState.day >= CONFIG.VICTORY_DAY) {
-        gameState.victory = true;
+        gameState.victory = { type: 'survival', day: gameState.day, by: null };
         Object.values(gameState.players).forEach(player => {
             player.notifications.push({ type: 'chat', message: `🏆 VICTOIRE ! Vous avez survécu ${CONFIG.VICTORY_DAY} jours ! Les secours arrivent enfin...`, style: 'gain' });
         });
@@ -100,7 +106,8 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         maxSleep: 20,
         inventory: { // Inventaire de départ
             'Hache': { name: 'Hache', durability: 50, currentDurability: 50 },
-            'Eau pure': 2,
+            'Canne à pêche': { name: 'Canne à pêche', durability: 10, currentDurability: 10 },
+            'Eau pure': 3,
             'Viande cuite': 2
         },
         maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
@@ -180,6 +187,10 @@ export function serializePlayer(player) {
  * @param {string} playerId - L'ID du joueur à retirer.
  */
 export function removePlayer(playerId) {
+    const player = gameState.players[playerId];
+    if (player && player.combatState) {
+        endCombat(player, false); // Libérer l'ennemi si le joueur était en combat
+    }
     delete gameState.players[playerId];
     console.log(`Player ${playerId} removed from the game.`);
 }
@@ -287,36 +298,64 @@ function generateMap(width, height) {
     return map;
 }
 
+/**
+ * Démarre un combat entre UN joueur et un ennemi (chaque joueur a son propre combat).
+ */
 export function startCombat(player, enemy) {
-    if (gameState.combatState) return; // Un combat est déjà en cours
+    if (player.combatState) return; // Ce joueur est déjà en combat
+    if (enemy.inCombatWith && gameState.players[enemy.inCombatWith]) {
+        player.notifications.push({ type: 'chat', message: `${enemy.name} est déjà aux prises avec un autre survivant !`, style: 'system_warning' });
+        return;
+    }
 
-    player.isBusy = true;
-    gameState.combatState = {
-        playerId: player.id,
+    enemy.inCombatWith = player.id;
+    player.combatState = {
         enemyId: enemy.id,
-        log: [`Un ${enemy.name} sauvage apparaît !`],
-        isPlayerTurn: true,
+        enemy: {
+            name: enemy.name,
+            icon: enemy.icon,
+            health: enemy.health,
+            currentHealth: enemy.currentHealth,
+            damage: enemy.damage,
+        },
+        turn: 'player',
+        log: [`Un ${enemy.name} sauvage vous attaque !`],
     };
 
     player.notifications.push({ 
         type: 'chat', 
-        message: `Vous entrez en combat avec ${enemy.name} !`, 
+        message: `⚔️ Vous entrez en combat avec ${enemy.name} !`, 
         style: 'combat_start' 
     });
 }
 
-export function endCombat(playerWon) {
-    if (!gameState.combatState) return;
+export function endCombat(player, playerWon) {
+    if (!player || !player.combatState) return;
 
-    const player = gameState.players[gameState.combatState.playerId];
-    if (player) {
-        player.isBusy = false;
-    }
+    const enemyId = player.combatState.enemyId;
+    const enemy = gameState.enemies.find(e => e.id === enemyId);
+    if (enemy) enemy.inCombatWith = null;
 
     if (playerWon) {
         // Supprimer l'ennemi seulement si le joueur a gagné
-        gameState.enemies = gameState.enemies.filter(e => e.id !== gameState.combatState.enemyId);
+        gameState.enemies = gameState.enemies.filter(e => e.id !== enemyId);
     }
 
-    gameState.combatState = null;
+    player.combatState = null;
+}
+
+/**
+ * Fin de partie : un survivant a alerté les secours (fusée / pistolet de détresse).
+ */
+export function triggerRescueVictory(player) {
+    if (gameState.victory) return;
+    gameState.victory = {
+        type: 'rescue',
+        by: player.name,
+        day: gameState.day,
+    };
+    Object.values(gameState.players).forEach(p => {
+        p.notifications.push({ type: 'chat', message: `🚁 ${player.name} a alerté les secours ! Un hélicoptère approche... VOUS ÊTES SAUVÉS !`, style: 'gain' });
+    });
+    console.log(`RESCUE VICTORY triggered by ${player.name} on day ${gameState.day}`);
 }

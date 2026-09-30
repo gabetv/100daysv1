@@ -287,7 +287,7 @@ export function drawSceneCharacters(gameState) {
     }
 
     // Dessiner les ennemis (simplifié, comme un "sprite" de texte)
-    const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !gameState.combatState); // Ne pas afficher si en combat
+    const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !player.combatState); // Ne pas afficher si en combat
     if (visibleEnemies.length > 0) {
         const enemy = visibleEnemies[0]; // Afficher le premier ennemi sur la tuile
         const enemyX = canvasWidth / 2; // Centré

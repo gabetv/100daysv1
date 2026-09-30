@@ -109,12 +109,67 @@ export function sendAction(actionId, data) {
 
 window.handleGlobalPlayerAction = sendAction;
 
+let combatModalVisible = false;
+let victoryShown = false;
+
 function fullUIUpdate() {
     if (!gameState || !gameState.player) return;
     UI.updateAllUI(gameState);
     UI.renderScene(gameState);
+
+    // --- Combat : afficher/mettre à jour/fermer la modale ---
+    const combatState = gameState.player.combatState;
+    if (combatState) {
+        if (!combatModalVisible) {
+            UI.showCombatModal(combatState);
+            combatModalVisible = true;
+        } else {
+            UI.updateCombatUI(combatState);
+        }
+    } else if (combatModalVisible) {
+        UI.hideCombatModal();
+        combatModalVisible = false;
+    }
+
+    // --- Fin de partie : écran de victoire ---
+    if (gameState.victory && !victoryShown) {
+        victoryShown = true;
+        showVictoryScreen(gameState.victory, gameState.player);
+    }
 }
 window.fullUIUpdate = fullUIUpdate;
+
+function showVictoryScreen(victory, player) {
+    const overlay = document.getElementById('victory-overlay');
+    if (!overlay) return;
+
+    const title = document.getElementById('victory-title');
+    const message = document.getElementById('victory-message');
+    const stats = document.getElementById('victory-stats');
+
+    if (victory.type === 'rescue') {
+        if (title) title.textContent = '🚁 SAUVÉS !';
+        if (message) message.textContent = `${victory.by} a tiré un signal de détresse depuis la plage. Un hélicoptère vous ramène à la civilisation !`;
+    } else {
+        if (title) title.textContent = '🏆 VICTOIRE !';
+        if (message) message.textContent = `Vous avez survécu ${victory.day} jours sur l'île. Les secours vous ont enfin repérés !`;
+    }
+    if (stats) {
+        stats.innerHTML = '';
+        const lines = [
+            `⛺ Jours survécus : ${victory.day}`,
+            `💀 Nombre de morts : ${player.deaths || 0}`,
+            `🎒 Objets dans le sac : ${Object.keys(player.inventory || {}).length}`,
+            `🗺️ Cases explorées : ${player.visitedTiles ? (player.visitedTiles.size || player.visitedTiles.length || 0) : 0}`,
+        ];
+        lines.forEach(l => {
+            const p = document.createElement('p');
+            p.textContent = l;
+            stats.appendChild(p);
+        });
+    }
+    overlay.classList.remove('hidden');
+}
 
 function setupEventListeners() {
     document.querySelectorAll('.nav-button-overlay').forEach(button => {

@@ -190,16 +190,24 @@ export function updateCombatUI(combatState) {
     if (!window.gameState || !window.gameState.player) return;
     const player = window.gameState.player;
     const { enemy, turn, log } = combatState;
+    if (!enemy) return;
 
-    if(combatEnemyName) combatEnemyName.textContent = enemy.name;
-    if(combatEnemyHealthBar) combatEnemyHealthBar.style.width = `${(enemy.currentHealth / enemy.health) * 100}%`;
-    if(combatEnemyHealthText) combatEnemyHealthText.textContent = `${enemy.currentHealth} / ${enemy.health}`;
-    if(combatPlayerHealthBar) combatPlayerHealthBar.style.width = `${(player.health / player.maxHealth) * 100}%`;
-    if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${player.health} / ${player.maxHealth}`;
-    if(combatLogEl) combatLogEl.innerHTML = log.map(msg => `<p>${msg}</p>`).join('');
+    if(combatEnemyName) combatEnemyName.textContent = `${enemy.icon || ''} ${enemy.name}`;
+    if(combatEnemyHealthBar) combatEnemyHealthBar.style.width = `${Math.max(0, (enemy.currentHealth / enemy.health) * 100)}%`;
+    if(combatEnemyHealthText) combatEnemyHealthText.textContent = `${Math.max(0, Math.ceil(enemy.currentHealth))} / ${enemy.health}`;
+    if(combatPlayerHealthBar) combatPlayerHealthBar.style.width = `${Math.max(0, (player.health / player.maxHealth) * 100)}%`;
+    if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${Math.max(0, Math.ceil(player.health))} / ${player.maxHealth}`;
+    if(combatLogEl) {
+        combatLogEl.innerHTML = '';
+        (log || []).slice(0, 15).forEach(msg => {
+            const p = document.createElement('p');
+            p.textContent = msg;
+            combatLogEl.appendChild(p);
+        });
+    }
     
     if (combatActionsEl) {
-        const isPlayerTurn = turn === player.id;
+        const isPlayerTurn = turn === 'player';
         combatActionsEl.innerHTML = `<button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button><button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>`;
         if (isPlayerTurn) {
             document.getElementById('combat-attack-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'attack' }));

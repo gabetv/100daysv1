@@ -101,15 +101,15 @@ export function updateAllUI(gameState) {
        DrawModule.drawMinimap(gameState, gameState.config);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
     // Mise à jour de l'affichage HUD en haut à gauche
-    const dayDisplay = document.getElementById('day-display');
-    const timeDisplay = document.getElementById('time-display');
     const positionDisplayNav = document.getElementById('position-display-nav');
+    const positionDisplay = document.getElementById('position-display');
+    const timeDisplay = document.getElementById('time-display');
+    const onlineCount = Object.keys(gameState.players || {}).length;
 
-    if (dayDisplay) dayDisplay.textContent = `Jour: ${day}`;
     if (positionDisplayNav) positionDisplayNav.textContent = `Position: (${player.x}, ${player.y})`;
-});
+    if (positionDisplay) positionDisplay.textContent = `Position: (${player.x}, ${player.y})`;
+    if (timeDisplay) timeDisplay.textContent = `👥 ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
 }
 
 /**

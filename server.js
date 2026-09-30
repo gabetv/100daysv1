@@ -8,10 +8,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Importations du code serveur
-import { initializeGameState, addNewPlayer, removePlayer, gameState, dailyUpdate, serializePlayer } from './server/state.js';
+import { initializeGameState, addNewPlayer, removePlayer, gameState, dailyUpdate, serializePlayer, startCombat } from './server/state.js';
 import { handlePlayerAction } from './server/interactions.js';
 import { getAvailableActions, updatePlayerState } from './server/player.js'; // Import the new function
 import { updateNpcs } from './server/npc.js';
+import { updateEnemies } from './server/enemy.js';
 import { CONFIG } from './server/config.js';
 
 // Configuration des chemins
@@ -192,6 +193,7 @@ function gameLoop() {
     const deltaTime = now - lastUpdateTime;
     lastUpdateTime = now;
     updateNpcs(deltaTime);
+    updateEnemies(deltaTime, startCombat);
 
     // Mettre à jour l'état de chaque joueur (faim, soif, etc.)
     for (const playerId in gameState.players) {
