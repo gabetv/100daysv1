@@ -2720,3 +2720,45 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
     #combat-actions button { min-height: 48px; }
     #combat-actions #combat-flee-btn { order: 3; }
 }
+
+/* Correctif interaction : aucun calque décoratif ne doit intercepter les clics
+   au-dessus des panneaux ou des modales. */
+#inventory-modal:not(.hidden), #quantity-modal:not(.hidden),
+#combat-modal:not(.hidden), #equipment-modal:not(.hidden),
+#build-modal:not(.hidden), #workshop-modal:not(.hidden),
+#lock-modal:not(.hidden), #chest-modal:not(.hidden),
+#large-map-modal:not(.hidden) {
+    pointer-events: auto !important;
+}
+#inventory-modal-content, #quantity-modal-content, #combat-modal-content,
+#equipment-modal-content, #build-modal-content, #workshop-modal-content,
+#lock-modal-content, #chest-modal-content, #large-map-content-wrapper {
+    position: relative;
+    z-index: 1;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+}
+#inventory-modal-content button, #quantity-modal-content button,
+#combat-modal-content button, #equipment-modal-content button,
+#build-modal-content button, #workshop-modal-content button,
+#lock-modal-content button, #chest-modal-content button,
+#large-map-content-wrapper button,
+#inventory-modal-content input, #quantity-modal-content input,
+#workshop-modal-content input, #lock-modal-content input {
+    pointer-events: auto !important;
+    touch-action: manipulation;
+}
+/* Les feuilles mobiles passent explicitement devant leur voile. */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    body.sheet-open #left-panel.sheet-active,
+    body.sheet-open #right-panel.sheet-active,
+    body.sheet-open #bottom-bar-chat-panel.sheet-active,
+    body.sheet-open #minimap-section.sheet-active,
+    body.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        z-index: 3001 !important;
+        pointer-events: auto !important;
+        isolation: isolate;
+    }
+    body.sheet-open #mobile-sheet-backdrop { z-index: 2900; }
+    #mobile-tabbar { z-index: 4000; pointer-events: auto !important; }
+}
