@@ -1,5 +1,6 @@
 // js/ui/draw.js
 import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
+import { getItemImage } from './icons.js';
 import DOM from './dom.js';
 
 const loadedAssets = {};
@@ -423,12 +424,18 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
         ctx.save();
         ctx.translate(handX + 4 * s, handY - 2 * s);
         ctx.rotate(-0.35 + walk * 0.18);
-        ctx.font = `${Math.round(20 * s)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
         ctx.shadowBlur = 4 * s;
-        ctx.fillText(wDef.icon || '🔧', 0, 0);
+        const wImg = getItemImage(equip.weapon.name);
+        if (wImg) {
+            const sizeW = 30 * s;
+            ctx.drawImage(wImg, -sizeW / 2, -sizeW / 2, sizeW, sizeW);
+        } else {
+            ctx.font = `${Math.round(20 * s)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(wDef.icon || '🔧', 0, 0);
+        }
         ctx.restore();
     }
 
