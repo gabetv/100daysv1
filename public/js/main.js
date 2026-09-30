@@ -202,6 +202,21 @@ window.handleGlobalPlayerAction = sendAction;
 let combatModalVisible = false;
 let victoryShown = false;
 let lastKnownHealth = null;
+
+// Redémarre une partie depuis l'écran de victoire sans devoir vider la sauvegarde
+// ou fermer l'onglet. Le serveur recrée le monde pour tous les joueurs connectés.
+window.restartGame = function restartGame() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        window.location.href = '/';
+        return;
+    }
+    const button = document.getElementById('victory-menu-btn');
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Nouvelle partie…';
+    }
+    ws.send(JSON.stringify({ id: 'restart_game' }));
+};
 let tutorialInitialized = false;
 
 // Traduit les notifications du serveur en effets sonores
@@ -261,6 +276,10 @@ function fullUIUpdate() {
     }
 
     // --- Fin de partie : écran de victoire ---
+    if (!gameState.victory && victoryShown) {
+        victoryShown = false;
+        document.getElementById('victory-overlay')?.classList.add('hidden');
+    }
     if (gameState.victory && !victoryShown) {
         victoryShown = true;
         sfx('victory');

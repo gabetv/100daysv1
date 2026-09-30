@@ -169,6 +169,18 @@ wss.on('connection', (ws) => {
                 return;
             }
 
+            // Une partie gagnée doit pouvoir être rejouée sans rester bloquée sur
+            // le monde sauvegardé avec victory=true. Le redémarrage est volontaire
+            // et recrée le monde partagé, puis reconnecte le joueur demandeur.
+            if (action.id === 'restart_game') {
+                initializeGameState(CONFIG);
+                addNewPlayer(playerId, ws.username || null);
+                saveWorld();
+                const stateToSend = JSON.stringify({ type: 'gameState', payload: gameState }, (key, value) => value instanceof Set ? Array.from(value) : value);
+                broadcastToClients(stateToSend);
+                return;
+            }
+
             // Filet de sécurité : client qui n'a pas envoyé 'join' (ancienne version)
             if (!gameState.players[playerId]) addNewPlayer(playerId);
 
