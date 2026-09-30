@@ -6,13 +6,28 @@
     <meta name="theme-color" content="#0c1720">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="screen-orientation" content="landscape">
     <title>Île des 100 Jours</title>
+    <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="game-shell.css">
 </head>
-<body>
+<body class="game-screen">
+    <aside id="orientation-gate" aria-labelledby="orientation-title" aria-live="polite">
+        <div class="orientation-card">
+            <span class="orientation-kicker">MODE EXPÉDITION</span>
+            <img src="/assets/ui/rotate-landscape.png" alt="Téléphone tourné en mode paysage" width="192" height="128">
+            <h1 id="orientation-title">Tourne ton téléphone</h1>
+            <p>Cette île se joue en paysage : la scène reste visible pendant que tu explores, récoltes et fabriques.</p>
+            <button id="enter-landscape-button" type="button">Passer en plein écran</button>
+            <button id="continue-portrait-button" type="button">Continuer quand même</button>
+            <small id="orientation-lock-status">Le verrouillage dépend de ton navigateur.</small>
+        </div>
+    </aside>
+
     <div id="game-container">
         <div id="main-area">
             <!-- ### PANNEAU DE GAUCHE ### -->
@@ -39,6 +54,20 @@
                     <canvas id="main-view-canvas" aria-label="Paysage de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
                     
                     <div id="main-view-overlay">
+                        <div id="mobile-vitals" aria-label="Jauges de survie">
+                            <button class="mobile-vital" data-vital="health" type="button" aria-label="Ouvrir le statut : santé">
+                                <img src="/assets/icons/heart.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                            </button>
+                            <button class="mobile-vital" data-vital="thirst" type="button" aria-label="Ouvrir le statut : soif">
+                                <img src="/assets/icons/waterdrop.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                            </button>
+                            <button class="mobile-vital" data-vital="hunger" type="button" aria-label="Ouvrir le statut : faim">
+                                <img src="/assets/icons/drumstick.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                            </button>
+                            <button class="mobile-vital" data-vital="sleep" type="button" aria-label="Ouvrir le statut : sommeil">
+                                <img src="/assets/icons/moon.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                            </button>
+                        </div>
                         <section id="tile-info-hud" aria-live="polite" aria-label="Lieu actuel">
                             <span class="context-kicker">VOUS ÊTES ICI</span>
                             <h3 id="scene-context-title"><span class="tile-name-icon">🏝️</span> Île inconnue</h3>
@@ -48,9 +77,13 @@
                                 <span id="position-display">(0, 0)</span>
                             </div>
                         </section>
+                        <section id="objectives-hud" aria-label="Objectifs">
+                            <h4 id="objectives-hud-title"><span><img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes</span> <span id="objectives-toggle">▾</span></h4>
+                            <ul id="objectives-list"></ul>
+                        </section>
                         <div id="navigation-edge-panel">
                             <div id="game-info-hud">
-                                <p id="day-display">Jour 1 / 100 <button id="sound-toggle" title="Couper le son">🔊</button></p>
+                                <p id="day-display"><span id="day-counter-text">Jour 1 / 100</span><button id="sound-toggle" title="Couper le son" aria-label="Couper ou réactiver le son">🔊</button></p>
                                 <p id="event-display" style="display:none;">🌩️ Événement</p>
                                 <p id="daytime-display" data-phase="jour">☀️ Jour</p>
                                 <p id="level-display">⭐ Niveau 1</p>
@@ -68,12 +101,12 @@
                             <button class="nav-button-overlay" id="nav-south" title="Sud">↓</button>
                             <button class="nav-button-overlay" id="nav-se" title="Sud-Est">↘</button>
                         </div>
-                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici"><span class="screen-action-icon">✦</span><span id="screen-action-label">Actions ici</span><span id="screen-action-count" class="action-count-badge">0</span></button>
-                        <div id="central-actions-panel" class="hidden">
-                            <button class="central-action-button" data-action="build" title="Construire">🛠️</button>
-                            <button class="central-action-button" data-action="harvest" title="Récolter">🪓</button>
-                            <button class="central-action-button" data-action="search" title="Fouiller">🔍</button>
-                            <button class="central-action-button" data-action="interact" title="Interagir">🤝</button>
+                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici"><img class="screen-action-icon" src="/assets/ui/action-burst.png" alt=""><span id="screen-action-label">Actions ici</span><span id="screen-action-count" class="action-count-badge">0</span></button>
+                        <div id="central-actions-panel" class="hidden" aria-label="Actions rapides">
+                            <button class="central-action-button" data-action="build" title="Construire"><img src="/assets/icons/tile_etabli.png" alt=""></button>
+                            <button class="central-action-button" data-action="harvest" title="Récolter"><img src="/assets/icons/axe.png" alt=""></button>
+                            <button class="central-action-button" data-action="search" title="Fouiller"><img src="/assets/icons/magnifier.png" alt=""></button>
+                            <button class="central-action-button" data-action="interact" title="Interagir"><img src="/assets/icons/compass.png" alt=""></button>
                         </div>
                     </div>
                 </div>
@@ -81,11 +114,7 @@
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <!-- Les objectifs restent dans le panneau latéral : ils ne recouvrent plus la scène. -->
-                <section id="objectives-hud" aria-label="Objectifs">
-                    <h4 id="objectives-hud-title"><span>🎯 Quêtes</span> <span id="objectives-toggle">▾</span></h4>
-                    <ul id="objectives-list"></ul>
-                </section>
+                <div class="panel-identity"><span>COMMANDES</span><small>Choisis ton prochain geste</small></div>
                 <div id="right-panel-tabs">
                     <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
                     <button class="tab-button active" data-tab="actions-tab">Actions</button>

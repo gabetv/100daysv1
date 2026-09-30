@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "generate:ui": "node scripts/generate_ui_assets.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

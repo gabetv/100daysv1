@@ -1,0 +1,19 @@
+{
+  "name": "Île des 100 Jours",
+  "short_name": "100 Jours",
+  "description": "Survie coopérative sur une île vivante.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#06171e",
+  "theme_color": "#0b2028",
+  "icons": [
+    {
+      "src": "/assets/icons/island.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

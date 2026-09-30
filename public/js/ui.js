@@ -90,6 +90,7 @@ export const highlightElement = TutorialModule.highlightElement;
 
 // Depuis ./ui/mobile.js
 export const initMobileUI = MobileModule.initMobileUI;
+export const initOrientationExperience = MobileModule.initOrientationExperience;
 export const openMobileTab = MobileModule.openTab;
 export const closeMobileSheets = MobileModule.closeSheets;
 export const isMobileLayout = MobileModule.isMobileLayout;
@@ -132,7 +133,7 @@ export function updateAllUI(gameState) {
 
     if (positionDisplayNav) positionDisplayNav.textContent = `Position: (${player.x}, ${player.y})`;
     if (positionDisplay) positionDisplay.textContent = `Position: (${player.x}, ${player.y})`;
-    if (timeDisplay) timeDisplay.textContent = `👥 ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
+    if (timeDisplay) timeDisplay.textContent = `● ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
 
     // Niveau & expérience
     const levelDisplay = document.getElementById('level-display');
@@ -140,7 +141,7 @@ export function updateAllUI(gameState) {
     const level = player.level || 1;
     const xp = Math.floor(player.xp || 0);
     const xpNeeded = level * 25;
-    if (levelDisplay) levelDisplay.textContent = `⭐ Niveau ${level} · ${xp}/${xpNeeded} XP`;
+    if (levelDisplay) levelDisplay.textContent = `Niv. ${level} · ${xp}/${xpNeeded} XP`;
     if (xpBar) xpBar.style.width = `${Math.min(100, (xp / xpNeeded) * 100)}%`;
 
     // Panneau d'objectifs
@@ -177,7 +178,7 @@ function updateObjectivesPanel(player) {
     const title = document.getElementById('objectives-hud-title');
     if (title && hud) {
         const isCollapsed = hud.classList.contains('collapsed');
-        title.innerHTML = `<span>🎯 Quêtes (${doneCount}/${total})</span><span id="objectives-toggle">${isCollapsed ? '▸' : '▾'}</span>`;
+        title.innerHTML = `<span><img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes (${doneCount}/${total})</span><span id="objectives-toggle">${isCollapsed ? '▸' : '▾'}</span>`;
     }
 }
 
