@@ -86,119 +86,376 @@ export function drawMainBackground(gameState) {
     }
 }
 
-function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0) {
-    const headRadius = 15;
-    const bodyWidth = 28;
-    const bodyHeight = 40;
-    const legHeight = 20;
-    const legWidth = 10;
-    const armWidth = 8;
-    const armHeight = 38;
+// --- Utilitaires de style pour les personnages ---
+const SKIN_TONES = ['#f2cba3', '#e0ac7e', '#c68a5f', '#a3653f', '#7d4a2b', '#f7dcc0'];
+const HAIR_COLORS = ['#2b1d16', '#4a2c18', '#7a4a21', '#b5651d', '#d9b382', '#8c8c8c', '#1a1a1a'];
+const HAIR_STYLES = ['short', 'bun', 'long', 'cap', 'bald', 'mohawk'];
+
+function hashString(str) {
+    let h = 0;
+    const s = String(str || 'survivant');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h;
+}
+
+function characterLook(character) {
+    if (character._look) return character._look;
+    const h = hashString(character.id || character.name || character.color);
+    const look = {
+        skin: SKIN_TONES[h % SKIN_TONES.length],
+        hair: HAIR_COLORS[(h >> 3) % HAIR_COLORS.length],
+        style: HAIR_STYLES[(h >> 6) % HAIR_STYLES.length],
+        beard: ((h >> 9) % 4) === 0,
+        phase: (h % 100) / 100,
+    };
+    try { Object.defineProperty(character, '_look', { value: look, enumerable: false }); } catch (_) {}
+    return look;
+}
+
+function shadeColor(hex, amount) {
+    const c = String(hex || '#888888').replace('#', '');
+    const full = c.length === 3 ? c.split('').map(x => x + x).join('') : c.padEnd(6, '8');
+    const num = parseInt(full.slice(0, 6), 16);
+    const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
+    const r = clamp(((num >> 16) & 255) + amount);
+    const g = clamp(((num >> 8) & 255) + amount);
+    const b = clamp((num & 255) + amount);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function roundedRectPath(ctx, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+}
+
+function limb(ctx, x1, y1, x2, y2, width, color, outline) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = width + 2.5;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+}
+
+function drawSpeechBubble(ctx, x, topY, text, scale) {
+    ctx.save();
+    const fontSize = Math.max(11, 14 * scale);
+    ctx.font = `600 ${fontSize}px Poppins, sans-serif`;
+    const maxWidth = 220 * scale;
+
+    // Découpage du texte en lignes
+    const words = String(text).split(' ');
+    const lines = [];
+    let line = '';
+    words.forEach(w => {
+        const test = line ? line + ' ' + w : w;
+        if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
+        else line = test;
+    });
+    if (line) lines.push(line);
+    const displayed = lines.slice(0, 3);
+
+    const padX = 12 * scale, padY = 8 * scale, lh = fontSize * 1.25;
+    const bw = Math.max(...displayed.map(l => ctx.measureText(l).width)) + padX * 2;
+    const bh = displayed.length * lh + padY * 2;
+    const bx = x - bw / 2;
+    const by = topY - bh - 12 * scale;
+
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 10 * scale;
+    ctx.fillStyle = 'rgba(12, 26, 35, 0.92)';
+    roundedRectPath(ctx, bx, by, bw, bh, 10 * scale);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x - 7 * scale, by + bh - 1);
+    ctx.lineTo(x, by + bh + 9 * scale);
+    ctx.lineTo(x + 7 * scale, by + bh - 1);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(12, 26, 35, 0.92)';
+    ctx.fill();
+
+    ctx.fillStyle = '#eaf6fb';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    displayed.forEach((l, i) => ctx.fillText(l, x, by + padY + lh * (i + 0.5)));
+    ctx.restore();
+}
+
+/**
+ * Dessine un personnage complet (joueur, autre joueur ou PNJ).
+ * Le rendu est mis à l'échelle en fonction de la hauteur du canvas afin de rester
+ * lisible sur mobile comme sur grand écran.
+ */
+function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
+    const look = characterLook(character);
+    const s = scale;
+    const outline = 'rgba(10, 18, 24, 0.85)';
+    const cloth = character.color || '#4f8fbf';
+    const clothDark = shadeColor(cloth, -45);
+    const clothLight = shadeColor(cloth, 35);
+    const pants = shadeColor(look.hair, 10);
+
+    // Dimensions de base (à l'échelle)
+    const headR = 15 * s;
+    const bodyW = 30 * s;
+    const bodyH = 42 * s;
+    const legLen = 26 * s;
+    const armLen = 30 * s;
+
+    const t = Date.now() / 1000;
+    const moving = animationProgress > 0;
+    const walk = moving ? Math.sin(animationProgress * Math.PI * 4) : 0;
+    const breathe = Math.sin((t + look.phase * 6) * 1.6) * 1.2 * s;
+    const bob = moving ? Math.abs(Math.sin(animationProgress * Math.PI * 4)) * 3 * s : 0;
+
+    // y = position des pieds
+    const feetY = y + legLen;
+    const hipY = y - bob + breathe * 0.3;
+    const bodyBottomY = hipY;
+    const bodyTopY = hipY - bodyH;
+    const shoulderY = bodyTopY + 8 * s;
+    const headCY = bodyTopY - headR + 3 * s + breathe * 0.5;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-    ctx.lineWidth = 3;
-    ctx.fillStyle = character.color;
 
-    // Animation de marche
-    const walkCycle = Math.sin(animationProgress * Math.PI * 2); // Cycle de -1 à 1
-    const legOffset = walkCycle * 5;
-    const armOffset = walkCycle * 4;
-
-    // Position de base
-    const bodyTopY = y - bodyHeight / 2;
-    const bodyBottomY = y + bodyHeight / 2;
-
-    // Bras (derrière le corps)
-    ctx.fillStyle = '#d2b48c'; // Couleur peau
-    // Bras gauche
+    // --- Ombre portée ---
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.ellipse(x - bodyWidth / 2 + armWidth / 2, bodyTopY + armHeight / 2, armWidth / 2, armHeight / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, feetY + 3 * s, bodyW * 0.62, 7 * s, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
-    // Bras droit
-    ctx.beginPath();
-    ctx.ellipse(x + bodyWidth / 2 - armWidth / 2, bodyTopY + armHeight / 2, armWidth / 2, armHeight / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.restore();
 
+    // --- Jambes ---
+    const legSwing = walk * 9 * s;
+    const hipOffset = bodyW * 0.22;
+    limb(ctx, x - hipOffset, hipY, x - hipOffset + legSwing, feetY, 9 * s, pants, outline);
+    limb(ctx, x + hipOffset, hipY, x + hipOffset - legSwing, feetY, 9 * s, pants, outline);
+    // Chaussures
+    ctx.fillStyle = '#3c2b20';
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.5;
+    [[-hipOffset + legSwing, 1], [hipOffset - legSwing, -1]].forEach(([dx, dir]) => {
+        roundedRectPath(ctx, x + dx - 6 * s, feetY - 2 * s, 12 * s + dir * 0, 6 * s, 3 * s);
+        ctx.fill(); ctx.stroke();
+    });
 
-    // Jambes
-    ctx.fillStyle = '#5a3a22'; // Couleur pantalon
-    // Jambe gauche
+    // --- Bras arrière ---
+    const armSwing = walk * 10 * s;
+    limb(ctx, x - bodyW * 0.42, shoulderY, x - bodyW * 0.5 - armSwing * 0.3, shoulderY + armLen - armSwing, 8 * s, clothDark, outline);
+    ctx.fillStyle = look.skin;
     ctx.beginPath();
-    ctx.ellipse(x - bodyWidth / 4, bodyBottomY + legHeight / 2 - legOffset, legWidth / 2, legHeight / 2, 0, 0, Math.PI * 2);
+    ctx.arc(x - bodyW * 0.5 - armSwing * 0.3, shoulderY + armLen - armSwing, 4.5 * s, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
-    // Jambe droite
-    ctx.beginPath();
-    ctx.ellipse(x + bodyWidth / 4, bodyBottomY + legHeight / 2 + legOffset, legWidth / 2, legHeight / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
 
-    // Corps
-    ctx.fillStyle = character.color;
+    // --- Torse ---
+    const grad = ctx.createLinearGradient(x - bodyW / 2, bodyTopY, x + bodyW / 2, bodyBottomY);
+    grad.addColorStop(0, clothLight);
+    grad.addColorStop(0.55, cloth);
+    grad.addColorStop(1, clothDark);
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.ellipse(x, bodyTopY + bodyHeight / 2, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Tête
-    ctx.fillStyle = '#d2b48c'; // Couleur peau
-    ctx.beginPath();
-    ctx.arc(x, bodyTopY - headRadius + 5, headRadius, 0, Math.PI * 2);
+    ctx.moveTo(x - bodyW * 0.42, bodyTopY + 4 * s);
+    ctx.quadraticCurveTo(x - bodyW * 0.56, bodyTopY + bodyH * 0.55, x - bodyW * 0.44, bodyBottomY);
+    ctx.lineTo(x + bodyW * 0.44, bodyBottomY);
+    ctx.quadraticCurveTo(x + bodyW * 0.56, bodyTopY + bodyH * 0.55, x + bodyW * 0.42, bodyTopY + 4 * s);
+    ctx.quadraticCurveTo(x, bodyTopY - 3 * s, x - bodyW * 0.42, bodyTopY + 4 * s);
+    ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // Yeux
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(x - 5, bodyTopY - headRadius + 3, 3, 0, Math.PI * 2); // Oeil gauche
-    ctx.arc(x + 5, bodyTopY - headRadius + 3, 3, 0, Math.PI * 2); // Oeil droit
-    ctx.fill();
-    ctx.fillStyle = 'black';
-    ctx.beginPath();
-    ctx.arc(x - 5, bodyTopY - headRadius + 3, 1.5, 0, Math.PI * 2); // Pupille gauche
-    ctx.arc(x + 5, bodyTopY - headRadius + 3, 1.5, 0, Math.PI * 2); // Pupille droite
+    // Ceinture
+    ctx.fillStyle = '#5a3a22';
+    roundedRectPath(ctx, x - bodyW * 0.46, bodyBottomY - 7 * s, bodyW * 0.92, 6 * s, 2 * s);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#d8b24a';
+    roundedRectPath(ctx, x - 3.5 * s, bodyBottomY - 7 * s, 7 * s, 6 * s, 1.5 * s);
     ctx.fill();
 
-    // Display chat message above head
-    if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) { // Display for 5 seconds
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.font = '14px Poppins';
-        const text = character.chatMessage.text;
-        const textWidth = ctx.measureText(text).width;
-        const bubbleX = x - textWidth / 2 - 10;
-        const bubbleY = y - bodyHeight - 40;
-        const bubbleWidth = textWidth + 20;
-        const bubbleHeight = 25;
+    // Sac à dos (joueur uniquement)
+    if (isPlayer) {
+        ctx.fillStyle = '#6b4a2f';
+        ctx.strokeStyle = outline;
+        roundedRectPath(ctx, x + bodyW * 0.34, bodyTopY + 8 * s, 10 * s, bodyH * 0.55, 4 * s);
+        ctx.fill(); ctx.stroke();
+    }
 
-        // Bubble
+    // --- Bras avant ---
+    limb(ctx, x + bodyW * 0.42, shoulderY, x + bodyW * 0.5 + armSwing * 0.3, shoulderY + armLen + armSwing, 8 * s, cloth, outline);
+    ctx.fillStyle = look.skin;
+    ctx.beginPath();
+    ctx.arc(x + bodyW * 0.5 + armSwing * 0.3, shoulderY + armLen + armSwing, 4.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // --- Cou ---
+    ctx.fillStyle = shadeColor(look.skin, -30);
+    roundedRectPath(ctx, x - 4 * s, bodyTopY - 6 * s, 8 * s, 9 * s, 3 * s);
+    ctx.fill();
+
+    // --- Tête ---
+    ctx.fillStyle = look.skin;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(x, headCY, headR * 0.92, headR, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Ombre du visage
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, headCY, headR * 0.92, headR, 0, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(0,0,0,0.13)';
+    ctx.fillRect(x + headR * 0.25, headCY - headR, headR, headR * 2);
+    ctx.restore();
+
+    // Oreilles
+    ctx.fillStyle = look.skin;
+    ctx.beginPath();
+    ctx.ellipse(x - headR * 0.92, headCY + 1 * s, 2.6 * s, 4 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + headR * 0.92, headCY + 1 * s, 2.6 * s, 4 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cheveux
+    ctx.fillStyle = look.hair;
+    if (look.style !== 'bald') {
         ctx.beginPath();
-        ctx.moveTo(bubbleX + 10, bubbleY);
-        ctx.lineTo(bubbleX + bubbleWidth - 10, bubbleY);
-        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 10);
-        ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 10);
-        ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 10, bubbleY + bubbleHeight);
-        ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
-        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 10);
-        ctx.lineTo(bubbleX, bubbleY + 10);
-        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 10, bubbleY);
-        ctx.closePath();
-        ctx.fill();
+        if (look.style === 'mohawk') {
+            ctx.ellipse(x, headCY - headR * 0.85, headR * 0.22, headR * 0.55, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(x, headCY - headR * 0.35, headR * 0.93, headR * 0.6, 0, Math.PI, 0);
+            ctx.fill();
+        } else if (look.style === 'cap') {
+            ctx.fillStyle = shadeColor(cloth, -25);
+            ctx.beginPath();
+            ctx.ellipse(x, headCY - headR * 0.28, headR * 0.98, headR * 0.72, 0, Math.PI, 0);
+            ctx.fill();
+            roundedRectPath(ctx, x - headR * 1.15, headCY - headR * 0.34, headR * 2.3, 3.4 * s, 2 * s);
+            ctx.fill();
+        } else {
+            ctx.ellipse(x, headCY - headR * 0.22, headR * 0.98, headR * 0.82, 0, Math.PI, 0);
+            ctx.fill();
+            if (look.style === 'long') {
+                ctx.beginPath();
+                ctx.ellipse(x - headR * 0.85, headCY + headR * 0.25, headR * 0.3, headR * 0.85, 0, 0, Math.PI * 2);
+                ctx.ellipse(x + headR * 0.85, headCY + headR * 0.25, headR * 0.3, headR * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (look.style === 'bun') {
+                ctx.beginPath();
+                ctx.arc(x, headCY - headR * 1.05, headR * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
 
-        // Pointer
+    // Yeux (avec clignement)
+    const blink = ((t + look.phase * 5) % 4.2) < 0.12;
+    const eyeY = headCY + 1 * s;
+    const eyeDX = headR * 0.36;
+    if (blink) {
+        ctx.strokeStyle = '#2b2b2b';
+        ctx.lineWidth = 1.6 * s;
         ctx.beginPath();
-        ctx.moveTo(x - 5, bubbleY + bubbleHeight + 5);
-        ctx.lineTo(x, bubbleY + bubbleHeight -1);
-        ctx.lineTo(x + 5, bubbleY + bubbleHeight + 5);
-        ctx.closePath();
+        ctx.moveTo(x - eyeDX - 2.6 * s, eyeY); ctx.lineTo(x - eyeDX + 2.6 * s, eyeY);
+        ctx.moveTo(x + eyeDX - 2.6 * s, eyeY); ctx.lineTo(x + eyeDX + 2.6 * s, eyeY);
+        ctx.stroke();
+    } else {
+        ctx.fillStyle = '#fdfdfd';
+        ctx.beginPath();
+        ctx.ellipse(x - eyeDX, eyeY, 3.1 * s, 3.4 * s, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + eyeDX, eyeY, 3.1 * s, 3.4 * s, 0, 0, Math.PI * 2);
         ctx.fill();
+        const gaze = Math.sin(t * 0.6 + look.phase * 3) * 0.9 * s;
+        ctx.fillStyle = '#20303a';
+        ctx.beginPath();
+        ctx.arc(x - eyeDX + gaze, eyeY + 0.4 * s, 1.6 * s, 0, Math.PI * 2);
+        ctx.arc(x + eyeDX + gaze, eyeY + 0.4 * s, 1.6 * s, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
-        ctx.fillStyle = 'white';
+    // Sourcils
+    ctx.strokeStyle = shadeColor(look.hair, -20);
+    ctx.lineWidth = 1.8 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - eyeDX - 3 * s, eyeY - 5.5 * s); ctx.lineTo(x - eyeDX + 3 * s, eyeY - 6.4 * s);
+    ctx.moveTo(x + eyeDX - 3 * s, eyeY - 6.4 * s); ctx.lineTo(x + eyeDX + 3 * s, eyeY - 5.5 * s);
+    ctx.stroke();
+
+    // Bouche (expression selon la santé)
+    const hp = character.health, hpMax = character.maxHealth || 10;
+    const hurt = typeof hp === 'number' && hp / hpMax < 0.4;
+    ctx.strokeStyle = '#7a4033';
+    ctx.lineWidth = 1.7 * s;
+    ctx.beginPath();
+    if (hurt) ctx.arc(x, headCY + headR * 0.72, 3.4 * s, Math.PI * 1.15, Math.PI * 1.85);
+    else ctx.arc(x, headCY + headR * 0.4, 4 * s, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
+
+    // Barbe
+    if (look.beard) {
+        ctx.fillStyle = look.hair;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.ellipse(x, headCY + headR * 0.62, headR * 0.6, headR * 0.42, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+
+    // --- Étiquette de nom + anneau joueur ---
+    if (isPlayer) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 212, 121, 0.75)';
+        ctx.lineWidth = 2 * s;
+        ctx.setLineDash([5 * s, 5 * s]);
+        ctx.beginPath();
+        ctx.ellipse(x, feetY + 3 * s, bodyW * 0.7, 8 * s, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    const label = character.name || character.username;
+    if (label) {
+        ctx.save();
+        const fs = Math.max(10, 12 * s);
+        ctx.font = `600 ${fs}px Poppins, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, bubbleY + bubbleHeight / 2 + 2);
+        const w = ctx.measureText(label).width + 12 * s;
+        const ny = headCY - headR - 14 * s;
+        ctx.fillStyle = isPlayer ? 'rgba(255, 212, 121, 0.92)' : 'rgba(10, 22, 30, 0.72)';
+        roundedRectPath(ctx, x - w / 2, ny - fs * 0.75, w, fs * 1.5, fs * 0.7);
+        ctx.fill();
+        ctx.fillStyle = isPlayer ? '#12222c' : '#e8f4fa';
+        ctx.fillText(label, x, ny);
+        ctx.restore();
+    }
+
+    // Bulle de dialogue
+    if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) {
+        drawSpeechBubble(ctx, x, headCY - headR - (label ? 28 * s : 10 * s), character.chatMessage.text, s);
     }
 
     ctx.restore();
@@ -215,9 +472,12 @@ export function drawSceneCharacters(gameState) {
     const canvasWidth = charactersCanvas.width;
     const canvasHeight = charactersCanvas.height;
 
+    // Échelle des personnages : lisible aussi bien sur mobile que sur grand écran
+    const scale = Math.max(0.75, Math.min(1.6, canvasHeight / 620));
+
     // Position de base du joueur (plus bas sur l'écran)
     const playerBaseX = canvasWidth / 2;
-    const playerBaseY = canvasHeight * 0.70; // Ajusté pour être plus bas
+    const playerBaseY = canvasHeight * 0.68;
 
     const charactersOnTile = [];
     // Ajouter le joueur
@@ -229,7 +489,7 @@ export function drawSceneCharacters(gameState) {
             const otherPlayer = gameState.players[playerId];
             if (otherPlayer.x === player.x && otherPlayer.y === player.y) {
                 const sideOffset = (charactersOnTile.length % 2 === 0) ? -1 : 1; // Alterner gauche/droite
-                const distanceOffset = 150 + (Math.floor(charactersOnTile.length / 2) * 50);
+                const distanceOffset = (90 + (Math.floor(charactersOnTile.length / 2) * 45)) * scale;
                 const offsetX = sideOffset * distanceOffset;
                 charactersOnTile.push({ char: otherPlayer, x: playerBaseX + offsetX, y: playerBaseY, isPlayer: false, sortOrder: 0 });
             }
@@ -240,7 +500,7 @@ export function drawSceneCharacters(gameState) {
     const visibleNpcs = npcs.filter(npc => npc.x === player.x && npc.y === player.y);
     visibleNpcs.forEach((npc, index) => {
         const sideOffset = (index % 2 === 0) ? -1 : 1; // Alterner gauche/droite
-        const distanceOffset = 100 + (Math.floor(index / 2) * 40); // Éloignement progressif
+        const distanceOffset = (70 + (Math.floor(index / 2) * 40)) * scale; // Éloignement progressif
         const offsetX = sideOffset * distanceOffset;
         charactersOnTile.push({ char: npc, x: playerBaseX + offsetX, y: playerBaseY, isPlayer: false, sortOrder: 0 }); // PNJ derrière le joueur
     });
@@ -275,14 +535,14 @@ export function drawSceneCharacters(gameState) {
                 else if(direction === 'north') modY = distance;  // Vient du haut
                 charactersCtx.globalAlpha = easedProgress; // Fade in
             }
-            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer, progress);
+            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer, progress, scale);
         });
         charactersCtx.globalAlpha = 1; // Réinitialiser l'alpha
     } else {
         // Dessiner les personnages normalement si pas d'animation
         charactersOnTile.forEach(p => {
             const animProgress = p.isPlayer ? player.animationProgress || 0 : 0;
-            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer, animProgress);
+            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer, animProgress, scale);
         });
     }
 
@@ -294,7 +554,7 @@ export function drawSceneCharacters(gameState) {
         const enemyY = canvasHeight * 0.30; // Plus haut sur l'écran
         charactersCtx.save();
         charactersCtx.fillStyle = enemy.color || '#ff0000';
-        charactersCtx.font = "70px sans-serif"; // Grande taille pour l'icône
+        charactersCtx.font = `${Math.round(64 * scale)}px sans-serif`; // Grande taille pour l'icône
         charactersCtx.textAlign = 'center';
         charactersCtx.textBaseline = 'middle';
         charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY);
@@ -304,7 +564,7 @@ export function drawSceneCharacters(gameState) {
     // 🪤 Piège armé sur la case actuelle
     if (map?.[player.y]?.[player.x]?.trap) {
         charactersCtx.save();
-        charactersCtx.font = '36px sans-serif';
+        charactersCtx.font = `${Math.round(32 * scale)}px sans-serif`;
         charactersCtx.textAlign = 'left';
         charactersCtx.textBaseline = 'bottom';
         charactersCtx.fillText('🪤', 14, canvasHeight - 14);
@@ -335,19 +595,25 @@ export function drawSceneCharacters(gameState) {
         }
 
         if (resources.length > 0) {
-            const resourceX = canvasWidth - 100; // Position sur le côté droit
-            const resourceStartY = 30; // Début en haut à droite
-            const resourceHeight = 30; // Hauteur par ressource
+            // Pastilles de ressources : à gauche, hors des HUD (jour / objectifs)
+            const chipH = 30 * scale;
+            const chipW = 76 * scale;
+            const chipX = 10 * scale;
+            const startY = canvasHeight * 0.30;
             charactersCtx.save();
+            charactersCtx.font = `bold ${Math.round(17 * scale)}px sans-serif`;
+            charactersCtx.textAlign = 'left';
+            charactersCtx.textBaseline = 'middle';
             resources.forEach((res, index) => {
-                const yPos = resourceStartY + index * resourceHeight;
-                charactersCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Fond plus transparent pour la lisibilité
-                charactersCtx.fillRect(resourceX - 40, yPos - 15, 80, 30);
-                charactersCtx.fillStyle = 'white';
-                charactersCtx.font = 'bold 22px sans-serif'; // Texte en gras et plus grand pour meilleure lisibilité
-                charactersCtx.textAlign = 'center';
-                charactersCtx.textBaseline = 'middle';
-                charactersCtx.fillText(`${res.icon} ${res.count}`, resourceX, yPos);
+                const yPos = startY + index * (chipH + 6 * scale);
+                charactersCtx.fillStyle = 'rgba(6, 16, 22, 0.55)';
+                roundedRectPath(charactersCtx, chipX, yPos, chipW, chipH, 10 * scale);
+                charactersCtx.fill();
+                charactersCtx.strokeStyle = 'rgba(255,255,255,0.14)';
+                charactersCtx.lineWidth = 1;
+                charactersCtx.stroke();
+                charactersCtx.fillStyle = res.count > 0 ? '#eaf6fb' : 'rgba(234,246,251,0.45)';
+                charactersCtx.fillText(`${res.icon} ${res.count}`, chipX + 10 * scale, yPos + chipH / 2);
             });
             charactersCtx.restore();
         }

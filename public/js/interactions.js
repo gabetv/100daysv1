@@ -213,6 +213,41 @@ export function initInteractions() {
         });
     }
 
+    // --- Appui long (mobile) = menu contextuel ---
+    let longPressTimer = null;
+    let longPressStart = null;
+
+    const cancelLongPress = () => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        longPressStart = null;
+    };
+
+    gameContainer.addEventListener('touchstart', (e) => {
+        const itemElement = e.target.closest('.inventory-item.clickable');
+        if (!itemElement || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        longPressStart = { x: touch.clientX, y: touch.clientY };
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) {} }
+            showContextMenu({
+                preventDefault: () => {},
+                clientX: Math.min(longPressStart.x, window.innerWidth - 210),
+                clientY: Math.min(longPressStart.y, window.innerHeight - 220),
+            }, itemElement);
+        }, 420);
+    }, { passive: true });
+
+    gameContainer.addEventListener('touchmove', (e) => {
+        if (!longPressStart || !e.touches[0]) return;
+        const dx = e.touches[0].clientX - longPressStart.x;
+        const dy = e.touches[0].clientY - longPressStart.y;
+        if (Math.hypot(dx, dy) > 12) cancelLongPress();
+    }, { passive: true });
+
+    gameContainer.addEventListener('touchend', cancelLongPress, { passive: true });
+    gameContainer.addEventListener('touchcancel', cancelLongPress, { passive: true });
+
     gameContainer.addEventListener('dragstart', (e) => {
         const itemElement = e.target.closest('.inventory-item[draggable="true"]');
         if (itemElement) handleDragStart(e, itemElement);

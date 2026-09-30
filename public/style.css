@@ -1747,3 +1747,385 @@ button::after {
     vertical-align: middle; transition: border-color 0.15s, transform 0.1s;
 }
 #sound-toggle:hover { border-color: #ffd700; transform: scale(1.1); }
+
+/* =======================================================================
+   REFONTE MOBILE — layout plein écran, feuilles coulissantes, D-pad tactile
+   ======================================================================= */
+
+#mobile-tabbar, #mobile-sheet-backdrop { display: none; }
+
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    :root {
+        --tabbar-h: 62px;
+        --safe-b: env(safe-area-inset-bottom, 0px);
+    }
+
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
+    }
+    body {
+        padding: 0;
+        display: block;
+        background: #0c1720;
+        touch-action: manipulation;
+    }
+
+    #game-container {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        min-height: 0;
+        max-height: none;
+        padding: 0;
+        gap: 0;
+        border-radius: 0;
+        background: #0c1720;
+        backdrop-filter: none;
+        box-shadow: none;
+        overflow: hidden;
+    }
+
+    /* --- La scène occupe tout l'écran, les panneaux deviennent des feuilles --- */
+    #main-area {
+        display: block;
+        position: absolute;
+        inset: 0 0 calc(var(--tabbar-h) + var(--safe-b)) 0;
+        height: auto;
+        gap: 0;
+        overflow: hidden;
+    }
+    #main-view-wrapper {
+        position: absolute;
+        inset: 0;
+        max-height: none;
+        padding: 0;
+        z-index: 1;
+    }
+    #main-view-container {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 0;
+    }
+    #main-view-canvas, #characters-canvas { width: 100%; height: 100%; }
+
+    /* --- Feuilles coulissantes (panneaux latéraux / barre du bas) --- */
+    #left-panel, #right-panel,
+    #bottom-bar-chat-panel, #minimap-section, #bottom-bar-equipment-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(var(--tabbar-h) + var(--safe-b));
+        height: min(68vh, 560px);
+        max-height: none;
+        margin: 0;
+        z-index: 1600;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 14px 20px;
+        background: linear-gradient(180deg, rgba(21, 40, 54, 0.98), rgba(13, 26, 35, 0.99));
+        border: none;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        transform: translateY(105%);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.28s cubic-bezier(.22,.8,.3,1), opacity 0.2s ease;
+        visibility: hidden;
+    }
+    #left-panel::before, #right-panel::before,
+    #bottom-bar-chat-panel::before, #minimap-section::before, #bottom-bar-equipment-panel::before {
+        content: '';
+        display: block;
+        width: 42px;
+        height: 4px;
+        border-radius: 3px;
+        background: rgba(255,255,255,0.28);
+        margin: -4px auto 6px;
+        flex-shrink: 0;
+    }
+    body.sheet-open #left-panel.sheet-active,
+    body.sheet-open #right-panel.sheet-active,
+    body.sheet-open #bottom-bar-chat-panel.sheet-active,
+    body.sheet-open #minimap-section.sheet-active,
+    body.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+        visibility: visible;
+    }
+    /* Carte : la mini-carte et l'équipement partagent l'onglet "Carte" */
+    body.sheet-open #minimap-section.sheet-active { bottom: calc(var(--tabbar-h) + var(--safe-b)); height: min(52vh, 430px); }
+    body.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        bottom: calc(var(--tabbar-h) + var(--safe-b) + min(52vh, 430px) + 8px);
+        height: auto;
+        max-height: 30vh;
+        border-radius: 18px;
+        margin: 0 8px;
+        left: 0; right: 0;
+    }
+
+    #bottom-bar {
+        display: contents;
+        background: none;
+        backdrop-filter: none;
+        min-height: 0;
+    }
+
+    #mobile-sheet-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1500;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+    }
+    body.sheet-open #mobile-sheet-backdrop { opacity: 1; pointer-events: auto; }
+
+    .ui-panel section { padding: 12px; }
+    .ui-panel h3, .bottom-bar-section h3, .bottom-bar-section h4 { font-size: 1em; }
+
+    /* --- Barre d'onglets --- */
+    #mobile-tabbar {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        height: calc(var(--tabbar-h) + var(--safe-b));
+        padding-bottom: var(--safe-b);
+        background: rgba(10, 22, 30, 0.96);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(12px);
+        z-index: 2000;
+    }
+    .mobile-tab {
+        background: none;
+        border: none;
+        color: rgba(230, 244, 250, 0.62);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        font-family: inherit;
+        font-size: 0.62rem;
+        letter-spacing: 0.2px;
+        cursor: pointer;
+        position: relative;
+        padding: 0;
+        min-height: 44px;
+        transition: color 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tab .mt-icon { font-size: 1.32rem; line-height: 1; }
+    .mobile-tab.active { color: #ffd479; }
+    .mobile-tab.active::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 22%; right: 22%;
+        height: 3px;
+        border-radius: 0 0 3px 3px;
+        background: #ffd479;
+    }
+    .mobile-tab:active { transform: scale(0.94); }
+    .mobile-tab .mt-badge {
+        position: absolute;
+        top: 6px; right: 50%;
+        transform: translateX(22px);
+        min-width: 16px; height: 16px;
+        border-radius: 8px;
+        background: var(--accent-color);
+        color: #fff;
+        font-size: 0.6rem;
+        line-height: 16px;
+        padding: 0 4px;
+    }
+
+    /* --- HUD de scène compact --- */
+    #hud-overlay { display: block; top: 84px; left: 8px; right: auto; bottom: auto; }
+    #tile-info-hud {
+        background: rgba(6, 16, 22, 0.6);
+        padding: 6px 10px;
+        border-radius: 10px;
+        font-size: 0.72rem;
+        max-width: 46vw;
+    }
+    #tile-info-hud h3 { font-size: 0.85rem; margin-bottom: 2px; }
+    #tile-info-hud #biome-display, #tile-info-hud #position-display { display: none; }
+
+    #objectives-hud {
+        top: 8px !important;
+        right: 8px !important;
+        left: auto;
+        max-width: 54vw !important;
+        font-size: 0.7rem !important;
+        padding: 6px 10px !important;
+    }
+    #objectives-hud.collapsed { padding: 4px 10px !important; }
+
+    #game-info-hud {
+        position: absolute;
+        top: 8px; left: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        background: rgba(6, 16, 22, 0.6);
+        backdrop-filter: blur(4px);
+        border-radius: 12px;
+        padding: 6px 10px;
+        font-size: 0.7rem;
+        max-width: 42vw;
+        pointer-events: auto;
+    }
+    #game-info-hud p { margin: 0; white-space: nowrap; }
+    #game-info-hud #position-display-nav { display: none; }
+    #game-info-hud #xp-bar-container { width: 60px; height: 5px; }
+    #sound-toggle { font-size: 1rem; }
+
+    /* --- D-pad tactile --- */
+    #navigation-edge-panel { pointer-events: none; }
+    .nav-button-overlay {
+        position: absolute;
+        width: 52px;
+        height: 52px;
+        font-size: 1.35rem;
+        border-radius: 16px;
+        background: rgba(17, 38, 52, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        backdrop-filter: blur(6px);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        pointer-events: auto;
+        transition: transform 0.1s ease, background 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .nav-button-overlay:active:not(:disabled) { transform: scale(0.9) !important; background: rgba(69, 123, 157, 0.95); }
+    .nav-button-overlay:hover:not(:disabled) { transform: none; }
+
+    /* Croix directionnelle groupée en bas à droite (zone du pouce) */
+    #nav-nw, #nav-north, #nav-ne, #nav-west, #nav-east, #nav-sw, #nav-south, #nav-se {
+        top: auto; bottom: auto; left: auto; right: auto; transform: none;
+    }
+    #navigation-edge-panel { --dpad-r: 14px; --dpad-b: 14px; --dpad-u: 54px; }
+    #nav-nw    { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); opacity: 0.82; }
+    #nav-north { right: calc(var(--dpad-r) + var(--dpad-u));     bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); }
+    #nav-ne    { right: var(--dpad-r);                            bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); opacity: 0.82; }
+    #nav-west  { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: calc(var(--dpad-b) + var(--dpad-u)); }
+    #nav-east  { right: var(--dpad-r);                            bottom: calc(var(--dpad-b) + var(--dpad-u)); }
+    #nav-sw    { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: var(--dpad-b); opacity: 0.82; }
+    #nav-south { right: calc(var(--dpad-r) + var(--dpad-u));     bottom: var(--dpad-b); }
+    #nav-se    { right: var(--dpad-r);                            bottom: var(--dpad-b); opacity: 0.82; }
+    body.compact-dpad #nav-nw, body.compact-dpad #nav-ne,
+    body.compact-dpad #nav-sw, body.compact-dpad #nav-se { display: none; }
+
+    /* --- Actions rapides centrales : rangée flottante à gauche --- */
+    #central-actions-panel {
+        top: auto;
+        bottom: 14px;
+        left: 14px;
+        transform: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: none;
+        padding: 0;
+    }
+    #central-actions-panel.hidden { opacity: 0; pointer-events: none; }
+    .central-action-button {
+        width: 52px;
+        height: 52px;
+        font-size: 1.5em;
+        border-radius: 16px;
+        background: rgba(69, 123, 157, 0.82);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    }
+    .central-action-button:hover { transform: none; }
+    .central-action-button:active { transform: scale(0.9); }
+
+    /* --- Contenu des feuilles : cibles tactiles confortables --- */
+    .inventory-item, .ground-items-list li { min-height: 44px; }
+    .inventory-item .inventory-icon { font-size: 1.3em; }
+    #right-panel-tabs { position: sticky; top: -4px; z-index: 2; background: rgba(13, 26, 35, 0.96); }
+    .tab-button { padding: 12px; font-size: 0.95em; min-height: 44px; }
+    #actions-tab-content button, #inventory-categories button { min-height: 44px; }
+    input, select, textarea { font-size: 16px; } /* évite le zoom iOS */
+
+    #chat-messages { flex: 1; min-height: 140px; }
+    #chat-input-area { position: sticky; bottom: 0; background: rgba(13, 26, 35, 0.98); padding-top: 6px; }
+    #quick-chat-menu { width: min(90vw, 320px); max-height: 40vh; overflow-y: auto; }
+    #minimap-container { flex: 1; min-height: 220px; }
+
+    /* --- Modales plein écran sur mobile --- */
+    #inventory-modal, #equipment-modal, #build-modal, #workshop-modal, #chest-modal,
+    #quantity-modal, #combat-modal, #lock-modal { padding: 0; align-items: flex-end; }
+    #inventory-modal-content, #equipment-modal-content, #build-modal-content,
+    #workshop-modal-content, #chest-modal-content, #combat-modal-content {
+        max-width: none;
+        width: 100%;
+        min-height: 0;
+        max-height: 92vh;
+        border-radius: 18px 18px 0 0;
+        padding: 20px 16px calc(20px + var(--safe-b));
+        overflow-y: auto;
+    }
+    #inventory-modal-grid, #chest-modal-grid, #equipment-grid,
+    #combat-participants, #combat-actions, #quantity-actions {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    #vs-text { text-align: center; }
+    #quantity-modal-content, #lock-modal-content {
+        max-width: none; width: 100%;
+        border-radius: 18px 18px 0 0;
+        padding-bottom: calc(24px + var(--safe-b));
+    }
+    #close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn,
+    #close-workshop-modal-btn, #close-chest-modal-btn, #close-large-map-btn {
+        width: 44px; height: 44px; font-size: 1.8em;
+    }
+    #large-map-content-wrapper { flex-direction: column; width: 100vw; height: 100vh; padding: 10px; gap: 10px; }
+    #large-map-canvas { width: 100%; height: auto; max-width: 100%; }
+    #large-map-legend { max-width: none; width: 100%; max-height: 32vh; }
+
+    #item-context-menu { min-width: 200px; }
+    #item-context-menu button { min-height: 44px; }
+
+    /* Indicateur de balayage */
+    #swipe-hint {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.55);
+        color: #ffd479;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-size: 0.85rem;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 60;
+    }
+    #swipe-hint.show { opacity: 1; }
+}
+
+/* Paysage bas de plafond : on réduit encore le HUD */
+@media (max-width: 900px) and (orientation: landscape) {
+    :root { --tabbar-h: 52px; }
+    .mobile-tab .mt-label { display: none; }
+    .nav-button-overlay { width: 46px; height: 46px; }
+    #navigation-edge-panel { --dpad-u: 48px; }
+    #objectives-hud { display: none !important; }
+}

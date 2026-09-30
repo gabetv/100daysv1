@@ -5,6 +5,7 @@ import * as DrawModule from './ui/draw.js';
 import * as EffectsModule from './ui/effects.js';
 import * as ModalsModule from './ui/modals.js';
 import * as TutorialModule from './ui/tutorial.js';
+import * as MobileModule from './ui/mobile.js';
 
 // --- Ré-exporter explicitement les fonctions ---
 
@@ -74,7 +75,14 @@ export const advanceTutorial = TutorialModule.advanceTutorial;
 export const skipTutorial = TutorialModule.skipTutorial;
 export const completeTutorial = TutorialModule.completeTutorial;
 export const playerMovedForTutorial = TutorialModule.playerMovedForTutorial;
-export const highlightElement = TutorialModule.highlightElement; 
+export const highlightElement = TutorialModule.highlightElement;
+
+// Depuis ./ui/mobile.js
+export const initMobileUI = MobileModule.initMobileUI;
+export const openMobileTab = MobileModule.openTab;
+export const closeMobileSheets = MobileModule.closeSheets;
+export const isMobileLayout = MobileModule.isMobileLayout;
+export const notifyChatMessage = MobileModule.notifyChatMessage; 
 
 /**
  * Met à jour tous les éléments statiques de l'interface utilisateur.
