@@ -15,7 +15,7 @@
     <style>
         :root { --ink:#0b2028; --ink-deep:#06171e; --sea:#25758a; --foam:#bfe9df; --sun:#ffd476; --coral:#ee826a; --leaf:#79a956; }
         * { box-sizing:border-box; }
-        body.welcome-screen { min-height:100dvh; height:auto; padding:clamp(14px,3vw,36px); overflow-x:hidden; overflow-y:auto; color:#eef9f8; background:radial-gradient(circle at 12% 18%,rgba(67,151,163,.45),transparent 28rem), linear-gradient(145deg,#0c2934,#061920 62%,#0a2730); }
+        body.welcome-screen { min-height:100dvh; height:auto; padding:clamp(14px,3vw,36px); overflow-x:hidden; overflow-y:auto; color:#eef9f8; background:radial-gradient(circle at 12% 18%,rgba(67,151,163,.45),transparent 28rem), linear-gradient(145deg,#0c2934,#061920 62%,#0a2730); display:block; justify-content:initial; align-items:initial; }
         .welcome-screen::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.13; background-image:linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px); background-size:12px 12px; mask-image:linear-gradient(#000,transparent 78%); }
         .landing-shell { width:min(1120px,100%); min-height:calc(100dvh - clamp(28px,6vw,72px)); margin:auto; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr); gap:clamp(18px,4vw,52px); align-items:center; }
         .island-story { position:relative; padding:clamp(12px,2vw,26px); }
@@ -41,7 +41,11 @@
         .auth-container button[type=submit] { min-height:52px; margin-top:5px; border:1px solid #ffe29a; border-radius:8px; background:linear-gradient(#e3a646,#b76a2e); box-shadow:0 5px 0 #72401c,0 8px 15px rgba(0,0,0,.24); color:#fff7db; font-size:.8rem; }.auth-container button[type=submit]::after{display:none}.auth-container button[type=submit]:hover{filter:brightness(1.06)}
         .form-switch { margin:19px 0 0; color:#a8c7ca; font-size:.74rem; text-align:center; }.form-switch a{color:#ffe09b;font-weight:800;text-decoration:none}.form-switch a:hover{text-decoration:underline}
         .auth-footer { display:flex; gap:6px; justify-content:center; margin-top:19px; color:#73969a; font-size:.59rem; }.auth-footer span{color:#e3b85b}
-        @media (max-width:800px) { body.welcome-screen { padding:16px 14px; }.landing-shell{grid-template-columns:1fr;gap:22px;align-content:start}.island-story{padding:10px 2px 0}.eyebrow{margin-bottom:13px}h1{font-size:clamp(1.7rem,8vw,2.65rem)}.tagline{margin:18px 0}.pixel-diorama{width:100%;height:150px;margin:23px 0 0}.campfire-art{width:116px;height:116px}.palm{height:67px;bottom:29px}.auth-container{padding:23px 19px;border-radius:15px}.promise-list li{font-size:.66rem;padding:6px 8px} }
+        #auth-feedback { min-height:0; margin-top:14px; padding:0; border-radius:8px; color:#fff4d3; font-size:.73rem; line-height:1.45; text-align:center; transition:opacity .18s, transform .18s; opacity:0; transform:translateY(-4px); }
+        #auth-feedback.visible { min-height:34px; padding:8px 10px; opacity:1; transform:none; background:rgba(255,212,118,.12); border:1px solid rgba(255,212,118,.28); }
+        #auth-feedback.error { color:#ffd7d7; background:rgba(238,130,106,.16); border-color:rgba(238,130,106,.38); }
+        @media (max-width:800px) { body.welcome-screen { display:block; min-height:100svh; padding:max(10px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px)); overflow-y:auto; -webkit-overflow-scrolling:touch; }.landing-shell{width:100%;min-height:auto;display:flex;flex-direction:column;gap:16px;align-items:stretch;margin:0}.auth-container{order:-1;width:100%;padding:21px 17px 20px;border-radius:15px;box-shadow:0 7px 0 rgba(2,13,17,.5),0 16px 35px rgba(0,0,0,.35)}.island-story{padding:5px 2px 0}.eyebrow{margin-bottom:10px;font-size:.56rem}h1{font-size:clamp(1.5rem,7.4vw,2.35rem);text-shadow:3px 3px 0 #164352,6px 6px 0 rgba(0,0,0,.2)}.tagline{margin:13px 0 14px;font-size:.84rem;line-height:1.5}.pixel-diorama{display:none}.auth-container h2{font-size:1.28rem}.auth-container .intro{margin-bottom:16px}.auth-container label{font-size:.66rem}.auth-container input{min-height:48px}.auth-container button[type=submit]{min-height:50px;width:100%;touch-action:manipulation}.form-switch{margin-top:15px}.promise-list li{font-size:.62rem;padding:6px 8px} }
+        @media (max-width:380px){.promise-list{display:none}.tagline{font-size:.78rem}.auth-container{padding:18px 14px}.auth-container input{min-height:46px}.auth-footer{font-size:.52rem}}
         @media (prefers-reduced-motion:reduce){.campfire-art{animation:none}}
     </style>
 </head>
@@ -88,6 +92,7 @@
                 </form>
                 <p class="form-switch">Déjà au camp ? <a href="#" id="show-login">Me connecter</a></p>
             </div>
+            <div id="auth-feedback" role="status" aria-live="polite"></div>
             <div class="auth-footer"><span>◆</span> Sauvegarde de la progression <span>◆</span></div>
         </section>
     </main>

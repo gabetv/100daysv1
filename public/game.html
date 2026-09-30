@@ -141,8 +141,13 @@
             </div>
 
             <div id="minimap-section" class="bottom-bar-section">
-                <h4 style="display: flex; justify-content: space-between; align-items: center;">Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h4>
+                <h4 class="minimap-title">Carte de l'île <span id="minimap-coords-chip">(0, 0)</span><button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h4>
                 <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
+                <div id="minimap-legend-mini" aria-hidden="true">
+                    <span><i class="legend-dot you"></i>Vous</span>
+                    <span><i class="legend-dot camp"></i>Camp</span>
+                    <span><i class="legend-dot danger"></i>Danger</span>
+                </div>
             </div>
         </div>
 
@@ -157,6 +162,7 @@
             <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon"><img class="icon-img" src="assets/icons/island.png" alt=""></span><span class="mt-label">Scène</span></button>
             <button class="mobile-tab" data-mtab="actions"><span class="mt-icon"><img class="icon-img" src="assets/icons/lightning.png" alt=""></span><span class="mt-label">Actions</span></button>
             <button class="mobile-tab" data-mtab="inventory"><span class="mt-icon"><img class="icon-img" src="assets/icons/backpack.png" alt=""></span><span class="mt-label">Sac</span></button>
+            <button class="mobile-tab" data-mtab="equipment"><span class="mt-icon"><img class="icon-img" src="assets/icons/tshirt.png" alt=""></span><span class="mt-label">Équip.</span></button>
             <button class="mobile-tab" data-mtab="status"><span class="mt-icon"><img class="icon-img" src="assets/icons/heart.png" alt=""></span><span class="mt-label">Statut</span></button>
             <button class="mobile-tab" data-mtab="chat"><span class="mt-icon"><img class="icon-img" src="assets/icons/chatbubble.png" alt=""></span><span class="mt-label">Chat</span></button>
             <button class="mobile-tab" data-mtab="map"><span class="mt-icon"><img class="icon-img" src="assets/icons/map.png" alt=""></span><span class="mt-label">Carte</span></button>
@@ -247,7 +253,7 @@
             <div id="combat-arena">
                 <div class="combatant-info" id="combat-player-info">
                     <div class="combatant-label"><span class="combat-side-icon">◈</span> SURVIVANT</div>
-                    <div class="combat-portrait" id="combat-player-portrait"><img class="portrait-img" src="assets/icons/survivor.png" alt="Vous"></div>
+                    <div class="combat-portrait player" id="combat-player-portrait"><canvas id="combat-player-canvas" width="180" height="160" aria-label="Votre survivant"></canvas></div>
                     <h3 id="combat-player-name">Vous</h3>
                     <div class="combat-health-meta"><span>VITALITÉ</span><strong id="combat-player-health-text">10 / 10</strong></div>
                     <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>

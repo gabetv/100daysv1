@@ -4,9 +4,10 @@ const TAB_TARGETS = {
     scene: [],
     actions: ['right-panel'],
     inventory: ['right-panel'],
+    equipment: ['bottom-bar-equipment-panel'],
     status: ['left-panel'],
     chat: ['bottom-bar-chat-panel'],
-    map: ['minimap-section', 'bottom-bar-equipment-panel'],
+    map: ['minimap-section'],
 };
 
 let currentTab = 'scene';

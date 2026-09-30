@@ -366,12 +366,22 @@ export function updateCombatUI(combatState) {
         turnIndicator.classList.toggle('enemy-turn', !isPlayerTurn);
         turnIndicator.classList.toggle('turn-player', isPlayerTurn);
     }
+    const combatArena = document.getElementById('combat-arena');
+    if (combatArena) {
+        combatArena.classList.toggle('player-turn', isPlayerTurn);
+        combatArena.classList.toggle('enemy-turn', !isPlayerTurn);
+    }
     if (turnText) turnText.textContent = isPlayerTurn ? 'À vous de jouer' : `${enemy.name} prépare son attaque`;
     if (commandHint) commandHint.textContent = isPlayerTurn ? 'Choisissez une action' : 'Le tour adverse est en cours…';
     if (playerStatus) playerStatus.textContent = combatState.defending ? 'Garde levée' : 'Prêt au combat';
     if (enemyStatus) enemyStatus.textContent = isPlayerTurn ? 'À portée' : 'En train d’attaquer';
 
-    // Portraits + nom du joueur (image générée si disponible, sinon emoji)
+    // Portraits + nom du joueur. Le survivant est redessiné depuis son apparence
+    // et son équipement actuels : pas d'image générique en combat.
+    Draw.drawCombatPlayerAvatar(DOM.combatPlayerCanvas, player, {
+        defending: Boolean(combatState.defending),
+        hurt: lastCombatPlayerHealth !== null && player.health < lastCombatPlayerHealth,
+    });
     const enemyPortrait = document.getElementById('combat-enemy-portrait');
     if (enemyPortrait) {
         const imgSrc = ENEMY_IMAGES[enemy.name];

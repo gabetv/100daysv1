@@ -71,6 +71,7 @@ const DOM = {
     equipmentAvatarCanvas: document.getElementById('equipment-avatar-canvas'),
     loadoutStyleLabel: document.getElementById('loadout-style-label'),
     combatModal: document.getElementById('combat-modal'),
+    combatPlayerCanvas: document.getElementById('combat-player-canvas'),
     combatEnemyName: document.getElementById('combat-enemy-name'),
     combatEnemyHealthBar: document.getElementById('combat-enemy-health-bar'),
     combatEnemyHealthText: document.getElementById('combat-enemy-health-text'),

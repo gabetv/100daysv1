@@ -42,6 +42,93 @@ export function getAsset(key) { return loadedAssets[key]; }
 let bgState = { key: null, prevKey: null, since: 0 };
 const BG_FADE_MS = 420;
 
+// Certaines constructions disposent d'une vraie illustration de fond. Quand
+// elles sont présentes, on l'utilise comme décor principal plutôt que de poser
+// une icône flottante par-dessus un biome générique.
+const BUILDING_SCENE_BACKGROUNDS = new Set([
+    'bg_campfire',
+    'bg_shelter_individual',
+    'bg_shelter_collective',
+    'bg_mine',
+]);
+
+function buildingSceneBackground(building) {
+    const key = TILE_TYPES[building?.key]?.background?.[0];
+    return BUILDING_SCENE_BACKGROUNDS.has(key) ? key : null;
+}
+
+function getDominantSceneBuilding(tile) {
+    return (tile?.buildings || []).find(building => buildingSceneBackground(building)) || null;
+}
+
+function getSceneBackgroundKey(tile) {
+    const dominant = getDominantSceneBuilding(tile);
+    return buildingSceneBackground(dominant) || tile?.backgroundKey;
+}
+
+function isBuildingInSceneBackground(tile, building) {
+    return building && getDominantSceneBuilding(tile) === building;
+}
+
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+// Ligne de sol approximative par décor. Elle sert d'ancre commune aux objets,
+// constructions, ennemis et personnages pour éviter l'effet « flottant ».
+function sceneGroundY(tile, w, h, xNorm = 0.5, role = 'default') {
+    const key = getSceneBackgroundKey(tile) || '';
+    const biome = tile?.type?.name || '';
+    const x = clamp01(Number(xNorm));
+    const centered = x - 0.5;
+    const abs = Math.abs(centered);
+    let base = 0.78;
+    let slope = 0;
+    let curve = 0.02;
+
+    if (key.startsWith('bg_sand')) {
+        // Les plages ont une diagonale de sable/eau : le sol jouable reste
+        // surtout dans le tiers inférieur gauche.
+        base = 0.83; slope = 0.10; curve = -0.035;
+    } else if (key.startsWith('bg_forest')) {
+        base = 0.765; slope = 0.015; curve = 0.035;
+    } else if (key.startsWith('bg_plains')) {
+        base = 0.775; slope = -0.01; curve = 0.025;
+    } else if (key.startsWith('bg_wasteland')) {
+        base = 0.795; slope = 0.005; curve = 0.018;
+    } else if (key.startsWith('bg_stone')) {
+        base = 0.785; slope = 0.015; curve = 0.018;
+    } else if (key === 'bg_campfire') {
+        base = 0.775; slope = 0.018; curve = 0.01;
+    } else if (key === 'bg_shelter_individual' || key === 'bg_shelter_collective') {
+        base = 0.805; slope = -0.015; curve = 0.018;
+    } else if (key === 'bg_mine') {
+        base = 0.825; slope = 0.04; curve = 0.012;
+    } else if (key === 'bg_treasure_chest') {
+        base = 0.80; slope = 0.005; curve = 0.02;
+    } else if (biome === 'Mine (Terrain)') {
+        base = 0.79; slope = 0.01; curve = 0.018;
+    }
+
+    if (role === 'enemy') base -= 0.015;
+    if (role === 'loot') base += 0.006;
+    if (role === 'foreground') base += 0.06;
+
+    const yNorm = base + slope * centered + curve * (abs * 2 - 0.55);
+    return Math.round(h * Math.max(0.52, Math.min(0.92, yNorm)));
+}
+
+function characterAnchorForGround(groundY, scale) {
+    const pixel = Math.max(2, Math.round(4 * scale));
+    return Math.round(groundY - pixel * 7.65);
+}
+
+function scenePerspectiveScale(tile, xNorm = 0.5) {
+    // Petit ajustement : éléments très à gauche/droite un peu plus petits pour
+    // suivre la perspective de la plupart des fonds.
+    return 1 - Math.abs(clamp01(xNorm) - 0.5) * 0.10;
+}
+
 function paintBackgroundImage(ctx, img, w, h, alpha, zoom) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     const canvasAspect = w / h;
@@ -91,7 +178,7 @@ export function drawMainBackground(gameState) {
     }
 
     const playerTile = gameState.map[gameState.player.y][gameState.player.x];
-    const key = playerTile.backgroundKey;
+    const key = getSceneBackgroundKey(playerTile);
 
     if (key !== bgState.key) {
         bgState = { key, prevKey: bgState.key, since: Date.now() };
@@ -339,15 +426,83 @@ function drawBiomeDressing(ctx, w, h, tile) {
 }
 
 const PROP_FOR_BUILDING = {
-    CAMPFIRE: { asset: 'prop_campfire', scale: 0.30, y: 0.80, x: 0.50 },
-    SHELTER_INDIVIDUAL: { asset: 'prop_shelter', scale: 0.42, y: 0.74, x: 0.26 },
-    SHELTER_COLLECTIVE: { asset: 'prop_shelter', scale: 0.55, y: 0.74, x: 0.26 },
-    FORTERESSE: { asset: 'prop_shelter', scale: 0.62, y: 0.74, x: 0.24 },
-    MINE: { asset: 'prop_mine', scale: 0.46, y: 0.76, x: 0.78 },
-    ATELIER: { asset: 'prop_workbench', scale: 0.34, y: 0.80, x: 0.74 },
-    ETABLI: { asset: 'prop_workbench', scale: 0.28, y: 0.80, x: 0.76 },
-    FORGE: { asset: 'prop_workbench', scale: 0.34, y: 0.80, x: 0.20 },
+    CAMPFIRE: { asset: 'spritesheet_campfire', scale: 0.20, x: 0.50 },
+    SHELTER_INDIVIDUAL: { asset: 'prop_shelter', scale: 0.28, x: 0.26, trim: [310, 360, 398, 382] },
+    SHELTER_COLLECTIVE: { asset: 'prop_shelter', scale: 0.35, x: 0.27, trim: [310, 360, 398, 382] },
+    FORTERESSE: { asset: 'prop_shelter', scale: 0.40, x: 0.25, trim: [310, 360, 398, 382] },
+    // Les images pleine page de mine/établi ont un fond opaque ; on privilégie
+    // donc les icônes de tuile transparentes pour les intégrer au décor.
+    MINE: { scale: 0.32, x: 0.74, preferTileImage: true },
+    ATELIER: { scale: 0.18, x: 0.72, preferTileImage: true },
+    ETABLI: { scale: 0.16, x: 0.76, preferTileImage: true },
+    FORGE: { scale: 0.20, x: 0.22, preferTileImage: true },
+    PETIT_PUIT: { scale: 0.17, x: 0.72, preferTileImage: true },
+    PUITS_PROFOND: { scale: 0.22, x: 0.72, preferTileImage: true },
+    BIBLIOTHEQUE: { scale: 0.22, x: 0.24, preferTileImage: true },
+    LABORATOIRE: { scale: 0.24, x: 0.24, preferTileImage: true },
+    OBSERVATOIRE: { scale: 0.22, x: 0.74, preferTileImage: true },
+    PANNEAU_SOLAIRE: { scale: 0.17, x: 0.76, preferTileImage: true },
 };
+
+function drawGroundShadow(ctx, cx, baseY, width, height, alpha = 0.28) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(cx, baseY, width, Math.max(2, height), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+const imageTrimCache = new WeakMap();
+function getAutoImageTrim(img) {
+    if (!img || !img.naturalWidth || typeof document === 'undefined') return null;
+    if (imageTrimCache.has(img)) return imageTrimCache.get(img);
+    try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let minX = canvas.width, minY = canvas.height, maxX = -1, maxY = -1;
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const alpha = data[(y * canvas.width + x) * 4 + 3];
+                if (alpha > 8) {
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+        const trim = maxX >= minX ? [minX, minY, maxX - minX + 1, maxY - minY + 1] : null;
+        imageTrimCache.set(img, trim);
+        return trim;
+    } catch (_) {
+        imageTrimCache.set(img, null);
+        return null;
+    }
+}
+
+function drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim = null, shadow = true } = {}) {
+    if (!img || !img.complete || !img.naturalWidth) return false;
+    const resolvedTrim = trim === 'auto' ? getAutoImageTrim(img) : trim;
+    const sx = resolvedTrim ? resolvedTrim[0] : 0;
+    const sy = resolvedTrim ? resolvedTrim[1] : 0;
+    const sw = resolvedTrim ? resolvedTrim[2] : img.naturalWidth;
+    const sh = resolvedTrim ? resolvedTrim[3] : img.naturalHeight;
+    const targetW = targetH * (sw / sh);
+    if (shadow) drawGroundShadow(ctx, cx, baseY, targetW * 0.36, targetH * 0.055, 0.30);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.shadowColor = 'rgba(0,0,0,0.42)';
+    ctx.shadowBlur = Math.max(4, targetH * 0.035);
+    ctx.drawImage(img, sx, sy, sw, sh, cx - targetW / 2, baseY - targetH, targetW, targetH);
+    ctx.restore();
+    return true;
+}
 
 /**
  * Dessine les constructions de la case dans le décor (sprites si dispo, sinon pastille icône).
@@ -356,82 +511,62 @@ function drawTileProps(ctx, w, h, tile) {
     const buildings = tile.buildings || [];
     if (!buildings.length) return;
 
-    const flicker = 0.85 + Math.sin(Date.now() / 110) * 0.15;
+    buildings.slice(0, 4).forEach((building, i) => {
+        const def = TILE_TYPES[building.key];
+        if (!def) return;
 
-    buildings.slice(0, 4).forEach((b, i) => {
-        const def = TILE_TYPES[b.key];
-        const prop = PROP_FOR_BUILDING[b.key];
-        const img = prop ? loadedAssets[prop.asset] : null;
+        // Si la construction est déjà peinte dans le fond actif (feu, abri,
+        // mine...), on évite de la redessiner par-dessus et on garde juste les
+        // effets d'ambiance éventuels.
+        if (isBuildingInSceneBackground(tile, building)) {
+            if (building.key === 'CAMPFIRE') {
+                const x = 0.50;
+                const cx = w * x;
+                const baseY = sceneGroundY(tile, w, h, x, 'prop');
+                const flicker = 0.75 + Math.sin(Date.now() / 110) * 0.12;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const glow = ctx.createRadialGradient(cx, baseY - h * 0.13, 0, cx, baseY - h * 0.13, h * 0.34);
+                glow.addColorStop(0, `rgba(255, 175, 65, ${0.18 * flicker})`);
+                glow.addColorStop(1, 'rgba(255, 95, 30, 0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(0, 0, w, h);
+                ctx.restore();
+            }
+            return;
+        }
 
-        if (b.key === 'CAMPFIRE') {
-            const targetH = h * (prop ? prop.scale : 0.30);
-            const targetW = targetH * 1.15;
-            const cx = w * ((prop ? prop.x : 0.50) + (i > 0 ? (i % 2 ? 0.14 : -0.14) : 0));
-            const baseY = h * (prop ? prop.y : 0.80);
+        const prop = PROP_FOR_BUILDING[building.key] || { scale: 0.16, x: 0.24 + i * 0.17, preferTileImage: true };
+        const xNorm = clamp01(prop.x + (i > 0 ? (i % 2 ? 0.08 : -0.08) : 0));
+        const cx = w * xNorm;
+        const baseY = sceneGroundY(tile, w, h, xNorm, 'prop');
+        const targetH = h * prop.scale * scenePerspectiveScale(tile, xNorm);
 
-            // Feu de camp animé en pixel art avec spritesheet
+        if (building.key === 'CAMPFIRE') {
+            const targetW = targetH * 1.12;
+            // Le feu animé est ancré par sa base au sol, sans carré noir issu
+            // de l'illustration pleine page.
             const drewAnimated = drawAnimatedCampfire(ctx, cx, baseY, targetW, targetH);
             if (drewAnimated) return;
         }
 
-        if (img && img.complete && img.naturalWidth) {
-            const targetH = h * prop.scale;
-            const ratio = img.naturalWidth / img.naturalHeight;
-            const targetW = targetH * ratio;
-            const cx = w * (prop.x + (i > 0 ? (i % 2 ? 0.14 : -0.14) : 0));
-            const baseY = h * prop.y;
+        const img = (!prop.preferTileImage && prop.asset) ? loadedAssets[prop.asset] : null;
+        if (drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim: prop.trim })) return;
 
-            // Ombre au sol
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.ellipse(cx, baseY, targetW * 0.4, targetH * 0.08, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+        // Fallback propre et transparent : l'icône de tuile devient un repère
+        // de scène posé sur le sol, jamais une bulle flottante.
+        const tileImg = getTileImage(def.name);
+        if (drawAnchoredImage(ctx, tileImg, cx, baseY, targetH, { shadow: true, trim: 'auto' })) return;
 
-            ctx.drawImage(img, cx - targetW / 2, baseY - targetH, targetW, targetH);
-        } else if (def) {
-            // Pour les bâtiments qui n'ont pas encore leur grand prop, les
-            // illustrations de tuile deviennent de vrais petits repères dans
-            // le paysage plutôt qu'une simple icône flottante.
-            const tileImg = getTileImage(def.name);
-            const cx = w * (0.22 + i * 0.19);
-            const baseY = h * (0.79 - (i % 2) * 0.035);
-            const landmarkH = h * (0.16 + (i % 2) * 0.025);
-
-            ctx.save();
-            ctx.globalAlpha = 0.34;
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.ellipse(cx, baseY, landmarkH * 0.48, landmarkH * 0.085, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            ctx.save();
-            if (tileImg) {
-                const ratio = tileImg.naturalWidth / tileImg.naturalHeight || 1;
-                const landmarkW = landmarkH * ratio;
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
-                ctx.shadowBlur = 9;
-                ctx.drawImage(tileImg, cx - landmarkW / 2, baseY - landmarkH, landmarkW, landmarkH);
-            } else {
-                const size = Math.max(34, h * 0.075);
-                ctx.globalAlpha = 0.94;
-                ctx.fillStyle = 'rgba(8, 18, 25, 0.63)';
-                ctx.beginPath();
-                ctx.arc(cx, baseY - size * 0.52, size * 0.62, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(255, 212, 121, 0.55)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(def.icon || '🏗️', cx, baseY - size * 0.5);
-            }
-            ctx.restore();
-        }
+        const size = Math.max(34, targetH * 0.7);
+        drawGroundShadow(ctx, cx, baseY, size * 0.42, size * 0.06, 0.28);
+        ctx.save();
+        ctx.globalAlpha = 0.95;
+        ctx.font = `${Math.round(size)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(def.icon || '🏗️', cx, baseY + 2);
+        ctx.restore();
     });
 }
 
@@ -1107,21 +1242,76 @@ export function drawCharacterPreview(canvas, player = {}, appearance = null) {
     drawPixelCharacter(ctx, previewPlayer, w / 2, h * 0.78, true, 0, Math.min(w / 320, h / 250) * 1.2, { showLabel: false });
 }
 
+/** Avatar du joueur dans la scène de combat : on redessine le vrai survivant
+ * (apparence + équipement) au lieu d'utiliser une image générique. */
+export function drawCombatPlayerAvatar(canvas, player = {}, { defending = false, hurt = false } = {}) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width || 180;
+    const h = canvas.height || 160;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, w, h);
+
+    // Socle façon RPG : quelques pixels d'herbe/terre sous les pieds.
+    const cx = w * 0.5;
+    const groundY = h * 0.82;
+    ctx.fillStyle = 'rgba(5, 16, 20, 0.38)';
+    ctx.beginPath();
+    ctx.ellipse(cx, groundY, w * 0.30, h * 0.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const unit = Math.max(2, Math.round(w / 72));
+    for (let i = 0; i < 18; i++) {
+        const px = (w * 0.22 + ((i * 17) % Math.round(w * 0.56)));
+        const py = groundY - unit + ((i % 3) - 1) * unit;
+        ctx.fillStyle = i % 2 ? '#6aa75d' : '#d6b466';
+        ctx.fillRect(Math.round(px), Math.round(py), unit * (1 + (i % 2)), unit);
+    }
+
+    const combatPlayer = {
+        ...player,
+        name: '',
+        appearance: player.appearance,
+        health: player.health ?? 20,
+        maxHealth: player.maxHealth ?? 20,
+    };
+    const scale = Math.min(w / 170, h / 145) * 1.15;
+    ctx.save();
+    if (hurt) {
+        ctx.translate(Math.round(Math.sin(Date.now() / 45) * 2), 0);
+    }
+    drawPixelCharacter(ctx, combatPlayer, cx, h * 0.73, true, 0, scale, { showLabel: false });
+    ctx.restore();
+
+    if (defending) {
+        ctx.strokeStyle = 'rgba(126, 221, 255, 0.82)';
+        ctx.lineWidth = Math.max(2, unit);
+        ctx.setLineDash([unit * 3, unit * 2]);
+        ctx.beginPath();
+        ctx.ellipse(cx, h * 0.48, w * 0.28, h * 0.36, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    ctx.restore();
+}
+
 /** Dessine quelques objets laissés au sol pour relier l'inventaire au monde. */
 function drawGroundLoot(ctx, w, h, tile, scale) {
     const entries = Object.entries(tile?.groundItems || {}).filter(([, amount]) => Number(amount) > 0).slice(0, 3);
     if (!entries.length) return;
 
-    const positions = [
-        [0.24, 0.735], [0.77, 0.75], [0.14, 0.81],
-    ];
+    const positions = [0.24, 0.77, 0.14];
     const pulse = (Math.sin(Date.now() / 420) + 1) * 0.5;
 
     entries.forEach(([name, amount], index) => {
-        const [px, py] = positions[index];
+        const px = positions[index];
         const x = w * px;
-        const y = h * py;
         const size = Math.max(24, 34 * scale);
+        const groundY = sceneGroundY(tile, w, h, px, 'loot');
+        // y est le centre visuel de l'icône ; son bas et son ombre restent au sol.
+        const y = groundY - size * 0.28;
         const itemDef = ITEM_TYPES[name] || {};
         const img = getItemImage(name);
 
@@ -1137,18 +1327,16 @@ function drawGroundLoot(ctx, w, h, tile, scale) {
 
         ctx.fillStyle = 'rgba(8, 20, 24, 0.58)';
         ctx.beginPath();
-        ctx.ellipse(x, y + size * 0.31, size * 0.46, size * 0.12, 0, 0, Math.PI * 2);
+        ctx.ellipse(x, groundY, size * 0.46, size * 0.12, 0, 0, Math.PI * 2);
         ctx.fill();
 
         if (img) {
-            ctx.shadowColor = 'rgba(0,0,0,0.5)';
-            ctx.shadowBlur = 4 * scale;
-            ctx.drawImage(img, x - size / 2, y - size * 0.75, size, size);
+            drawAnchoredImage(ctx, img, x, groundY, size * 0.86, { trim: 'auto', shadow: false });
         } else {
             ctx.font = `${Math.round(size * 0.8)}px sans-serif`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(itemDef.icon || '📦', x, y - size * 0.23);
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(itemDef.icon || '📦', x, groundY + 1);
         }
 
         if (Number(amount) > 1) {
@@ -1218,9 +1406,10 @@ export function drawSceneCharacters(gameState) {
     // Les objets déposés deviennent visibles directement dans la scène.
     drawGroundLoot(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
 
-    // Position de base du joueur (plus bas sur l'écran)
+    // Position de base : les pieds sont ancrés à la ligne de sol du fond actif.
     const playerBaseX = canvasWidth / 2;
-    const playerBaseY = canvasHeight * 0.68;
+    const playerGroundY = sceneGroundY(currentTile, canvasWidth, canvasHeight, 0.50, 'player');
+    const playerBaseY = characterAnchorForGround(playerGroundY, scale);
 
     const charactersOnTile = [];
     // Ajouter le joueur
@@ -1234,7 +1423,10 @@ export function drawSceneCharacters(gameState) {
                 const sideOffset = (charactersOnTile.length % 2 === 0) ? -1 : 1; // Alterner gauche/droite
                 const distanceOffset = (90 + (Math.floor(charactersOnTile.length / 2) * 45)) * scale;
                 const offsetX = sideOffset * distanceOffset;
-                charactersOnTile.push({ char: otherPlayer, x: playerBaseX + offsetX, y: playerBaseY, isPlayer: false, sortOrder: 0 });
+                const x = playerBaseX + offsetX;
+                const xNorm = clamp01(x / canvasWidth);
+                const y = characterAnchorForGround(sceneGroundY(currentTile, canvasWidth, canvasHeight, xNorm, 'player'), scale);
+                charactersOnTile.push({ char: otherPlayer, x, y, isPlayer: false, sortOrder: 0 });
             }
         }
     }
@@ -1245,7 +1437,10 @@ export function drawSceneCharacters(gameState) {
         const sideOffset = (index % 2 === 0) ? -1 : 1; // Alterner gauche/droite
         const distanceOffset = (70 + (Math.floor(index / 2) * 40)) * scale; // Éloignement progressif
         const offsetX = sideOffset * distanceOffset;
-        charactersOnTile.push({ char: npc, x: playerBaseX + offsetX, y: playerBaseY, isPlayer: false, sortOrder: 0 }); // PNJ derrière le joueur
+        const x = playerBaseX + offsetX;
+        const xNorm = clamp01(x / canvasWidth);
+        const y = characterAnchorForGround(sceneGroundY(currentTile, canvasWidth, canvasHeight, xNorm, 'player'), scale);
+        charactersOnTile.push({ char: npc, x, y, isPlayer: false, sortOrder: 0 }); // PNJ derrière le joueur
     });
 
     // Trier les personnages pour le dessin (le joueur sera dessiné en dernier s'il a le sortOrder le plus élevé)
@@ -1291,60 +1486,57 @@ export function drawSceneCharacters(gameState) {
 
     // --- Ennemis présents sur la case ---
     const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !player.combatState);
+    const enemySlots = [
+        { x: 0.66, size: 70, z: 0 },
+        { x: 0.80, size: 54, z: 1 },
+        { x: 0.53, size: 54, z: 2 },
+    ];
     visibleEnemies.slice(0, 3).forEach((enemy, i) => {
-        const side = i === 0 ? 0 : (i % 2 ? 1 : -1);
-        const enemyX = canvasWidth / 2 + side * 120 * scale;
-        const enemyY = canvasHeight * 0.42 + (i === 0 ? 0 : 18 * scale);
-        const size = (i === 0 ? 66 : 50) * scale;
-        const t = Date.now() / 1000;
-        const bob = Math.sin(t * 2 + i) * 4 * scale;
+        const slot = enemySlots[i] || enemySlots[0];
+        const xNorm = slot.x;
+        const enemyX = canvasWidth * xNorm;
+        const enemyBaseY = sceneGroundY(currentTile, canvasWidth, canvasHeight, xNorm, 'enemy') + slot.z * 8 * scale;
+        const size = slot.size * scale * scenePerspectiveScale(currentTile, xNorm);
+        const drawH = size * 1.35;
+        const centerY = enemyBaseY - drawH / 2;
 
         charactersCtx.save();
 
-        // Ombre
-        charactersCtx.globalAlpha = 0.3;
-        charactersCtx.fillStyle = '#000';
-        charactersCtx.beginPath();
-        charactersCtx.ellipse(enemyX, enemyY + size * 0.48, size * 0.34, size * 0.1, 0, 0, Math.PI * 2);
-        charactersCtx.fill();
-        charactersCtx.globalAlpha = 1;
+        // Ombre exactement au contact du sol.
+        drawGroundShadow(charactersCtx, enemyX, enemyBaseY, size * 0.42, size * 0.08, 0.32);
 
-        // Aura menaçante
-        const aura = charactersCtx.createRadialGradient(enemyX, enemyY + bob, 0, enemyX, enemyY + bob, size * 0.85);
-        aura.addColorStop(0, 'rgba(220, 40, 40, 0.28)');
+        // Aura menaçante posée derrière la créature, pas autour d'un point flottant.
+        const auraY = enemyBaseY - drawH * 0.43;
+        const aura = charactersCtx.createRadialGradient(enemyX, auraY, 0, enemyX, auraY, size * 0.92);
+        aura.addColorStop(0, 'rgba(220, 40, 40, 0.24)');
         aura.addColorStop(1, 'rgba(220, 40, 40, 0)');
         charactersCtx.fillStyle = aura;
         charactersCtx.beginPath();
-        charactersCtx.arc(enemyX, enemyY + bob, size * 0.85, 0, Math.PI * 2);
+        charactersCtx.arc(enemyX, auraY, size * 0.92, 0, Math.PI * 2);
         charactersCtx.fill();
 
-        // Créature : sprite animé en pixel art avec spritesheet, sinon image fixe ou emoji
-        const drewAnimated = drawAnimatedCreature(charactersCtx, enemy.name, enemyX, enemyY, size, bob);
+        // Créature : l'animation reste, mais la base du sprite colle au sol.
+        const drewAnimated = drawAnimatedCreature(charactersCtx, enemy.name, enemyX, centerY, size, 0);
         if (!drewAnimated) {
             const spriteKey = ENEMY_SPRITES[enemy.name];
             const sprite = spriteKey ? loadedAssets[spriteKey] : null;
             if (sprite && sprite.complete && sprite.naturalWidth) {
-                const ratio = sprite.naturalWidth / sprite.naturalHeight;
-                const sh = size * 1.35;
-                const sw = sh * ratio;
-                charactersCtx.save();
-                charactersCtx.shadowColor = 'rgba(0,0,0,0.45)';
-                charactersCtx.shadowBlur = 8 * scale;
-                charactersCtx.drawImage(sprite, enemyX - sw / 2, enemyY + bob - sh / 2, sw, sh);
-                charactersCtx.restore();
+                drawAnchoredImage(charactersCtx, sprite, enemyX, enemyBaseY, drawH, { trim: 'auto', shadow: false });
             } else {
                 charactersCtx.font = `${Math.round(size)}px sans-serif`;
                 charactersCtx.textAlign = 'center';
-                charactersCtx.textBaseline = 'middle';
-                charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+                charactersCtx.textBaseline = 'bottom';
+                charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyBaseY + 2);
             }
         }
 
-        // Nom + barre de vie
+        // Nom + barre de vie au-dessus de la silhouette ancrée.
         const label = enemy.name || 'Créature hostile';
         const barW = Math.max(60, size * 1.15);
-        const barY = enemyY - size * 0.62 + bob;
-        const ratio = enemy.maxHealth ? Math.max(0, Math.min(1, (enemy.health ?? enemy.maxHealth) / enemy.maxHealth)) : 1;
+        const barY = enemyBaseY - drawH - 18 * scale;
+        const hp = enemy.currentHealth ?? enemy.health ?? enemy.maxHealth ?? 1;
+        const maxHp = enemy.health ?? enemy.maxHealth ?? hp;
+        const ratio = maxHp ? Math.max(0, Math.min(1, hp / maxHp)) : 1;
 
         charactersCtx.fillStyle = 'rgba(8, 16, 22, 0.72)';
         roundedRectPath(charactersCtx, enemyX - barW / 2, barY, barW, 7 * scale, 3.5 * scale);
@@ -1365,13 +1557,17 @@ export function drawSceneCharacters(gameState) {
     // Premier plan végétal / sable : il ancre la scène après les personnages.
     drawSceneForeground(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
 
-    // 🪤 Piège armé sur la case actuelle
+    // 🪤 Piège armé sur la case actuelle, posé sur le même sol que les autres objets.
     if (map?.[player.y]?.[player.x]?.trap) {
+        const trapXNorm = 0.12;
+        const trapX = canvasWidth * trapXNorm;
+        const trapY = sceneGroundY(currentTile, canvasWidth, canvasHeight, trapXNorm, 'loot');
         charactersCtx.save();
+        drawGroundShadow(charactersCtx, trapX + 12 * scale, trapY, 20 * scale, 3 * scale, 0.24);
         charactersCtx.font = `${Math.round(32 * scale)}px sans-serif`;
         charactersCtx.textAlign = 'left';
         charactersCtx.textBaseline = 'bottom';
-        charactersCtx.fillText('🪤', 14, canvasHeight - 14);
+        charactersCtx.fillText('🪤', trapX, trapY + 2);
         charactersCtx.restore();
     }
 
@@ -1427,17 +1623,39 @@ export function drawSceneCharacters(gameState) {
     drawActiveEffects(charactersCtx);
 }
 
+const minimapTrail = [];
+let lastTrailKey = '';
+
+function hasRevealed(collection, key) {
+    if (!collection) return false;
+    if (collection instanceof Set) return collection.has(key);
+    if (Array.isArray(collection)) return collection.includes(key);
+    return Boolean(collection[key]);
+}
+
+function rememberMinimapStep(player) {
+    const key = `${player.x},${player.y}`;
+    if (key === lastTrailKey) return;
+    lastTrailKey = key;
+    minimapTrail.push({ x: player.x, y: player.y, t: Date.now() });
+    while (minimapTrail.length > 22) minimapTrail.shift();
+}
+
 export function drawMinimap(gameState, config) {
     if (!gameState || !gameState.map || !gameState.player || !config) return;
-    const { map, player, npcs, enemies, globallyRevealedTiles } = gameState;
+    const { map, player, npcs = [], enemies = [], globallyRevealedTiles } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
     const { minimapCanvas, minimapCtx } = DOM;
     if (!minimapCtx || !minimapCanvas) return;
 
+    rememberMinimapStep(player);
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cell = MINIMAP_DOT_SIZE;
-    const W = MAP_WIDTH * cell, H = MAP_HEIGHT * cell;
-    if (minimapCanvas.width !== Math.round(W * dpr)) {
+    // La mini-carte est légèrement plus lisible que la grille de config brute.
+    const cell = Math.max(7, MINIMAP_DOT_SIZE || 8);
+    const W = MAP_WIDTH * cell;
+    const H = MAP_HEIGHT * cell;
+    if (minimapCanvas.width !== Math.round(W * dpr) || minimapCanvas.height !== Math.round(H * dpr)) {
         minimapCanvas.width = Math.round(W * dpr);
         minimapCanvas.height = Math.round(H * dpr);
         minimapCanvas.style.width = '100%';
@@ -1446,54 +1664,93 @@ export function drawMinimap(gameState, config) {
     const ctx = minimapCtx;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
 
-    // Fond océan dégradé
+    // Fond océan / parchemin de navigation.
     const ocean = ctx.createLinearGradient(0, 0, W, H);
-    ocean.addColorStop(0, '#0b2a3a');
-    ocean.addColorStop(1, '#06161f');
+    ocean.addColorStop(0, '#0d4252');
+    ocean.addColorStop(0.48, '#0a2a38');
+    ocean.addColorStop(1, '#04121a');
     ctx.fillStyle = ocean;
     ctx.fillRect(0, 0, W, H);
 
-    const pad = 0.6;
+    // Grille nautique discrète, plus forte toutes les 5 cases.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(190, 232, 220, 0.08)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= MAP_WIDTH; x++) {
+        ctx.globalAlpha = x % 5 === 0 ? 0.9 : 0.45;
+        ctx.beginPath();
+        ctx.moveTo(x * cell + 0.5, 0);
+        ctx.lineTo(x * cell + 0.5, H);
+        ctx.stroke();
+    }
+    for (let y = 0; y <= MAP_HEIGHT; y++) {
+        ctx.globalAlpha = y % 5 === 0 ? 0.9 : 0.45;
+        ctx.beginPath();
+        ctx.moveTo(0, y * cell + 0.5);
+        ctx.lineTo(W, y * cell + 0.5);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    let explored = 0;
+    const pad = Math.max(0.7, cell * 0.08);
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tile = map[y]?.[x];
             if (!tile || !tile.type) continue;
             const tileKey = `${x},${y}`;
             const isWater = tile.type.name === 'Lagon';
-            const isVisible = player.visitedTiles.has(tileKey) || globallyRevealedTiles.has(tileKey) || isWater;
-            const px = x * cell, py = y * cell;
+            const isVisited = hasRevealed(player.visitedTiles, tileKey);
+            const isGlobal = hasRevealed(globallyRevealedTiles, tileKey);
+            const isVisible = isVisited || isGlobal || isWater;
+            const px = x * cell;
+            const py = y * cell;
 
             if (!isVisible) {
-                ctx.fillStyle = 'rgba(10, 18, 24, 0.92)';
+                // Brouillard avec contour si la case touche une zone explorée.
+                ctx.fillStyle = 'rgba(5, 10, 15, 0.90)';
                 ctx.fillRect(px, py, cell, cell);
+                const nearKnown = [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) =>
+                    hasRevealed(player.visitedTiles, `${x + dx},${y + dy}`) ||
+                    hasRevealed(globallyRevealedTiles, `${x + dx},${y + dy}`));
+                if (nearKnown) {
+                    ctx.fillStyle = 'rgba(255, 212, 121, 0.09)';
+                    ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+                }
                 continue;
             }
+            if (!isWater) explored++;
 
             const base = tile.type.color || '#888';
             if (isWater) {
-                const shimmer = 0.5 + 0.5 * Math.sin(Date.now() / 900 + (x + y) * 0.6);
-                ctx.fillStyle = shadeColor(base, -35 + shimmer * 12);
+                const shimmer = 0.5 + 0.5 * Math.sin(Date.now() / 800 + (x * 0.8 + y * 0.55));
+                ctx.fillStyle = shadeColor(base, -32 + shimmer * 14);
                 ctx.fillRect(px, py, cell, cell);
+                ctx.fillStyle = `rgba(180, 239, 236, ${0.05 + shimmer * 0.08})`;
+                ctx.fillRect(px + cell * 0.18, py + cell * 0.35, cell * 0.64, Math.max(1, cell * 0.12));
             } else {
-                ctx.fillStyle = base;
-                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, cell - pad * 2, Math.max(1.5, cell * 0.22));
+                const lit = isVisited ? 0 : -10;
+                ctx.fillStyle = shadeColor(base, lit);
+                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, cell - pad * 2, Math.max(1.5, cell * 0.23));
                 ctx.fill();
-                // Relief léger
-                ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, (cell - pad * 2) * 0.45, Math.max(1.5, cell * 0.22));
+                ctx.fillStyle = isVisited ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)';
+                roundedRectPath(ctx, px + pad, py + pad, cell - pad * 2, (cell - pad * 2) * 0.42, Math.max(1.5, cell * 0.23));
                 ctx.fill();
             }
 
-            // Constructions : petit point doré
+            // Constructions : marqueur doré avec petite base sombre.
             if (tile.buildings && tile.buildings.length > 0) {
+                ctx.fillStyle = 'rgba(0,0,0,0.36)';
+                ctx.fillRect(px + cell * 0.31, py + cell * 0.31, cell * 0.38, cell * 0.38);
                 ctx.fillStyle = '#ffd479';
-                ctx.beginPath();
-                ctx.arc(px + cell * 0.5, py + cell * 0.5, Math.max(1.4, cell * 0.16), 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillRect(px + cell * 0.36, py + cell * 0.27, cell * 0.28, cell * 0.46);
+                ctx.fillStyle = '#8b5b2e';
+                ctx.fillRect(px + cell * 0.42, py + cell * 0.50, cell * 0.16, cell * 0.23);
             }
 
-            // Ressources restantes : petite jauge en bas de case
+            // Ressources restantes : petite jauge en bas de case.
             let totalActions = 0;
             if (tile.type.name === TILE_TYPES.FOREST.name) {
                 totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
@@ -1509,80 +1766,133 @@ export function drawMinimap(gameState, config) {
             }
             if (totalActions > 0) {
                 const ratio = Math.min(1, totalActions / 30);
-                ctx.fillStyle = 'rgba(255,255,255,0.75)';
-                ctx.fillRect(px + 1.5, py + cell - 3, (cell - 3) * ratio, 1.8);
+                ctx.fillStyle = 'rgba(8, 18, 22, 0.62)';
+                ctx.fillRect(px + 1, py + cell - 3.5, cell - 2, 2.2);
+                ctx.fillStyle = 'rgba(255, 241, 188, 0.82)';
+                ctx.fillRect(px + 1.5, py + cell - 3, (cell - 3) * ratio, 1.4);
             }
         }
     }
 
-    // Halo de découverte autour du joueur
-    const cx = (player.x + 0.5) * cell, cy = (player.y + 0.5) * cell;
-    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 4);
-    halo.addColorStop(0, 'rgba(255, 212, 121, 0.18)');
+    // Trajet récent du joueur : aide à comprendre d'où l'on vient.
+    if (minimapTrail.length > 1) {
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        minimapTrail.forEach((step, index) => {
+            if (index === 0) return;
+            const prev = minimapTrail[index - 1];
+            const alpha = 0.18 + (index / minimapTrail.length) * 0.42;
+            ctx.strokeStyle = `rgba(255, 229, 143, ${alpha})`;
+            ctx.lineWidth = Math.max(1.2, cell * 0.16);
+            ctx.beginPath();
+            ctx.moveTo((prev.x + 0.5) * cell, (prev.y + 0.5) * cell);
+            ctx.lineTo((step.x + 0.5) * cell, (step.y + 0.5) * cell);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    const isKnown = (x, y) => hasRevealed(player.visitedTiles, `${x},${y}`) || hasRevealed(globallyRevealedTiles, `${x},${y}`);
+
+    // Halo de découverte autour du joueur.
+    const cx = (player.x + 0.5) * cell;
+    const cy = (player.y + 0.5) * cell;
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 4.2);
+    halo.addColorStop(0, 'rgba(255, 212, 121, 0.22)');
     halo.addColorStop(1, 'rgba(255, 212, 121, 0)');
     ctx.fillStyle = halo;
     ctx.fillRect(0, 0, W, H);
 
-    // PNJ
-    npcs.forEach(npc => {
-        const k = `${npc.x},${npc.y}`;
-        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) return;
-        ctx.fillStyle = npc.color || '#ff6347';
+    // Camp / abri : icône maison prioritaire.
+    if (gameState.shelterLocation) {
+        const sx = (gameState.shelterLocation.x + 0.5) * cell;
+        const sy = (gameState.shelterLocation.y + 0.5) * cell;
+        ctx.fillStyle = '#fff1bd';
         ctx.beginPath();
-        ctx.arc((npc.x + 0.5) * cell, (npc.y + 0.5) * cell, cell * 0.28, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke();
-    });
-
-    // Ennemis
-    enemies.forEach(enemy => {
-        const k = `${enemy.x},${enemy.y}`;
-        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) return;
-        const ex = (enemy.x + 0.5) * cell, ey = (enemy.y + 0.5) * cell;
-        ctx.fillStyle = enemy.color || '#dc2626';
-        ctx.beginPath();
-        ctx.moveTo(ex, ey - cell * 0.32);
-        ctx.lineTo(ex + cell * 0.3, ey + cell * 0.26);
-        ctx.lineTo(ex - cell * 0.3, ey + cell * 0.26);
+        ctx.moveTo(sx, sy - cell * 0.38);
+        ctx.lineTo(sx + cell * 0.42, sy - cell * 0.02);
+        ctx.lineTo(sx + cell * 0.32, sy - cell * 0.02);
+        ctx.lineTo(sx + cell * 0.32, sy + cell * 0.34);
+        ctx.lineTo(sx - cell * 0.32, sy + cell * 0.34);
+        ctx.lineTo(sx - cell * 0.32, sy - cell * 0.02);
+        ctx.lineTo(sx - cell * 0.42, sy - cell * 0.02);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = '#5a351c'; ctx.lineWidth = 1.2; ctx.stroke();
+    }
+
+    // PNJ.
+    npcs.forEach(npc => {
+        if (!isKnown(npc.x, npc.y)) return;
+        const nx = (npc.x + 0.5) * cell;
+        const ny = (npc.y + 0.5) * cell;
+        ctx.fillStyle = npc.color || '#60a5fa';
+        ctx.beginPath();
+        ctx.arc(nx, ny, cell * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#eff6ff'; ctx.lineWidth = 1; ctx.stroke();
     });
 
-    // Camp
-    if (gameState.shelterLocation) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.setLineDash([2, 2]);
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(gameState.shelterLocation.x * cell + 0.5, gameState.shelterLocation.y * cell + 0.5, cell - 1, cell - 1);
-        ctx.setLineDash([]);
-    }
+    // Ennemis : triangles rouges + halo d'alerte.
+    enemies.forEach(enemy => {
+        if (!isKnown(enemy.x, enemy.y)) return;
+        const ex = (enemy.x + 0.5) * cell;
+        const ey = (enemy.y + 0.5) * cell;
+        ctx.fillStyle = 'rgba(248, 73, 88, 0.16)';
+        ctx.beginPath();
+        ctx.arc(ex, ey, cell * 0.58, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = enemy.color || '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(ex, ey - cell * 0.38);
+        ctx.lineTo(ex + cell * 0.35, ey + cell * 0.28);
+        ctx.lineTo(ex - cell * 0.35, ey + cell * 0.28);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1; ctx.stroke();
+    });
 
-    // Autres joueurs
-    for (const pid in gameState.players) {
+    // Autres joueurs.
+    for (const pid in gameState.players || {}) {
         if (pid === player.id) continue;
         const op = gameState.players[pid];
-        const k = `${op.x},${op.y}`;
-        if (!player.visitedTiles.has(k) && !globallyRevealedTiles.has(k)) continue;
-        ctx.fillStyle = '#4299e1';
+        if (!op || !isKnown(op.x, op.y)) continue;
+        ctx.fillStyle = '#67e8f9';
         ctx.beginPath();
-        ctx.arc((op.x + 0.5) * cell, (op.y + 0.5) * cell, cell * 0.3, 0, Math.PI * 2);
+        ctx.arc((op.x + 0.5) * cell, (op.y + 0.5) * cell, cell * 0.29, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = '#052735'; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
-    // Joueur : point doré avec anneau pulsant
-    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 420);
-    ctx.strokeStyle = `rgba(255, 212, 121, ${0.25 + 0.5 * pulse})`;
-    ctx.lineWidth = 1.6;
+    // Joueur : repère doré animé + flèche.
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 380);
+    ctx.strokeStyle = `rgba(255, 226, 138, ${0.38 + 0.48 * pulse})`;
+    ctx.lineWidth = Math.max(1.6, cell * 0.16);
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * (0.45 + 0.3 * pulse), 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * (0.52 + 0.25 * pulse), 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = '#ffd479';
+    ctx.fillStyle = '#ffe28a';
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.32, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy - cell * 0.42);
+    ctx.lineTo(cx + cell * 0.36, cy + cell * 0.34);
+    ctx.lineTo(cx, cy + cell * 0.18);
+    ctx.lineTo(cx - cell * 0.36, cy + cell * 0.34);
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#0d1a22'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.strokeStyle = '#2d1b12'; ctx.lineWidth = 1.2; ctx.stroke();
+
+    // Bordure interne et vignette pour détacher la carte de l'interface.
+    ctx.strokeStyle = 'rgba(255, 241, 188, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+    const coordsChip = document.getElementById('minimap-coords-chip');
+    if (coordsChip) {
+        const totalLand = Math.max(1, MAP_WIDTH * MAP_HEIGHT);
+        coordsChip.textContent = `(${player.x}, ${player.y}) · ${Math.round((explored / totalLand) * 100)}%`;
+        coordsChip.title = `${explored} cases repérées hors lagon`;
+    }
 }
 
 export function drawLargeMap(gameState, config) {

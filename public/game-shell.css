@@ -599,7 +599,7 @@ body.game-screen #mobile-vitals { display: none; }
         width: auto;
         height: calc(var(--tabbar-h) + var(--safe-b));
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(7, minmax(0, 1fr));
         padding: 3px max(3px, var(--safe-r)) calc(3px + var(--safe-b)) max(3px, var(--safe-l));
         border: 0;
         border-top: 2px solid #b98742;
@@ -884,4 +884,302 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen #bottom-bar-chat-panel,
     body.game-screen #minimap-section,
     body.game-screen #bottom-bar-equipment-panel { transition: none !important; }
+}
+
+/* =====================================================================
+   AJUSTEMENTS DEMANDE — carte, onglet équipement séparé et combat immersif
+   ===================================================================== */
+body.game-screen .minimap-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+body.game-screen #minimap-coords-chip {
+    margin-left: auto;
+    padding: 2px 6px;
+    border: 1px solid rgba(248, 204, 105, .28);
+    background: rgba(4, 19, 25, .72);
+    color: #cce6e2;
+    font-family: "Poppins", sans-serif;
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-shadow: none;
+    white-space: nowrap;
+}
+body.game-screen #minimap-container {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(248, 204, 105, .36);
+    background:
+        radial-gradient(circle at 50% 50%, rgba(120, 214, 202, .08), transparent 60%),
+        linear-gradient(145deg, #071c25, #031014);
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.06),
+        inset 0 0 24px rgba(0,0,0,.42),
+        0 5px 0 rgba(3, 12, 16, .55);
+}
+body.game-screen #minimap-container::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    pointer-events: none;
+    border: 1px dashed rgba(255, 241, 188, .18);
+    box-shadow: inset 0 0 18px rgba(0,0,0,.35);
+}
+body.game-screen #minimap-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    image-rendering: pixelated;
+}
+body.game-screen #minimap-legend-mini {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 10px;
+    padding-top: 6px;
+    color: #98bdc0;
+    font-size: .62rem;
+    line-height: 1.2;
+}
+body.game-screen #minimap-legend-mini span { display: inline-flex; align-items: center; gap: 4px; }
+body.game-screen .legend-dot {
+    width: 8px;
+    height: 8px;
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,.5);
+    background: #ffe28a;
+    box-shadow: 0 0 8px currentColor;
+}
+body.game-screen .legend-dot.camp { background: #fff1bd; color: #fff1bd; }
+body.game-screen .legend-dot.danger { background: #ef4444; color: #ef4444; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+body.game-screen .legend-dot.you { background: #ffe28a; color: #ffe28a; border-radius: 50%; }
+
+body.game-screen #combat-player-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+body.game-screen #combat-arena {
+    position: relative;
+    display: block;
+    min-height: 342px;
+    margin: 0 24px 20px;
+    padding: 0;
+    overflow: hidden;
+    border: 2px solid rgba(255, 241, 188, .34);
+    border-radius: 18px;
+    background:
+        radial-gradient(ellipse at 75% 31%, rgba(255,255,255,.45) 0 4%, transparent 5%),
+        linear-gradient(#69bad0 0 38%, #9fd5c8 38% 51%, #6cae57 51% 100%);
+    box-shadow: inset 0 0 0 3px rgba(4, 24, 30, .45), 0 12px 30px rgba(0,0,0,.35);
+}
+body.game-screen #combat-arena::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 74% 41%, rgba(19, 69, 38, .22) 0 11%, transparent 12%),
+        radial-gradient(ellipse at 24% 78%, rgba(24, 82, 42, .32) 0 18%, transparent 19%),
+        linear-gradient(0deg, rgba(30,83,42,.30), transparent 46%);
+    pointer-events: none;
+}
+body.game-screen #combat-arena::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px), linear-gradient(rgba(0,0,0,.08) 1px, transparent 1px);
+    background-size: 10px 10px;
+    mix-blend-mode: soft-light;
+    opacity: .34;
+}
+body.game-screen #combat-player-info,
+body.game-screen #combat-enemy-info {
+    position: absolute;
+    z-index: 2;
+    width: min(44%, 342px);
+    min-height: 0;
+    padding: 12px 14px 14px;
+    border-width: 2px;
+    border-radius: 16px;
+    background: rgba(7, 25, 32, .86);
+    box-shadow: 0 8px 0 rgba(3, 12, 16, .42), 0 18px 28px rgba(0,0,0,.25);
+    backdrop-filter: none;
+}
+body.game-screen #combat-player-info {
+    left: 26px;
+    bottom: 22px;
+    border-color: rgba(103, 212, 173, .70);
+}
+body.game-screen #combat-enemy-info {
+    right: 26px;
+    top: 22px;
+    border-color: rgba(242, 119, 128, .76);
+}
+body.game-screen #combat-arena.player-turn #combat-player-info,
+body.game-screen #combat-arena.enemy-turn #combat-enemy-info {
+    box-shadow: 0 8px 0 rgba(3, 12, 16, .50), 0 0 0 3px rgba(255, 212, 121, .18), 0 18px 34px rgba(0,0,0,.32);
+    transform: translateY(-3px);
+}
+body.game-screen #combat-arena.enemy-turn #combat-enemy-info { transform: translateY(3px); }
+body.game-screen .combatant-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+}
+body.game-screen #combat-arena .combat-portrait {
+    width: min(176px, 58%);
+    height: 132px;
+    margin: 9px auto 8px;
+    border-radius: 50% 50% 44% 44% / 58% 58% 38% 38%;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    filter: drop-shadow(0 13px 0 rgba(2, 12, 15, .22)) drop-shadow(0 8px 12px rgba(0,0,0,.34));
+}
+body.game-screen #combat-arena .combat-portrait.enemy {
+    width: min(150px, 52%);
+    height: 116px;
+    font-size: 4rem;
+}
+body.game-screen #combat-arena .combat-portrait.enemy .portrait-img {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    filter: drop-shadow(0 10px 0 rgba(67, 18, 24, .20));
+}
+body.game-screen #combat-arena .combatant-info h3 {
+    margin-bottom: 8px;
+    color: #fff6d6;
+    text-shadow: 2px 2px 0 rgba(3, 12, 16, .65);
+}
+body.game-screen #combat-arena .combat-health-meta {
+    padding: 5px 7px 4px;
+    margin: 0;
+    border: 1px solid rgba(255,255,255,.09);
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    background: rgba(2, 11, 15, .60);
+}
+body.game-screen #combat-arena .combat-health-bar-container {
+    height: 12px;
+    border-radius: 0 0 8px 8px;
+}
+body.game-screen #combat-arena .combatant-status {
+    margin-top: 8px;
+    color: #b7d7db;
+}
+body.game-screen #combat-versus {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+body.game-screen #combat-versus span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #123943;
+}
+body.game-screen #combat-versus i {
+    height: 72%;
+    transform: rotate(55deg);
+    opacity: .55;
+}
+
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    body.game-screen #mobile-tabbar {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+    body.game-screen .mobile-tab {
+        font-size: clamp(.32rem, 1.45vw, .43rem);
+    }
+    body.game-screen .mobile-tab .mt-icon .icon-img {
+        width: 22px;
+        height: 22px;
+    }
+    body.game-screen.sheet-open #minimap-section.sheet-active,
+    body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        right: max(7px, var(--safe-r));
+        bottom: calc(var(--tabbar-h) + var(--safe-b));
+        left: max(7px, var(--safe-l));
+        width: auto;
+        padding-top: 12px;
+    }
+    body.game-screen.sheet-open #minimap-section.sheet-active {
+        height: min(70dvh, 540px);
+    }
+    body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        height: min(67dvh, 520px);
+    }
+    body.game-screen #bottom-bar-equipment-panel::before { display: block; }
+    body.game-screen #bottom-bar-equipment-panel h4 { margin-bottom: 6px; }
+    body.game-screen #minimap-container { flex: 1 1 auto; min-height: 230px; }
+    body.game-screen #minimap-legend-mini { font-size: .58rem; }
+    body.game-screen .equipment-preview-area {
+        display: grid;
+        grid-template-columns: minmax(118px, .8fr) minmax(0, 1.2fr);
+        align-items: stretch;
+        gap: 10px;
+    }
+    body.game-screen .survivor-card {
+        min-height: 128px;
+        flex-basis: auto;
+    }
+    body.game-screen #loadout-avatar-canvas { height: 96px; }
+    body.game-screen #bottom-bar-equipment-slots {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-content: start;
+    }
+    body.game-screen .equipment-slot-small { min-height: 52px; }
+
+    body.game-screen #combat-modal-content {
+        width: 100vw;
+        max-height: 100dvh;
+        padding: 0;
+        border-radius: 18px 18px 0 0;
+    }
+    body.game-screen #combat-header { padding: 15px 14px 12px; }
+    body.game-screen #combat-title { font-size: 1.2rem; }
+    body.game-screen #combat-turn-indicator { max-width: 48%; padding: 7px 9px; font-size: .64rem; }
+    body.game-screen #combat-arena {
+        min-height: 332px;
+        margin: 0 10px 12px;
+        border-radius: 14px;
+    }
+    body.game-screen #combat-player-info,
+    body.game-screen #combat-enemy-info {
+        width: min(48%, 220px);
+        padding: 9px 8px 10px;
+        border-radius: 13px;
+    }
+    body.game-screen #combat-player-info { left: 8px; bottom: 12px; }
+    body.game-screen #combat-enemy-info { right: 8px; top: 12px; }
+    body.game-screen #combat-arena .combat-portrait { width: 96px; height: 82px; margin: 6px auto 5px; }
+    body.game-screen #combat-arena .combat-portrait.enemy { width: 84px; height: 76px; font-size: 3rem; }
+    body.game-screen #combat-arena .combatant-info h3 { font-size: .72rem; margin-bottom: 6px; }
+    body.game-screen #combat-arena .combatant-label { font-size: .44rem; letter-spacing: .4px; }
+    body.game-screen #combat-arena .combat-health-meta { padding: 4px 5px 3px; font-size: .5rem; }
+    body.game-screen #combat-arena .combat-health-meta strong { font-size: .58rem; }
+    body.game-screen #combat-arena .combatant-status { font-size: .5rem; margin-top: 5px; }
+    body.game-screen #combat-versus span { width: 38px; height: 38px; font-size: .56rem; }
+}
+
+@media (max-width: 380px) {
+    body.game-screen .mobile-tab { font-size: .31rem; }
+    body.game-screen .mobile-tab .mt-icon .icon-img { width: 20px; height: 20px; }
+    body.game-screen #combat-arena { min-height: 312px; }
+    body.game-screen #combat-player-info,
+    body.game-screen #combat-enemy-info { width: 49%; }
 }
