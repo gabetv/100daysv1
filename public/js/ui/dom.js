@@ -5,6 +5,7 @@ const DOM = {
     mainViewCtx: document.getElementById('main-view-canvas')?.getContext('2d'),
     mainViewContainer: document.getElementById('main-view-container'),
     loadingOverlay: document.getElementById('loading-overlay'),
+    depthCanvas: document.getElementById('depth-canvas'),
     charactersCanvas: document.getElementById('characters-canvas'),
     charactersCtx: document.getElementById('characters-canvas')?.getContext('2d'),
     minimapCanvas: document.getElementById('minimap-canvas'),

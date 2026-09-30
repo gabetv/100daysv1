@@ -22,13 +22,22 @@ const FREE_ACTIONS = new Set([
     ACTIONS.SET_LOCK,
     ACTIONS.REMOVE_LOCK,
     ACTIONS.OPEN_ALL_PARCHEMINS,
+    // Gestion du sac : ces actions ne doivent jamais vider faim/soif/sommeil.
+    ACTIONS.MOVE_ITEM,
+    ACTIONS.CONSUME_ITEM_CONTEXT,
+    ACTIONS.EQUIP_ITEM_CONTEXT,
+    ACTIONS.UNEQUIP_ITEM_CONTEXT,
+    ACTIONS.DROP_ITEM_CONTEXT,
+    ACTIONS.PICKUP_ITEM_CONTEXT,
 ]);
 
 export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
     const player = gameState.players[playerId];
     if (!player) return;
 
-    if (!FREE_ACTIONS.has(actionId)) {
+    // Les déplacements réussis consomment un peu d'énergie ; un mur ou une
+    // diagonale impossible ne doit pas punir le joueur.
+    if (!FREE_ACTIONS.has(actionId) && actionId !== ACTIONS.MOVE) {
         applyActionCost(player);
     }
 
@@ -41,31 +50,28 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
     console.log(`[SERVER] Action received from ${playerId}: ${actionId}`, data || '');
 
     switch (actionId) {
-        case ACTIONS.SEND_CHAT_MESSAGE:
-            if (data && data.message && broadcastToClients) {
-                const sender = gameState.players[playerId];
-                // Add message to player state to be displayed above their head
-                if (sender) {
-                    sender.chatMessage = {
-                        text: data.message,
-                        timestamp: Date.now()
-                    };
-                }
+        case ACTIONS.SEND_CHAT_MESSAGE: {
+            const message = typeof data?.message === 'string' ? data.message.trim().slice(0, 240) : '';
+            const now = Date.now();
+            const sender = gameState.players[playerId];
+            // Un petit cooldown évite le spam qui surcharge le journal de tous les joueurs.
+            if (!message || !sender || now - (sender.lastChatAt || 0) < 700) break;
+            sender.lastChatAt = now;
+            sender.chatMessage = { text: message, timestamp: now };
 
-                // Broadcast to all clients for chat window
-                const chatMessage = {
+            if (broadcastToClients) {
+                broadcastToClients(JSON.stringify({
                     type: 'chat',
-                    payload: {
-                        sender: sender ? sender.name : 'Unknown',
-                        message: data.message,
-                    },
-                };
-                broadcastToClients(JSON.stringify(chatMessage));
+                    payload: { sender: sender.name || 'Survivant', message },
+                }));
             }
             break;
+        }
         // --- INVENTORY & MOVEMENT ---
         case ACTIONS.MOVE:
-            if (data && data.direction) Player.movePlayer(player, data.direction);
+            if (data && data.direction && Player.movePlayer(player, data.direction)) {
+                applyActionCost(player);
+            }
             break;
         case ACTIONS.EQUIP_ITEM_CONTEXT:
             if (data && data.itemKey) Player.equipItem(player, data.itemKey);

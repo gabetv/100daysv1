@@ -3,11 +3,13 @@
 import { drawMainBackground, drawSceneCharacters, drawMinimap } from './draw.js';
 import { drawAtmosphere, getLighting } from './atmosphere.js';
 import DOM from './dom.js';
+import { initScene3D, resizeScene3D, drawScene3D, refreshScene3D } from './scene3d.js';
 
 let running = false;
 let rafId = null;
 let lastDraw = 0;
 let lastMinimap = 0;
+let lastScenePosition = '';
 const TARGET_FPS = 32;
 
 function shouldSkip() {
@@ -36,6 +38,20 @@ function frame(ts) {
         const canvas = DOM.mainViewCanvas;
         if (canvas && DOM.mainViewCtx) {
             drawAtmosphere(DOM.mainViewCtx, canvas.width, canvas.height, gs);
+        }
+        if (DOM.depthCanvas) {
+            if (!DOM.depthCanvas.dataset.ready) {
+                DOM.depthCanvas.dataset.ready = initScene3D(DOM.depthCanvas) ? 'true' : 'fallback';
+                if (DOM.depthCanvas.dataset.ready === 'true') resizeScene3D(DOM.depthCanvas);
+            }
+            if (DOM.depthCanvas.dataset.ready === 'true') {
+                const position = `${gs.player.x}:${gs.player.y}:${gs.player.combatState ? 'combat' : 'free'}`;
+                if (position !== lastScenePosition) {
+                    lastScenePosition = position;
+                    refreshScene3D(gs);
+                }
+                drawScene3D(gs, ts);
+            }
         }
         drawSceneCharacters(gs);
         updateTimeBadge(gs);

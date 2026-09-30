@@ -172,24 +172,26 @@ export function updateDayCounter(day) {
 
 export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
-    
+
     DOM.tileNameEl.innerHTML = `${tileIconHTML(tile.type.name, tile.type.icon || '', 'tile-name-icon')} ${tile.type.name}`;
 
-    let infoText = tile.type.description || "";
-    if(tile.buildings && tile.buildings.length > 0){
+    let infoText = tile.type.description || "Une zone encore inexplorée.";
+    if (tile.buildings && tile.buildings.length > 0) {
         const building = tile.buildings[0];
         const buildingDef = TILE_TYPES[building.key];
         if (buildingDef) {
-            infoText = `${buildingDef.name} - ${buildingDef.description || ''}`;
-            if(building.hasOwnProperty('durability')) {
-                infoText += ` (Durabilité: ${building.durability}/${building.maxDurability})`
+            infoText = `${buildingDef.name} — ${buildingDef.description || tile.type.description || ''}`;
+            if (Object.prototype.hasOwnProperty.call(building, 'durability')) {
+                infoText += ` (${building.durability}/${building.maxDurability} solidité)`;
             }
         }
     }
     DOM.tileHarvestsInfoEl.textContent = infoText;
 
     const biomeDisplay = document.getElementById('biome-display');
-    if(biomeDisplay) biomeDisplay.textContent = `Biome: ${tile.type.name}`;
+    if (biomeDisplay) biomeDisplay.textContent = `Biome : ${tile.type.name}`;
+    const positionDisplay = document.getElementById('position-display');
+    if (positionDisplay) positionDisplay.textContent = `(${tile.x}, ${tile.y})`;
 }
 
 export function initializeTabs() {
@@ -282,29 +284,105 @@ export function updateBottomBarEquipmentPanel(player) {
     });
 }
 
+function actionGroup(action) {
+    const id = String(action?.id || '').toLowerCase();
+    const name = String(action?.name || '').toLowerCase();
+    if (id.includes('combat') || id.includes('attack') || name.includes('attaquer')) return ['Danger', '⚔️'];
+    if (id.includes('build') || id.includes('repair') || id.includes('dismantle') || id.includes('plant') || id.includes('regenerate')) return ['Aménager', '🛠️'];
+    if (id.includes('craft') || id.includes('workshop') || id.includes('etabli') || id.includes('forge') || name.includes('parchemin')) return ['Fabriquer', '🔧'];
+    if (id.includes('open_building') || id.includes('lock') || id.includes('chest') || id.includes('treasure')) return ['Découvrir', '✨'];
+    return ['Survie & exploration', '🌿'];
+}
+
+function actionIsRecommended(action, player, tile) {
+    const id = String(action?.id || '');
+    if (player.health <= player.maxHealth * 0.3 && [ACTIONS.SLEEP, ACTIONS.SLEEP_BY_CAMPFIRE].includes(id)) return true;
+    if (id === ACTIONS.FIRE_DISTRESS_FLARE || id === ACTIONS.FIRE_DISTRESS_GUN) return true;
+    if (id === ACTIONS.OPEN_TREASURE) return true;
+    if (id === ACTIONS.INITIATE_COMBAT && tile?.type?.name === 'Trésor Caché') return true;
+    return false;
+}
+
 export function updateActionsPanel(gameState) {
     const actionsContainer = document.getElementById('actions-tab-content');
     if (!actionsContainer) return;
 
-    actionsContainer.innerHTML = ''; // Clear old buttons
     const { player } = gameState;
+    const actions = player?.availableActions || [];
+    const tile = gameState.map?.[player?.y]?.[player?.x];
+    const screenButton = document.getElementById('screen-interaction-button');
+    const screenLabel = document.getElementById('screen-action-label');
+    const screenCount = document.getElementById('screen-action-count');
+    if (screenCount) screenCount.textContent = String(actions.length);
+    if (screenLabel) screenLabel.textContent = actions.length ? 'Actions ici' : 'Observer';
+    if (screenButton) {
+        screenButton.classList.toggle('has-actions', actions.length > 0);
+        screenButton.setAttribute('aria-label', actions.length
+            ? `Afficher les ${actions.length} actions disponibles ici`
+            : 'Observer le lieu');
+    }
 
-    if (!player || !player.availableActions || player.availableActions.length === 0) {
-        actionsContainer.innerHTML = '<p class="inventory-empty">(Aucune action ici)</p>';
+    actionsContainer.innerHTML = '';
+    const summary = document.createElement('div');
+    summary.className = 'actions-summary';
+    const summaryLabel = document.createElement('span');
+    summaryLabel.className = 'actions-summary-label';
+    summaryLabel.textContent = actions.length ? `${actions.length} choix possibles` : 'AUCUNE ACTION IMMÉDIATE';
+    const summaryText = document.createElement('p');
+    summaryText.textContent = actions.length
+        ? 'Choisissez une action, puis adaptez votre plan aux ressources et aux dangers de cette case.'
+        : 'Déplacez-vous vers une nouvelle case ou revenez après un événement.';
+    summary.append(summaryLabel, summaryText);
+    actionsContainer.appendChild(summary);
+
+    if (!player || actions.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'inventory-empty';
+        empty.textContent = 'Le calme ne durera pas éternellement…';
+        actionsContainer.appendChild(empty);
         return;
     }
 
-    player.availableActions.forEach(action => {
+    const groupOrder = { 'Danger': 0, 'Survie & exploration': 1, 'Découvrir': 2, 'Fabriquer': 3, 'Aménager': 4 };
+    const orderedActions = [...actions].sort((a, b) => {
+        const [groupA] = actionGroup(a);
+        const [groupB] = actionGroup(b);
+        return (groupOrder[groupA] ?? 99) - (groupOrder[groupB] ?? 99);
+    });
+
+    let currentGroup = '';
+    orderedActions.forEach(action => {
+        const [group, icon] = actionGroup(action);
+        if (group !== currentGroup) {
+            currentGroup = group;
+            const groupLabel = document.createElement('div');
+            groupLabel.className = 'action-group-label';
+            const groupIcon = document.createElement('span');
+            groupIcon.textContent = icon;
+            const groupName = document.createElement('span');
+            groupName.textContent = group;
+            groupLabel.append(groupIcon, groupName);
+            actionsContainer.appendChild(groupLabel);
+        }
+
+        const recommended = actionIsRecommended(action, player, tile);
         const button = document.createElement('button');
         button.id = `action-btn-${action.id}`;
+        button.className = `action-button${recommended ? ' recommended' : ''}`;
         button.textContent = action.name;
+        if (recommended) {
+            const recommendation = document.createElement('small');
+            recommendation.className = 'action-recommendation';
+            recommendation.textContent = 'Conseillé maintenant';
+            button.appendChild(recommendation);
+        }
         button.addEventListener('click', () => {
             if (action.id === ACTIONS.OPEN_BUILD_MODAL) {
                 window.UI.showBuildModal(gameState);
             } else if (action.id === ACTIONS.OPEN_BUILDING_INVENTORY) {
                 // Coffre verrouillé par un cadenas ? Demander le code (sauf au propriétaire)
-                const tile = gameState.map?.[player.y]?.[player.x];
-                const lockedChest = tile?.buildings?.find(b => b.lockCode);
+                const currentTile = gameState.map?.[player.y]?.[player.x];
+                const lockedChest = currentTile?.buildings?.find(b => b.lockCode);
                 if (lockedChest && lockedChest.ownerId !== player.id) {
                     showLockModal((code) => {
                         if (String(code) === String(lockedChest.lockCode)) {

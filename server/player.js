@@ -103,23 +103,24 @@ export function movePlayer(player, direction) {
         case 'ne': x++; y--; break;
         case 'sw': x--; y++; break;
         case 'se': x++; y++; break;
-        default: return;
+        default: return false;
     }
 
     if (x < 0 || x >= CONFIG.MAP_WIDTH || y < 0 || y >= CONFIG.MAP_HEIGHT) {
-        return;
+        return false;
     }
 
     const targetTile = gameState.map[y]?.[x];
     if (!targetTile || !targetTile.type.accessible) {
         player.notifications.push({ type: 'floatingText', message: 'Chemin bloqué', style: 'info' });
-        return;
+        return false;
     }
 
     player.x = x;
     player.y = y;
     player.visitedTiles.add(`${x},${y}`);
     console.log(`Player ${player.id} moved from (${oldX},${oldY}) to (${x},${y})`);
+    return true;
 }
 
 export function equipItem(player, itemKey) {

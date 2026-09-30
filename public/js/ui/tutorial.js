@@ -40,8 +40,8 @@ const tutorialSteps = [
     },
     {
         elementId: 'right-panel',
-        highlightTarget: '#tile-info',
-        message: "À droite, ce panneau affiche des informations sur la <b>case actuelle</b> : son nom, vos coordonnées (X,Y), le jour actuel et les ressources/actions restantes.",
+        highlightTarget: '#tile-info-hud',
+        message: "Sur la scène, le cartouche <b>VOUS ÊTES ICI</b> affiche la case actuelle, ses coordonnées et les informations utiles. Le bandeau en haut indique aussi le jour, le niveau et votre expérience.",
         showNext: true,
         nextButtonText: "Suivant",
         nextButtonAction: 'tutorial_next',
@@ -49,8 +49,8 @@ const tutorialSteps = [
     },
     {
         elementId: 'right-panel',
-        highlightTarget: '#interaction-panel',
-        message: "Le panneau <b>'Actions Possibles'</b> liste ce que vous pouvez faire ici : récolter, construire, interagir...",
+        highlightTarget: '#actions-tab',
+        message: "Le panneau <b>'Actions'</b> classe maintenant vos choix par intention : survivre, explorer, fabriquer ou prendre un risque. L'action recommandée est mise en évidence.",
         showNext: true,
         nextButtonText: "Suivant",
         nextButtonAction: 'tutorial_next',
@@ -58,8 +58,8 @@ const tutorialSteps = [
     },
     {
         elementId: 'right-panel',
-        highlightTarget: '#inventory-section',
-        message: "Votre <b>Inventaire principal</b> s'affiche ici, trié par catégories. Cliquez sur un titre de catégorie pour la déplier/replier. Vous pouvez cliquer sur certains objets pour les utiliser ou les équiper.",
+        highlightTarget: '#inventory-tab',
+        message: "Votre <b>Inventaire</b> s'affiche ici, trié par catégories. Cliquez sur un titre pour déplier/replier une catégorie, puis utilisez le clic droit ou l'appui long sur un objet pour l'utiliser, l'équiper ou le jeter.",
         showNext: true,
         nextButtonText: "Suivant",
         nextButtonAction: 'tutorial_next',
@@ -137,6 +137,21 @@ export function showTutorialStep(stepIndex) {
     DOM.tutorialMessage.innerHTML = step.message;
 
     if (step.highlightTarget) {
+        // Sur mobile, ouvrir la feuille concernée avant de la mettre en valeur :
+        // une étape de tutoriel ne doit jamais pointer vers un panneau invisible.
+        if (window.UI?.isMobileLayout?.() && window.UI?.openMobileTab) {
+            const mobileTabs = {
+                '#player-stats': 'status',
+                '#minimap-section': 'map',
+                '#actions-tab': 'actions',
+                '#inventory-tab': 'inventory',
+                '#bottom-bar-chat-panel': 'chat',
+                '#bottom-bar-equipment-panel': 'map',
+                '#bottom-bar-ground-items': 'status',
+            };
+            const tab = mobileTabs[step.highlightTarget];
+            if (tab) window.UI.openMobileTab(tab);
+        }
         highlightElement(step.highlightTarget);
     } else {
         highlightElement(null, true);

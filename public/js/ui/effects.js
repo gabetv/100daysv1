@@ -1,5 +1,7 @@
 // js/ui/effects.js
 
+import { resizeScene3D } from './scene3d.js';
+
 export function showFloatingText(text, type) {
     const mainView = document.getElementById('main-view-container');
     if (!mainView) return; // S'assurer que mainView existe
@@ -49,6 +51,7 @@ export function resizeGameView() {
     }
 
     const mainViewCanvas = document.getElementById('main-view-canvas');
+    const depthCanvas = document.getElementById('depth-canvas');
     const charactersCanvas = document.getElementById('characters-canvas');
     const isMobile = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)').matches;
 
@@ -64,7 +67,7 @@ export function resizeGameView() {
         newWidth = Math.max(10, Math.round(rect.width * dpr));
         newHeight = Math.max(10, Math.round(rect.height * dpr));
 
-        [mainViewCanvas, charactersCanvas].forEach(c => {
+        [mainViewCanvas, depthCanvas, charactersCanvas].forEach(c => {
             if (!c) return;
             c.style.width = '100%';
             c.style.height = '100%';
@@ -85,7 +88,7 @@ export function resizeGameView() {
 
         container.style.width = `${newWidth}px`;
         container.style.height = `${newHeight}px`;
-        [mainViewCanvas, charactersCanvas].forEach(c => {
+        [mainViewCanvas, depthCanvas, charactersCanvas].forEach(c => {
             if (!c) return;
             c.style.width = '';
             c.style.height = '';
@@ -93,7 +96,11 @@ export function resizeGameView() {
     }
 
     if (mainViewCanvas) { mainViewCanvas.width = newWidth; mainViewCanvas.height = newHeight; }
+    if (depthCanvas) { depthCanvas.width = newWidth; depthCanvas.height = newHeight; }
     if (charactersCanvas) { charactersCanvas.width = newWidth; charactersCanvas.height = newHeight; }
+
+    // WebGL utilise la taille CSS et choisit son propre DPR pour éviter le flou.
+    if (depthCanvas) resizeScene3D(depthCanvas);
 
     if (window.gameState && window.gameState.player && window.UI) {
         try {
