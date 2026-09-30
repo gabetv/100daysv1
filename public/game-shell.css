@@ -109,6 +109,19 @@ body.game-screen #main-view-container {
         inset 0 0 0 2px rgba(255,255,255,.09),
         0 12px 28px rgba(0,0,0,.55);
 }
+body.game-screen #main-view-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    opacity: .2;
+    background-image:
+        linear-gradient(90deg, rgba(222, 247, 216, .12) 50%, transparent 50%),
+        linear-gradient(rgba(5, 17, 23, .12) 50%, transparent 50%);
+    background-size: 6px 6px;
+    mix-blend-mode: soft-light;
+}
 body.game-screen #main-view-container::after {
     content: '';
     position: absolute;
@@ -444,6 +457,10 @@ body.game-screen #mobile-vitals { display: none; }
         border-radius: 0;
         background: #071923;
         box-shadow: inset 0 0 0 2px rgba(248, 204, 105, .38);
+    }
+    body.game-screen #main-view-container::before {
+        opacity: .13;
+        background-size: 5px 5px;
     }
     body.game-screen #main-view-container::after {
         z-index: 39;

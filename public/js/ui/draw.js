@@ -144,63 +144,85 @@ function getTileSeed(tile) {
     return hashString(pos);
 }
 
-function drawGrassBlade(ctx, x, baseY, height, lean, color, alpha = 1) {
+// Les détails de décor sont volontairement quantifiés sur une petite grille.
+// Le jeu garde ainsi un grain pixel art même lorsque le canvas est affiché en grand.
+function scenePixelUnit(w, h) {
+    return Math.max(2, Math.round(Math.min(w, h) / 230));
+}
+
+function snapPixel(value, unit) {
+    return Math.round(value / unit) * unit;
+}
+
+function drawPixelTuft(ctx, x, baseY, height, lean, color, alpha = 1, unit = 2) {
+    const steps = Math.max(3, Math.round(height / unit));
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1, height * 0.055);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x, baseY);
-    ctx.quadraticCurveTo(x + lean * 0.3, baseY - height * 0.55, x + lean, baseY - height);
-    ctx.stroke();
+    ctx.fillStyle = color;
+    for (let step = 0; step < steps; step++) {
+        const progress = step / steps;
+        const px = snapPixel(x + lean * (1 - progress), unit);
+        const py = snapPixel(baseY - step * unit, unit);
+        const width = step > steps * 0.72 ? unit : unit * (step % 3 === 0 ? 2 : 1);
+        ctx.fillRect(px, py, width, unit);
+    }
     ctx.restore();
+}
+
+function drawPixelPebble(ctx, x, y, size, colors, unit = 2) {
+    const [shadow, base, highlight] = colors;
+    const u = Math.max(unit, snapPixel(Math.max(size / 3, unit), unit));
+    const px = snapPixel(x, unit);
+    const py = snapPixel(y, unit);
+    ctx.fillStyle = shadow;
+    ctx.fillRect(px - u, py, u * 2, unit);
+    ctx.fillRect(px - u * 2, py - u, u * 4, unit);
+    ctx.fillStyle = base;
+    ctx.fillRect(px - u, py - u * 2, u * 2, unit);
+    ctx.fillRect(px - u * 2, py - u, u * 3, unit);
+    if (highlight) {
+        ctx.fillStyle = highlight;
+        ctx.fillRect(px - u, py - u * 2, u, unit);
+    }
 }
 
 function drawWaterGlints(ctx, w, h, rand, strength = 1) {
     const time = Date.now() / 1250;
+    const unit = scenePixelUnit(w, h);
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
-    ctx.lineCap = 'round';
+    ctx.fillStyle = '#e8ffff';
     for (let i = 0; i < 13; i++) {
-        const y = h * (0.42 + rand() * 0.43);
-        const x = ((rand() * 1.16 + time * (0.012 + rand() * 0.012)) % 1.16 - 0.08) * w;
-        const len = w * (0.035 + rand() * 0.08);
-        ctx.globalAlpha = (0.09 + rand() * 0.13) * strength;
-        ctx.strokeStyle = '#e8ffff';
-        ctx.lineWidth = 1.1 + rand() * 1.8;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(x + len * 0.45, y - 1.5, x + len, y + Math.sin(time + i) * 1.4);
-        ctx.stroke();
+        const y = snapPixel(h * (0.42 + rand() * 0.43), unit);
+        const x = snapPixel(((rand() * 1.16 + time * (0.012 + rand() * 0.012)) % 1.16 - 0.08) * w, unit);
+        const len = Math.max(unit * 3, snapPixel(w * (0.035 + rand() * 0.08), unit));
+        ctx.globalAlpha = (0.12 + rand() * 0.16) * strength;
+        ctx.fillRect(x, y, len, unit);
+        if (i % 2 === 0) ctx.fillRect(x + unit, y - unit, Math.max(unit, len - unit * 3), unit);
     }
     ctx.restore();
 }
 
 function drawForestCanopy(ctx, w, h, rand) {
     const time = Date.now() / 2800;
+    const unit = scenePixelUnit(w, h);
     ctx.save();
     for (const side of [-1, 1]) {
-        const originX = side < 0 ? -w * 0.06 : w * 1.06;
-        const originY = h * (0.05 + rand() * 0.12);
+        const originX = side < 0 ? -w * 0.05 : w * 1.05;
+        const originY = h * (0.04 + rand() * 0.1);
         const radius = w * (0.14 + rand() * 0.05);
-        const g = ctx.createRadialGradient(originX, originY, 0, originX, originY, radius * 1.45);
-        g.addColorStop(0, 'rgba(8, 36, 28, 0.52)');
-        g.addColorStop(0.72, 'rgba(12, 62, 40, 0.23)');
-        g.addColorStop(1, 'rgba(12, 62, 40, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(originX, originY, radius * 1.45, 0, Math.PI * 2);
-        ctx.fill();
-
-        for (let i = 0; i < 8; i++) {
-            const x = originX + side * (radius * (0.2 + rand() * 0.9));
-            const y = originY + radius * (-0.1 + rand() * 0.85) + Math.sin(time + i) * 2;
-            ctx.globalAlpha = 0.16 + rand() * 0.16;
-            ctx.fillStyle = i % 2 ? '#174c34' : '#0f3d2c';
-            ctx.beginPath();
-            ctx.ellipse(x, y, radius * (0.18 + rand() * 0.1), radius * (0.1 + rand() * 0.08), side * 0.35, 0, Math.PI * 2);
-            ctx.fill();
+        for (let i = 0; i < 24; i++) {
+            const size = snapPixel(radius * (0.11 + rand() * 0.14), unit);
+            const x = snapPixel(originX - side * radius * (0.08 + rand() * 1.05), unit);
+            const y = snapPixel(originY + radius * (-0.08 + rand() * 0.98) + Math.sin(time + i) * unit, unit);
+            ctx.globalAlpha = 0.17 + rand() * 0.20;
+            ctx.fillStyle = i % 3 === 0 ? '#0d3528' : i % 2 ? '#174c34' : '#28613a';
+            ctx.fillRect(x - size / 2, y - size / 2, size, size);
+            if (i % 3 === 0) {
+                ctx.fillStyle = '#3a7b45';
+                ctx.globalAlpha *= 0.55;
+                ctx.fillRect(x, y - size / 2, size / 2, size / 2);
+            }
         }
     }
     ctx.restore();
@@ -222,15 +244,15 @@ function drawGroundDetails(ctx, w, h, tile, rand) {
             const x = w * (0.06 + rand() * 0.88);
             const y = h * (0.77 + rand() * 0.17);
             const r = 1.5 + rand() * 3.5;
-            ctx.fillStyle = i % 3 === 0 ? 'rgba(160, 105, 65, 0.34)' : 'rgba(255, 244, 204, 0.48)';
-            ctx.beginPath();
-            ctx.ellipse(x, y, r * 1.4, r * 0.62, rand() * Math.PI, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.globalAlpha = i % 3 === 0 ? 0.42 : 0.58;
+            drawPixelPebble(ctx, x, y, r * 2.2,
+                i % 3 === 0 ? ['#754b30', '#aa7040', '#d29b55'] : ['#b89c63', '#e2c67d', '#fff0bd'],
+                scenePixelUnit(w, h));
         }
         for (let i = 0; i < 13; i++) {
             const x = w * (0.02 + rand() * 0.28);
             const baseY = h * (0.94 + rand() * 0.07);
-            drawGrassBlade(ctx, x, baseY, h * (0.035 + rand() * 0.045), Math.sin(time + i) * 5, '#6f8d42', 0.72);
+            drawPixelTuft(ctx, x, baseY, h * (0.035 + rand() * 0.045), Math.sin(time + i) * 5, '#6f8d42', 0.72, scenePixelUnit(w, h));
         }
         ctx.restore();
         return;
@@ -269,12 +291,10 @@ function drawGroundDetails(ctx, w, h, tile, rand) {
         const size = h * (0.006 + rand() * 0.014);
         if (i % 3 === 0 || biome === 'Mine (Terrain)') {
             ctx.globalAlpha = 0.28 + rand() * 0.23;
-            ctx.fillStyle = palette[i % palette.length];
-            ctx.beginPath();
-            ctx.ellipse(x, y, size * (1.1 + rand()), size * 0.62, rand() * Math.PI, 0, Math.PI * 2);
-            ctx.fill();
+            const base = palette[i % palette.length];
+            drawPixelPebble(ctx, x, y, size * (1.6 + rand()), ['#203137', base, '#a9bab0'], scenePixelUnit(w, h));
         } else {
-            drawGrassBlade(ctx, x, y + size, h * (0.028 + rand() * 0.045), Math.sin(time * 1.2 + i) * (3 + rand() * 6), palette[i % palette.length], 0.52);
+            drawPixelTuft(ctx, x, y + size, h * (0.028 + rand() * 0.045), Math.sin(time * 1.2 + i) * (3 + rand() * 6), palette[i % palette.length], 0.52, scenePixelUnit(w, h));
         }
     }
     ctx.restore();
@@ -284,22 +304,20 @@ function drawTreasureGlints(ctx, w, h, tile) {
     if (tile?.type?.name !== 'Trésor Caché' || tile?.isOpened) return;
     drawTreasureGlintPixel(ctx, w * 0.5, h * 0.65, 1.25);
     const t = Date.now() / 450;
+    const unit = scenePixelUnit(w, h);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = 'rgba(255, 224, 105, 0.92)';
     for (let i = 0; i < 4; i++) {
         const pulse = (Math.sin(t + i * 1.7) + 1) * 0.5;
-        const x = w * (0.27 + i * 0.15);
-        const y = h * (0.55 + (i % 2) * 0.10);
-        const r = 1.2 + pulse * 2.2;
-        ctx.globalAlpha = 0.25 + pulse * 0.65;
-        ctx.beginPath();
-        ctx.moveTo(x, y - r * 2.2); ctx.lineTo(x + r, y - r);
-        ctx.lineTo(x + r * 2.2, y); ctx.lineTo(x + r, y + r);
-        ctx.lineTo(x, y + r * 2.2); ctx.lineTo(x - r, y + r);
-        ctx.lineTo(x - r * 2.2, y); ctx.lineTo(x - r, y - r);
-        ctx.closePath();
-        ctx.fill();
+        const x = snapPixel(w * (0.27 + i * 0.15), unit);
+        const y = snapPixel(h * (0.55 + (i % 2) * 0.10), unit);
+        const arm = unit * (1 + Math.round(pulse * 2));
+        ctx.globalAlpha = 0.28 + pulse * 0.64;
+        ctx.fillStyle = '#ffe069';
+        ctx.fillRect(x - arm, y, arm * 3, unit);
+        ctx.fillRect(x, y - arm, unit, arm * 3);
+        ctx.fillStyle = '#fff4bd';
+        ctx.fillRect(x, y, unit, unit);
     }
     ctx.restore();
 }
@@ -1176,7 +1194,7 @@ function drawSceneForeground(ctx, w, h, tile, scale) {
         const baseY = h * (0.93 + rand() * 0.09);
         const height = h * (0.027 + rand() * 0.052) * Math.max(0.85, scale * 0.85);
         const sway = Math.sin(time * 1.25 + i * 0.79) * (3 + rand() * 5);
-        drawGrassBlade(ctx, x, baseY, height, sway, colors[i % colors.length], 0.48 + rand() * 0.28);
+        drawPixelTuft(ctx, x, baseY, height, sway, colors[i % colors.length], 0.48 + rand() * 0.28, scenePixelUnit(w, h));
     }
     ctx.restore();
 }
