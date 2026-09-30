@@ -125,6 +125,11 @@
                 <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
             </div>
         </div>
+
+        <!-- Le voile doit rester dans le même contexte d'empilement que les
+             feuilles mobiles. Sinon, le conteneur fixe emprisonne les panneaux
+             sous ce voile et bloque toutes leurs interactions tactiles. -->
+        <div id="mobile-sheet-backdrop" aria-hidden="true"></div>
     </div>
 
         <!-- ### BARRE D'ONGLETS MOBILE ### -->
@@ -136,7 +141,6 @@
             <button class="mobile-tab" data-mtab="chat"><span class="mt-icon"><img class="icon-img" src="assets/icons/chatbubble.png" alt=""></span><span class="mt-label">Chat</span></button>
             <button class="mobile-tab" data-mtab="map"><span class="mt-icon"><img class="icon-img" src="assets/icons/map.png" alt=""></span><span class="mt-label">Carte</span></button>
         </nav>
-        <div id="mobile-sheet-backdrop"></div>
 
     <!-- MODALES COMPLETES -->
     <div id="large-map-modal" class="hidden">
