@@ -406,6 +406,13 @@ export const SPRITESHEET_PATHS = {
     bg_campfire: 'assets/bg_campfire.png',
     bg_mine: 'assets/bg_mine.png',
     bg_treasure_chest: 'assets/bg_treasure_chest.png',
+    // Accessoires dessinés dans la scène (constructions)
+    prop_campfire: 'assets/campfire.png',
+    prop_shelter: 'assets/shelter.png',
+    prop_mine: 'assets/mine.png',
+    prop_workbench: 'assets/etabli.png',
+    prop_chest: 'assets/coffre.webp',
+    prop_tree: 'assets/arbre.png',
 };
 
 export const TILE_TYPES = {

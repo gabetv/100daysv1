@@ -232,9 +232,18 @@ function showVictoryScreen(victory, player) {
 function setupEventListeners() {
     document.querySelectorAll('.nav-button-overlay').forEach(button => {
         button.addEventListener('click', (e) => {
-            const direction = e.target.id.replace('nav-', '');
+            const direction = (e.currentTarget.id || e.target.id).replace('nav-', '');
             sendAction(ACTIONS.MOVE, { direction });
         });
+    });
+
+    // --- Interface mobile : onglets, feuilles coulissantes, déplacement au doigt ---
+    UI.initMobileUI({
+        onMove: (direction) => {
+            const p = window.gameState && window.gameState.player;
+            if (p && (p.isBusy || p.animationState)) return;
+            sendAction(ACTIONS.MOVE, { direction });
+        }
     });
     
     // --- Audio : démarrage au premier geste + clics + bouton mute ---
@@ -284,6 +293,7 @@ function init() {
             UI.resizeGameView();
             window.addEventListener('resize', UI.resizeGameView);
             setupEventListeners();
+            UI.startRenderLoop();
             connect();
         } catch (e) {
             console.error('Error during initialization:', e);

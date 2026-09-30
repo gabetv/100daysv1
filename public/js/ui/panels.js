@@ -1,4 +1,5 @@
 import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG } from '../config.js';
+import { notifyChatMessage } from './mobile.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
 import { showChestModal, showLockModal, hideLockModal } from './modals.js';
@@ -178,6 +179,8 @@ export function addChatMessage(message, type, author) {
     msgDiv.appendChild(spanMessage);
     chatMessagesEl.appendChild(msgDiv);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    // Badge "non lu" sur l'onglet Chat en mode mobile
+    try { notifyChatMessage(); } catch (_) {}
 }
 
 export function updateAllButtonsState(gameState) {

@@ -48,33 +48,57 @@ export function resizeGameView() {
         return;
     }
 
-    const aspectRatio = 1408 / 768; // Environ 1.8333
-    const wrapperWidth = wrapper.clientWidth - 10; // -10 pour un petit padding
-    const wrapperHeight = wrapper.clientHeight - 10;
-
-    let newWidth = wrapperWidth;
-    let newHeight = wrapperWidth / aspectRatio;
-
-    if (newHeight > wrapperHeight) {
-        newHeight = wrapperHeight;
-        newWidth = wrapperHeight * aspectRatio;
-    }
-    
-    newWidth = Math.max(10, newWidth);
-    newHeight = Math.max(10, newHeight);
-
-    container.style.width = `${newWidth}px`;
-    container.style.height = `${newHeight}px`;
-
     const mainViewCanvas = document.getElementById('main-view-canvas');
     const charactersCanvas = document.getElementById('characters-canvas');
-    
-    if(mainViewCanvas) {
-        mainViewCanvas.width = newWidth;
-        mainViewCanvas.height = newHeight;
+    const isMobile = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)').matches;
+
+    let newWidth, newHeight;
+
+    if (isMobile) {
+        // Mobile : la scène remplit tout l'espace disponible (pas de bandes noires),
+        // le fond est recadré en "cover" par drawMainBackground.
+        container.style.width = '';
+        container.style.height = '';
+        const rect = wrapper.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        newWidth = Math.max(10, Math.round(rect.width * dpr));
+        newHeight = Math.max(10, Math.round(rect.height * dpr));
+
+        [mainViewCanvas, charactersCanvas].forEach(c => {
+            if (!c) return;
+            c.style.width = '100%';
+            c.style.height = '100%';
+        });
+    } else {
+        const aspectRatio = 1408 / 768;
+        const wrapperWidth = wrapper.clientWidth - 10;
+        const wrapperHeight = wrapper.clientHeight - 10;
+
+        newWidth = wrapperWidth;
+        newHeight = wrapperWidth / aspectRatio;
+        if (newHeight > wrapperHeight) {
+            newHeight = wrapperHeight;
+            newWidth = wrapperHeight * aspectRatio;
+        }
+        newWidth = Math.max(10, newWidth);
+        newHeight = Math.max(10, newHeight);
+
+        container.style.width = `${newWidth}px`;
+        container.style.height = `${newHeight}px`;
+        [mainViewCanvas, charactersCanvas].forEach(c => {
+            if (!c) return;
+            c.style.width = '';
+            c.style.height = '';
+        });
     }
-    if(charactersCanvas) {
-        charactersCanvas.width = newWidth;
-        charactersCanvas.height = newHeight;
+
+    if (mainViewCanvas) { mainViewCanvas.width = newWidth; mainViewCanvas.height = newHeight; }
+    if (charactersCanvas) { charactersCanvas.width = newWidth; charactersCanvas.height = newHeight; }
+
+    if (window.gameState && window.gameState.player && window.UI) {
+        try {
+            window.UI.drawMainBackground(window.gameState);
+            window.UI.drawSceneCharacters(window.gameState);
+        } catch (_) {}
     }
 }
