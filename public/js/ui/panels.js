@@ -299,7 +299,7 @@ export function updateBottomBarEquipmentPanel(player) {
         const equippedItem = player.equipment[slotType];
         if (equippedItem) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
-            slotEl.innerHTML = `<div class="inventory-item" draggable="true" data-item-name="${equippedItem.name}" data-owner="equipment" data-slot-type="${slotType}" title="${equippedItem.name}">${itemIconHTML(equippedItem.name, itemDef.icon)}</div>`;
+            slotEl.innerHTML = `<div class="inventory-item clickable" draggable="true" data-item-name="${equippedItem.name}" data-owner="equipment" data-slot-type="${slotType}" title="${equippedItem.name}">${itemIconHTML(equippedItem.name, itemDef.icon)}</div>`;
         }
         slotsContainer.appendChild(slotEl);
     });

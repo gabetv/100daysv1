@@ -13,8 +13,24 @@ let wasKicked = false;
 let actionPending = false;
 window.gameState = {};
 
-// Le pseudo du compte connecté (défini par la page de login)
-const myUsername = sessionStorage.getItem('username');
+// Le pseudo du compte connecté (défini par la page de login).
+// Fallback localStorage pour les navigateurs mobiles/PWA qui perdent parfois
+// la session lors de la redirection entre l'accueil et game.html.
+function readStoredUsername() {
+    try {
+        const sessionName = sessionStorage.getItem('username');
+        if (sessionName) return sessionName;
+    } catch (_) {}
+    try {
+        const rememberedName = localStorage.getItem('lastUsername');
+        if (rememberedName) {
+            try { sessionStorage.setItem('username', rememberedName); } catch (_) {}
+            return rememberedName;
+        }
+    } catch (_) {}
+    return '';
+}
+const myUsername = readStoredUsername();
 if (!myUsername) {
     // Pas connecté : retour à l'écran de connexion
     window.location.href = '/';
