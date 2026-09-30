@@ -1,7 +1,7 @@
-import { ITEM_TYPES, TILE_TYPES, ACTIONS } from '../config.js';
+import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG } from '../config.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
-import { showChestModal } from './modals.js';
+import { showChestModal, showLockModal, hideLockModal } from './modals.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -127,7 +127,7 @@ export function updateInventory(player) {
 }
 
 export function updateDayCounter(day) {
-    if (DOM.dayDisplay) DOM.dayDisplay.textContent = `Jour: ${day}`;
+    if (DOM.dayDisplay) DOM.dayDisplay.textContent = `Jour ${day} / ${CONFIG.VICTORY_DAY}`;
 }
 
 export function updateTileInfoPanel(tile) {
@@ -167,7 +167,12 @@ export function addChatMessage(message, type, author) {
     if (!chatMessagesEl) return;
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('chat-message', type || 'system');
-    msgDiv.innerHTML = author ? `<strong>${author}: </strong>` : '';
+    if (author) {
+        // textContent (et non innerHTML) pour empêcher toute injection HTML via le pseudo
+        const strongAuthor = document.createElement('strong');
+        strongAuthor.textContent = `${author}: `;
+        msgDiv.appendChild(strongAuthor);
+    }
     const spanMessage = document.createElement('span');
     spanMessage.textContent = message;
     msgDiv.appendChild(spanMessage);
@@ -248,7 +253,26 @@ export function updateActionsPanel(gameState) {
             if (action.id === ACTIONS.OPEN_BUILD_MODAL) {
                 window.UI.showBuildModal(gameState);
             } else if (action.id === ACTIONS.OPEN_BUILDING_INVENTORY) {
-                showChestModal(gameState);
+                // Coffre verrouillé par un cadenas ? Demander le code (sauf au propriétaire)
+                const tile = gameState.map?.[player.y]?.[player.x];
+                const lockedChest = tile?.buildings?.find(b => b.lockCode);
+                if (lockedChest && lockedChest.ownerId !== player.id) {
+                    showLockModal((code) => {
+                        if (String(code) === String(lockedChest.lockCode)) {
+                            hideLockModal();
+                            showChestModal(gameState);
+                        } else if (window.UI) {
+                            window.UI.addChatMessage('🔒 Mauvais code ! Le cadenas résiste.', 'system_error');
+                        }
+                    }, false);
+                } else {
+                    showChestModal(gameState);
+                }
+            } else if (action.id === ACTIONS.SET_LOCK) {
+                showLockModal((code) => {
+                    hideLockModal();
+                    sendAction(ACTIONS.SET_LOCK, { code: String(code) });
+                }, true);
             } else if (action.id === ACTIONS.USE_ETABLI || action.id === ACTIONS.USE_ATELIER || action.id === ACTIONS.USE_FORGE) {
                 window.UI.showWorkshopModal(gameState);
             } else {

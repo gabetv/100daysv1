@@ -74,13 +74,13 @@ export const CONFIG = {
     NPC_BASE_HEALTH: 8,
     NPC_BASE_DAMAGE: 1,
     NPC_AGGRO_RADIUS: 3,
-    INITIAL_ENEMIES: 0, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
+    INITIAL_ENEMIES: 3, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
     DAY_DURATION_MS: 120000, STAT_DECAY_INTERVAL_MS: 180000,
     NPC_ACTION_INTERVAL_MS: 3000, CHAT_MESSAGE_INTERVAL_MS: 25000,
     PLAYER_BASE_MAX_RESOURCES: 50,
     MAX_BUILDINGS_PER_TILE: 1,
     FOG_OF_WAR_REVEAL_THRESHOLD: 5,
-    VICTORY_DAY: 200,
+    VICTORY_DAY: 100,
 };
 
 export const COMBAT_CONFIG = {
@@ -129,7 +129,9 @@ export const ACTION_DURATIONS = {
 export const ENEMY_TYPES = {
     WOLF: { name: 'Loup Agressif', icon: '🐺', health: 10, damage: 2, color: '#dc2626', aggroRadius: 4, loot: { 'Peau de bête': 1, 'Os': 2, 'Viande crue': 1 } },
     SNAKE: { name: 'Serpent Venimeux', icon: '🐍', health: 6, damage: 3, color: '#16a34a', aggroRadius: 3, loot: { 'Viande crue': 1, 'Venin': 1 } },
-    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {'Cadenas cassé': 1} }
+    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {'Cadenas cassé': 1} },
+    GUARDIAN: { name: 'Gardien du Trésor', icon: '🗿', health: 35, damage: 4, color: '#a16207', aggroRadius: 0, isBoss: true,
+        loot: { "Minerai d'or": 2, 'Kit de Secours': 2, 'Os': 5, 'Pierre': 10 } }
 };
 
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or', 'Souffre'];
@@ -388,7 +390,8 @@ export const TREASURE_COMBAT_KIT = {
     'Épée en fer': 1,
     'Bouclier en fer': 1,
     'Kit de Secours': 3,
-    'Barre Énergétique': 5
+    'Barre Énergétique': 5,
+    'Fusée de détresse': 1 // La clé de l'évasion : à tirer depuis une plage !
 };
 
 export const SPRITESHEET_PATHS = {
@@ -491,7 +494,8 @@ export const TILE_TYPES = {
     COCOTERAIE: { name: 'Cocoteraie', accessible: true, color: '#fff8dc', background: ['bg_plains_2'], icon: '🥥🌴', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_cocoteraie', name: 'Récolter Noix de Coco', result: { 'Noix de coco': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive des noix de coco." },
     POULAILLER: { name: 'Poulailler', accessible: true, color: '#fffacd', background: ['bg_plains_3'], icon: '🐔🏡', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_poulailler', name: 'Récolter Oeufs', result: { 'Oeuf cru': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des poules." },
     ENCLOS_COCHONS: { name: 'Enclos à Cochons', accessible: true, color: '#ffebcd', background: ['bg_plains_4'], icon: '🐖🏞️', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_enclos_cochons', name: 'Récolter Viande', result: { 'Viande crue': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des cochons." },
-    OBSERVATOIRE: { name: 'Observatoire', accessible: true, color: '#f5f5dc', background: ['bg_plains_1'], icon: '🔭', isBuilding: true, durability: 20, cost: { 'Planche': 50, 'Porte en bois': 1, 'toolRequired': ['Pelle en fer'] }, action: { id: 'observe_weather', name: 'Observer (Prochaine catastrophe)' }, description: "Permet d'observer le ciel." },
+    OBSERVATOIRE: { name: 'Observatoire', accessible: true, color: '#f5f5dc', background: ['bg_plains_1'], icon: '🔭', isBuilding: true, durability: 20, cost: { 'Planche': 50, 'Porte en bois': 1, 'toolRequired': ['Pelle en fer'] }, action: { id: 'observe_weather', name: '🔭 Observer le ciel (météo de demain)' }, description: "Permet d'observer le ciel." },
+    PANNEAU_SOLAIRE: { name: 'Panneau solaire', accessible: true, color: '#1e3a8a', background: ['bg_plains_1'], icon: '☀️', isBuilding: true, durability: 10, action: { id: 'charge_device_solar', name: '⚡ Recharger un appareil (Panneau)' }, description: "Recharge les appareils électroniques déchargés." },
     ETABLI: { name: 'Établi', accessible: true, color: '#D2B48C', background: ['bg_plains_2'], icon: '🪚', isBuilding: true, durability: 50, cost: { 'Bois': 25 }, action: {id: 'use_etabli', name: 'Utiliser Établi'}, description: "Un plan de travail simple pour l'artisanat." },
 };
 

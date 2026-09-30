@@ -101,15 +101,44 @@ export function updateAllUI(gameState) {
        DrawModule.drawMinimap(gameState, gameState.config);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
     // Mise à jour de l'affichage HUD en haut à gauche
-    const dayDisplay = document.getElementById('day-display');
-    const timeDisplay = document.getElementById('time-display');
     const positionDisplayNav = document.getElementById('position-display-nav');
+    const positionDisplay = document.getElementById('position-display');
+    const timeDisplay = document.getElementById('time-display');
+    const onlineCount = Object.keys(gameState.players || {}).length;
 
-    if (dayDisplay) dayDisplay.textContent = `Jour: ${day}`;
     if (positionDisplayNav) positionDisplayNav.textContent = `Position: (${player.x}, ${player.y})`;
-});
+    if (positionDisplay) positionDisplay.textContent = `Position: (${player.x}, ${player.y})`;
+    if (timeDisplay) timeDisplay.textContent = `👥 ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
+
+    // Niveau & expérience
+    const levelDisplay = document.getElementById('level-display');
+    const xpBar = document.getElementById('xp-bar');
+    const level = player.level || 1;
+    const xp = Math.floor(player.xp || 0);
+    const xpNeeded = level * 25;
+    if (levelDisplay) levelDisplay.textContent = `⭐ Niveau ${level} · ${xp}/${xpNeeded} XP`;
+    if (xpBar) xpBar.style.width = `${Math.min(100, (xp / xpNeeded) * 100)}%`;
+
+    // Panneau d'objectifs
+    updateObjectivesPanel(player);
+}
+
+function updateObjectivesPanel(player) {
+    const list = document.getElementById('objectives-list');
+    if (!list || !player.objectives) return;
+    list.innerHTML = '';
+    player.objectives.forEach(obj => {
+        const li = document.createElement('li');
+        if (obj.done) li.classList.add('done');
+        const check = document.createElement('span');
+        check.textContent = obj.done ? '✅' : obj.icon;
+        const text = document.createElement('span');
+        text.textContent = obj.text;
+        li.appendChild(check);
+        li.appendChild(text);
+        list.appendChild(li);
+    });
 }
 
 /**

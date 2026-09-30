@@ -1,6 +1,8 @@
 // server/state.js
 
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from '../public/js/config.js';
+import { initNpcs } from './npc.js';
+import { initEnemies, spawnGuardian, spawnSingleEnemy } from './enemy.js';
 
 export let gameState = {};
 
@@ -10,8 +12,9 @@ export let gameState = {};
  */
 export function initializeGameState(config) {
     console.log("Initializing game state...");
+    const map = generateMap(config.MAP_WIDTH, config.MAP_HEIGHT);
     gameState = {
-        map: generateMap(config.MAP_WIDTH, config.MAP_HEIGHT),
+        map: map,
         players: {},
         npcs: [],
         enemies: [],
@@ -19,7 +22,7 @@ export function initializeGameState(config) {
         day: 1,
         time: 0,
         config: config,
-        combatState: null,
+        victory: null,
         knownRecipes: {}, // Recettes connues par tous les joueurs
         tutorialState: {
             active: false,
@@ -29,15 +32,76 @@ export function initializeGameState(config) {
             welcomeMessageShown: false,
         }
     };
-    // Initialiser quelques PNJ et ennemis si nécessaire
+    // Peupler l'île : survivants PNJ et premiers dangers
+    gameState.npcs = initNpcs(config, map);
+    gameState.enemies = initEnemies(config, map);
+
+    // Le Gardien veille sur le trésor...
+    const guardian = spawnGuardian(map);
+    if (guardian) gameState.enemies.push(guardian);
+
+    console.log(`Spawned ${gameState.npcs.length} NPCs and ${gameState.enemies.length} enemies (dont le Gardien du Trésor).`);
 }
 
 // --- Mise à jour quotidienne ---
 export async function dailyUpdate() {
     if (!gameState) return;
+    if (gameState.victory) return; // La partie est gagnée, on fige le compteur
 
     gameState.day++;
     console.log(`A new day has begun: Day ${gameState.day}`);
+
+    // Annonce du nouveau jour à tous les joueurs
+    Object.values(gameState.players).forEach(player => {
+        player.notifications.push({ type: 'chat', message: `☀️ Jour ${gameState.day} / ${CONFIG.VICTORY_DAY} — un nouveau jour se lève.`, style: 'system_event' });
+    });
+
+    // La nature reprend ses droits : les ressources se régénèrent lentement
+    regenerateResources();
+
+    // Événement du jour : la prévision d'hier se réalise (l'Observatoire peut la lire à l'avance)
+    let todaysEvent;
+    if (gameState.nextEvent === undefined) {
+        // Aucune prévision (premier jour / ancienne sauvegarde) : tirage direct
+        todaysEvent = Math.random() < 0.4 ? RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)] : null;
+    } else {
+        todaysEvent = gameState.nextEvent ? RANDOM_EVENTS.find(e => e.name === gameState.nextEvent.name) || null : null;
+    }
+    if (todaysEvent) {
+        applyRandomEvent(todaysEvent);
+    } else {
+        gameState.lastEvent = null;
+    }
+
+    // Tirage de la météo de DEMAIN (visible via l'Observatoire 🔭 et la radio 📻)
+    const upcoming = Math.random() < 0.4 ? RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)] : null;
+    gameState.nextEvent = upcoming ? { icon: upcoming.icon, name: upcoming.name, description: upcoming.description } : null;
+
+    // Tous les 3 jours : les PNJ ont de nouveaux besoins (quêtes réinitialisées)
+    if (gameState.day % 3 === 0) {
+        let questsReset = false;
+        gameState.npcs.forEach(npc => {
+            if (npc.availableQuest && npc.availableQuest.isCompleted) {
+                npc.availableQuest.isCompleted = false;
+                questsReset = true;
+            }
+        });
+        if (questsReset) {
+            Object.values(gameState.players).forEach(player => {
+                player.notifications.push({ type: 'chat', message: "📢 Les survivants ont de nouveaux besoins... Allez leur parler !", style: 'system_event' });
+            });
+        }
+    }
+
+    // Condition de victoire : survivre 100 jours
+    if (gameState.day >= CONFIG.VICTORY_DAY) {
+        gameState.victory = { type: 'survival', day: gameState.day, by: null };
+        Object.values(gameState.players).forEach(player => {
+            player.notifications.push({ type: 'chat', message: `🏆 VICTOIRE ! Vous avez survécu ${CONFIG.VICTORY_DAY} jours ! Les secours arrivent enfin...`, style: 'gain' });
+        });
+        console.log('VICTORY! Players survived to day', gameState.day);
+        return;
+    }
 
     // Apparition des ennemis
     if (gameState.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
@@ -58,15 +122,201 @@ export async function dailyUpdate() {
     // Autres logiques quotidiennes (ex: météo) peuvent être ajoutées ici
 }
 
+// --- ÉVÉNEMENTS ALÉATOIRES ---
+
+const RANDOM_EVENTS = [
+    {
+        icon: '🌩️', name: 'Tempête tropicale',
+        description: "Une tempête s'abat sur l'île ! Les survivants sans abri sont blessés (-3 PV).",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                const tile = gameState.map[p.y]?.[p.x];
+                const sheltered = tile?.buildings?.some(b => TILE_TYPES[b.key]?.isShelter || TILE_TYPES[b.key]?.sleepEffect);
+                if (sheltered) {
+                    p.notifications.push({ type: 'chat', message: "🌩️ La tempête gronde... mais votre abri tient bon !", style: 'system_info' });
+                } else {
+                    p.health = Math.max(1, p.health - 3);
+                    p.notifications.push({ type: 'chat', message: "🌩️ La tempête vous fouette de plein fouet ! (-3 PV) Construisez un abri !", style: 'damage' });
+                }
+            });
+        }
+    },
+    {
+        icon: '🌧️', name: 'Pluie bienfaisante',
+        description: "Une pluie douce arrose l'île : soif étanchée et +1 Eau pure pour tous.",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                p.thirst = Math.min(p.maxThirst, p.thirst + 6);
+                p.inventory['Eau pure'] = (p.inventory['Eau pure'] || 0) + 1;
+                p.notifications.push({ type: 'chat', message: "🌧️ La pluie vous désaltère. (+6 Soif, +1 Eau pure)", style: 'gain' });
+            });
+        }
+    },
+    {
+        icon: '🐺', name: 'Meute affamée',
+        description: "Des hurlements résonnent... deux bêtes supplémentaires rôdent sur l'île !",
+        apply() {
+            for (let i = 0; i < 2; i++) {
+                const e = spawnSingleEnemy(gameState.map);
+                if (e) gameState.enemies.push(e);
+            }
+            Object.values(gameState.players).forEach(p => {
+                p.notifications.push({ type: 'chat', message: "🐺 Des hurlements résonnent au loin... restez sur vos gardes !", style: 'system_warning' });
+            });
+        }
+    },
+    {
+        icon: '☀️', name: 'Journée radieuse',
+        description: "Le soleil revigore les survivants : +3 PV pour tous.",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                p.health = Math.min(p.maxHealth, p.health + 3);
+                p.notifications.push({ type: 'chat', message: "☀️ Le soleil vous revigore. (+3 PV)", style: 'gain' });
+            });
+        }
+    },
+    {
+        icon: '🍀', name: 'Abondance',
+        description: "La nature déborde de vie : les zones de fouille et les forêts regorgent de ressources.",
+        apply() {
+            for (const row of gameState.map) {
+                for (const tile of row) {
+                    if (tile.searchActionsLeft !== undefined) tile.searchActionsLeft += 3;
+                    if (tile.woodActionsLeft !== undefined) tile.woodActionsLeft += 3;
+                }
+            }
+            Object.values(gameState.players).forEach(p => {
+                p.notifications.push({ type: 'chat', message: "🍀 La nature déborde de vie : les ressources abondent aujourd'hui !", style: 'gain' });
+            });
+        }
+    },
+];
+
+function applyRandomEvent(forcedEvent = null) {
+    const event = forcedEvent || RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
+    gameState.lastEvent = { icon: event.icon, name: event.name, description: event.description, day: gameState.day };
+    Object.values(gameState.players).forEach(p => {
+        p.notifications.push({ type: 'chat', message: `${event.icon} ÉVÉNEMENT — ${event.name} : ${event.description}`, style: 'system_event' });
+    });
+    event.apply();
+    console.log(`Random event on day ${gameState.day}: ${event.name}`);
+}
+
 /**
- * Ajoute un nouveau joueur à l'état du jeu avec des valeurs par défaut.
- * @param {string} playerId - L'ID unique du nouveau joueur.
+ * Régénère progressivement les ressources des tuiles (bois, gibier, fouilles, pierre).
  */
-export function addNewPlayer(playerId) {
+function regenerateResources() {
+    for (const row of gameState.map) {
+        for (const tile of row) {
+            const def = TILE_TYPES[tile.key];
+            if (!def) continue;
+            if (def.woodActionsLeft !== undefined && tile.woodActionsLeft < def.woodActionsLeft) {
+                tile.woodActionsLeft = Math.min(def.woodActionsLeft, tile.woodActionsLeft + 2);
+            }
+            if (def.huntActionsLeft !== undefined && tile.huntActionsLeft < def.huntActionsLeft) {
+                tile.huntActionsLeft = Math.min(def.huntActionsLeft, tile.huntActionsLeft + 1);
+            }
+            if (def.searchActionsLeft !== undefined && tile.searchActionsLeft < def.searchActionsLeft) {
+                tile.searchActionsLeft = Math.min(def.searchActionsLeft, tile.searchActionsLeft + 1);
+            }
+            if (def.harvests !== undefined && tile.harvests < def.harvests) {
+                tile.harvests = Math.min(def.harvests, tile.harvests + 1);
+            }
+        }
+    }
+}
+
+// --- PERSISTANCE DU MONDE (le serveur peut redémarrer sans perdre la partie) ---
+
+/**
+ * Sérialise l'état du monde (carte, jour, PNJ, ennemis...) pour la sauvegarde.
+ */
+export function serializeWorld() {
+    return {
+        day: gameState.day,
+        time: gameState.time,
+        victory: gameState.victory,
+        lastEvent: gameState.lastEvent || null,
+        nextEvent: gameState.nextEvent === undefined ? null : gameState.nextEvent,
+        knownRecipes: gameState.knownRecipes,
+        globallyRevealedTiles: Array.from(gameState.globallyRevealedTiles || []),
+        npcs: gameState.npcs,
+        enemies: gameState.enemies.map(e => ({ ...e, inCombatWith: null })),
+        map: gameState.map.map(row => row.map(tile => ({
+            key: tile.key,
+            x: tile.x,
+            y: tile.y,
+            backgroundKey: tile.backgroundKey,
+            buildings: tile.buildings,
+            groundItems: tile.groundItems,
+            woodActionsLeft: tile.woodActionsLeft,
+            harvests: tile.harvests,
+            huntActionsLeft: tile.huntActionsLeft,
+            searchActionsLeft: tile.searchActionsLeft,
+            isOpened: tile.isOpened,
+            hiddenItem: tile.hiddenItem,
+            trap: tile.trap || null,
+        }))),
+    };
+}
+
+/**
+ * Restaure l'état du monde depuis une sauvegarde (au démarrage du serveur).
+ * @returns {boolean} true si la restauration a réussi.
+ */
+export function restoreWorld(data) {
+    try {
+        if (!data || !Array.isArray(data.map) || data.map.length !== CONFIG.MAP_HEIGHT) return false;
+
+        gameState.day = data.day || 1;
+        gameState.time = data.time || 0;
+        gameState.victory = data.victory || null;
+        gameState.lastEvent = data.lastEvent || null;
+        gameState.nextEvent = data.nextEvent !== undefined ? data.nextEvent : undefined;
+        gameState.knownRecipes = data.knownRecipes || {};
+        gameState.globallyRevealedTiles = new Set(data.globallyRevealedTiles || []);
+        if (Array.isArray(data.npcs)) gameState.npcs = data.npcs;
+        if (Array.isArray(data.enemies)) gameState.enemies = data.enemies;
+
+        gameState.map = data.map.map(row => row.map(saved => {
+            const type = TILE_TYPES[saved.key] || TILE_TYPES.PLAINS;
+            return {
+                ...saved,
+                type: type,
+                buildings: saved.buildings || [],
+                groundItems: saved.groundItems || {},
+            };
+        }));
+
+        // S'assurer que le Gardien veille toujours sur un trésor non ouvert
+        const treasureTile = gameState.map.flat().find(t => t.key === 'TREASURE_CHEST');
+        const hasBoss = gameState.enemies.some(e => e.isBoss);
+        if (treasureTile && !treasureTile.isOpened && !hasBoss) {
+            const guardian = spawnGuardian(gameState.map);
+            if (guardian) gameState.enemies.push(guardian);
+        }
+
+        console.log(`World restored: day ${gameState.day}, ${gameState.npcs.length} NPCs, ${gameState.enemies.length} enemies.`);
+        return true;
+    } catch (e) {
+        console.error('Failed to restore world, generating a new one:', e);
+        return false;
+    }
+}
+
+/**
+ * Ajoute un nouveau joueur à l'état du jeu avec des valeurs par défaut,
+ * ou restaure sa progression sauvegardée si elle existe.
+ * @param {string} playerId - L'ID unique du nouveau joueur.
+ * @param {string|null} username - Le pseudo du compte (null = invité).
+ * @param {object|null} savedData - Progression sauvegardée à restaurer.
+ */
+export function addNewPlayer(playerId, username = null, savedData = null) {
     // Crée le joueur directement ici, sans appeler une fonction externe
     const newPlayer = {
         id: playerId,
-        name: `Joueur_${Math.floor(Math.random() * 1000)}`,
+        username: username,
+        name: username || `Invité_${Math.floor(Math.random() * 1000)}`,
         x: 10,
         y: 10,
         color: `hsl(${Math.random() * 360}, 100%, 70%)`,
@@ -80,7 +330,8 @@ export function addNewPlayer(playerId) {
         maxSleep: 20,
         inventory: { // Inventaire de départ
             'Hache': { name: 'Hache', durability: 50, currentDurability: 50 },
-            'Eau pure': 2,
+            'Canne à pêche': { name: 'Canne à pêche', durability: 10, currentDurability: 10 },
+            'Eau pure': 3,
             'Viande cuite': 2
         },
         maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
@@ -98,10 +349,72 @@ export function addNewPlayer(playerId) {
         isBusy: false,
         animationState: null,
         knownRecipes: {},
+        deaths: 0,
+        treasureOpened: false,
+        xp: 0,
+        level: 1,
     };
+
+    // Restaurer la progression sauvegardée (comptes uniquement)
+    if (savedData && typeof savedData === 'object') {
+        const restorable = ['x', 'y', 'color', 'health', 'maxHealth', 'thirst', 'maxThirst',
+            'hunger', 'maxHunger', 'sleep', 'maxSleep', 'inventory', 'maxInventory',
+            'equipment', 'status', 'knownRecipes', 'deaths', 'treasureOpened', 'xp', 'level'];
+        for (const key of restorable) {
+            if (savedData[key] !== undefined) newPlayer[key] = savedData[key];
+        }
+        if (Array.isArray(savedData.visitedTiles)) {
+            newPlayer.visitedTiles = new Set(savedData.visitedTiles);
+        }
+        // Sécurité : position valide sur la carte actuelle (elle est régénérée au redémarrage)
+        const { MAP_WIDTH, MAP_HEIGHT } = gameState.config;
+        if (newPlayer.x < 0 || newPlayer.x >= MAP_WIDTH || newPlayer.y < 0 || newPlayer.y >= MAP_HEIGHT ||
+            !gameState.map[newPlayer.y]?.[newPlayer.x]?.type?.accessible) {
+            newPlayer.x = 10;
+            newPlayer.y = 10;
+        }
+        newPlayer.visitedTiles.add(`${newPlayer.x},${newPlayer.y}`);
+        newPlayer.notifications.push({ type: 'chat', message: `Bon retour, ${newPlayer.name} ! Votre progression a été restaurée.`, style: 'gain' });
+    } else {
+        // Message d'accueil pour un nouveau survivant
+        newPlayer.notifications.push({ type: 'chat', message: `🏝️ Bienvenue sur l'île, ${newPlayer.name} ! Vous êtes naufragé depuis ${gameState.day} jour(s).`, style: 'system_event' });
+        newPlayer.notifications.push({ type: 'chat', message: "🎯 Votre mission : trouver la Clé du Trésor en fouillant les zones, ouvrir le Trésor Caché, puis tirer la fusée de détresse depuis une plage pour être secouru. Sinon... survivez 100 jours !", style: 'system_info' });
+        newPlayer.notifications.push({ type: 'chat', message: "💡 Conseil : mangez, buvez et dormez pour rester en vie. Parlez aux survivants (💬), ils récompensent les coups de main.", style: 'system_info' });
+    }
 
     gameState.players[playerId] = newPlayer;
     console.log(`Player ${playerId} added to the game.`);
+}
+
+/**
+ * Extrait les données persistables d'un joueur pour la sauvegarde.
+ * @param {object} player - Le joueur à sérialiser.
+ * @returns {object} Un objet JSON-compatible.
+ */
+export function serializePlayer(player) {
+    return {
+        x: player.x,
+        y: player.y,
+        color: player.color,
+        health: player.health,
+        maxHealth: player.maxHealth,
+        thirst: player.thirst,
+        maxThirst: player.maxThirst,
+        hunger: player.hunger,
+        maxHunger: player.maxHunger,
+        sleep: player.sleep,
+        maxSleep: player.maxSleep,
+        inventory: player.inventory,
+        maxInventory: player.maxInventory,
+        equipment: player.equipment,
+        status: player.status,
+        knownRecipes: player.knownRecipes,
+        deaths: player.deaths || 0,
+        treasureOpened: player.treasureOpened || false,
+        xp: player.xp || 0,
+        level: player.level || 1,
+        visitedTiles: Array.from(player.visitedTiles || []),
+    };
 }
 
 /**
@@ -109,6 +422,10 @@ export function addNewPlayer(playerId) {
  * @param {string} playerId - L'ID du joueur à retirer.
  */
 export function removePlayer(playerId) {
+    const player = gameState.players[playerId];
+    if (player && player.combatState) {
+        endCombat(player, false); // Libérer l'ennemi si le joueur était en combat
+    }
     delete gameState.players[playerId];
     console.log(`Player ${playerId} removed from the game.`);
 }
@@ -216,36 +533,64 @@ function generateMap(width, height) {
     return map;
 }
 
+/**
+ * Démarre un combat entre UN joueur et un ennemi (chaque joueur a son propre combat).
+ */
 export function startCombat(player, enemy) {
-    if (gameState.combatState) return; // Un combat est déjà en cours
+    if (player.combatState) return; // Ce joueur est déjà en combat
+    if (enemy.inCombatWith && gameState.players[enemy.inCombatWith]) {
+        player.notifications.push({ type: 'chat', message: `${enemy.name} est déjà aux prises avec un autre survivant !`, style: 'system_warning' });
+        return;
+    }
 
-    player.isBusy = true;
-    gameState.combatState = {
-        playerId: player.id,
+    enemy.inCombatWith = player.id;
+    player.combatState = {
         enemyId: enemy.id,
-        log: [`Un ${enemy.name} sauvage apparaît !`],
-        isPlayerTurn: true,
+        enemy: {
+            name: enemy.name,
+            icon: enemy.icon,
+            health: enemy.health,
+            currentHealth: enemy.currentHealth,
+            damage: enemy.damage,
+        },
+        turn: 'player',
+        log: [`Un ${enemy.name} sauvage vous attaque !`],
     };
 
     player.notifications.push({ 
         type: 'chat', 
-        message: `Vous entrez en combat avec ${enemy.name} !`, 
+        message: `⚔️ Vous entrez en combat avec ${enemy.name} !`, 
         style: 'combat_start' 
     });
 }
 
-export function endCombat(playerWon) {
-    if (!gameState.combatState) return;
+export function endCombat(player, playerWon) {
+    if (!player || !player.combatState) return;
 
-    const player = gameState.players[gameState.combatState.playerId];
-    if (player) {
-        player.isBusy = false;
-    }
+    const enemyId = player.combatState.enemyId;
+    const enemy = gameState.enemies.find(e => e.id === enemyId);
+    if (enemy) enemy.inCombatWith = null;
 
     if (playerWon) {
         // Supprimer l'ennemi seulement si le joueur a gagné
-        gameState.enemies = gameState.enemies.filter(e => e.id !== gameState.combatState.enemyId);
+        gameState.enemies = gameState.enemies.filter(e => e.id !== enemyId);
     }
 
-    gameState.combatState = null;
+    player.combatState = null;
+}
+
+/**
+ * Fin de partie : un survivant a alerté les secours (fusée / pistolet de détresse).
+ */
+export function triggerRescueVictory(player) {
+    if (gameState.victory) return;
+    gameState.victory = {
+        type: 'rescue',
+        by: player.name,
+        day: gameState.day,
+    };
+    Object.values(gameState.players).forEach(p => {
+        p.notifications.push({ type: 'chat', message: `🚁 ${player.name} a alerté les secours ! Un hélicoptère approche... VOUS ÊTES SAUVÉS !`, style: 'gain' });
+    });
+    console.log(`RESCUE VICTORY triggered by ${player.name} on day ${gameState.day}`);
 }

@@ -41,12 +41,19 @@
                             <p id="biome-display" class="tile-detail">Biome: Forêt</p>
                             <p id="position-display" class="tile-detail">Position: (0, 0)</p>
                         </div>
+                        <div id="objectives-hud">
+                            <h4 id="objectives-hud-title">🎯 Objectifs <span id="objectives-toggle">▾</span></h4>
+                            <ul id="objectives-list"></ul>
+                        </div>
                     </div> 
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
-                            <div id="game-info-hud" style="position: absolute; top: 10px; left: 100px; color: white; font-weight: bold; background: rgba(0, 0, 0, 0.5); padding: 5px; border-radius: 5px;">
-                                <p id="day-display">Jour: 1</p>
-                                <p id="time-display">Heure: 08:00</p>
+                            <div id="game-info-hud">
+                                <p id="day-display">Jour 1 / 100 <button id="sound-toggle" title="Couper le son">🔊</button></p>
+                                <p id="event-display" style="display:none;">🌩️ Événement</p>
+                                <p id="level-display">⭐ Niveau 1</p>
+                                <div id="xp-bar-container"><div id="xp-bar"></div></div>
+                                <p id="time-display">👥 1 survivant</p>
                                 <p id="position-display-nav">Position: (0, 0)</p>
                             </div>
                             <button class="nav-button-overlay" id="nav-nw">↖</button><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-ne">↗</button>
@@ -181,15 +188,17 @@
 
     <div id="combat-modal" class="hidden">
         <div id="combat-modal-content">
-            <h2>COMBAT</h2>
+            <h2>⚔️ COMBAT ⚔️</h2>
             <div id="combat-participants">
                 <div class="combatant-info" id="combat-player-info">
-                    <h3>Vous</h3>
+                    <div class="combat-portrait" id="combat-player-portrait">🧑‍🦱</div>
+                    <h3 id="combat-player-name">Vous</h3>
                     <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>
                     <span id="combat-player-health-text">10 / 10</span>
                 </div>
                 <span id="vs-text">VS</span>
                 <div class="combatant-info" id="combat-enemy-info">
+                    <div class="combat-portrait enemy" id="combat-enemy-portrait">🐺</div>
                     <h3 id="combat-enemy-name">Loup Agressif</h3>
                     <div class="combat-health-bar-container"><div id="combat-enemy-health-bar" class="combat-health-bar"></div></div>
                     <span id="combat-enemy-health-text">10 / 10</span>
@@ -299,5 +308,53 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
+    <!-- ### ÉCRAN DE VICTOIRE ### -->
+    <div id="victory-overlay" class="hidden">
+        <div id="victory-content">
+            <h1 id="victory-title">🏆 VICTOIRE !</h1>
+            <p id="victory-message"></p>
+            <div id="victory-stats"></div>
+            <button id="victory-menu-btn" onclick="window.location.href='/'">Retour au menu</button>
+        </div>
+    </div>
+    <style>
+        #victory-overlay {
+            position: fixed; inset: 0; z-index: 9000;
+            background: rgba(0, 0, 0, 0.88); backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 1; transition: opacity 0.8s ease;
+        }
+        #victory-overlay.hidden { opacity: 0; pointer-events: none; }
+        #victory-content {
+            text-align: center; color: #fff; max-width: 560px; padding: 40px;
+            background: linear-gradient(160deg, #1a2a32, #0d1b22);
+            border: 2px solid #ffd700; border-radius: 16px;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.35);
+            animation: victory-pop 0.7s ease;
+        }
+        @keyframes victory-pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        #victory-title { font-size: 2.6rem; color: #ffd700; margin-bottom: 16px; letter-spacing: 3px; }
+        #victory-message { font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px; color: #cfe8f3; }
+        #victory-stats p { margin: 6px 0; font-size: 1rem; color: #9fd6a8; }
+        #victory-menu-btn {
+            margin-top: 24px; padding: 12px 32px; font-size: 1.05rem; cursor: pointer;
+            background: #ffd700; color: #14232b; border: none; border-radius: 8px; font-weight: bold;
+        }
+        #victory-menu-btn:hover { background: #ffe44d; }
+
+        /* --- Panneau d'objectifs --- */
+        #objectives-hud {
+            position: absolute; top: 10px; right: 10px; z-index: 50;
+            background: rgba(10, 25, 35, 0.82); border: 1px solid rgba(255, 215, 0, 0.45);
+            border-radius: 10px; padding: 10px 14px; max-width: 300px;
+            color: #e8f4fa; font-size: 0.82rem; pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        #objectives-hud h4 { margin: 0 0 6px; color: #ffd700; font-size: 0.9rem; letter-spacing: 1px; cursor: pointer; user-select: none; }
+        #objectives-hud ul { list-style: none; margin: 0; padding: 0; }
+        #objectives-hud li { margin: 4px 0; line-height: 1.35; display: flex; gap: 6px; align-items: flex-start; }
+        #objectives-hud li.done { color: #7fd98a; text-decoration: line-through; opacity: 0.75; }
+        #objectives-hud.collapsed ul { display: none; }
+    </style>
 </body>
 </html>

@@ -1,108 +1,139 @@
 // server/combat.js
 import { gameState, endCombat } from './state.js';
 import { ITEM_TYPES, COMBAT_CONFIG } from '../public/js/config.js';
+import { addXp } from './player.js';
 
-function getPlayer() {
-    if (!gameState.combatState) return null;
-    return gameState.players[gameState.combatState.playerId];
+const CRIT_CHANCE = 0.15;      // 15% de chance de coup critique (x2 dégâts)
+const DODGE_CHANCE = 0.12;     // 12% de chance d'esquiver l'attaque ennemie
+const WEAPON_WEAR_CHANCE = 0.25; // Usure de l'arme : 25% de chance par attaque
+
+function getEnemyFor(player) {
+    if (!player || !player.combatState) return null;
+    return gameState.enemies.find(e => e.id === player.combatState.enemyId);
 }
 
-function getEnemy() {
-    if (!gameState.combatState) return null;
-    return gameState.enemies.find(e => e.id === gameState.combatState.enemyId);
+/** Synchronise l'aperçu de l'ennemi envoyé au client. */
+function syncEnemySnapshot(player, enemy) {
+    if (player.combatState && enemy) {
+        player.combatState.enemy.currentHealth = enemy.currentHealth;
+    }
 }
 
-export function handleCombatAction(action) {
-    if (!gameState.combatState || !gameState.combatState.isPlayerTurn) return;
+export function handleCombatAction(playerId, action) {
+    const player = gameState.players[playerId];
+    if (!player || !player.combatState || player.combatState.turn !== 'player') return;
 
-    gameState.combatState.isPlayerTurn = false;
+    player.combatState.turn = 'enemy';
 
     if (action === 'attack') {
-        playerAttack();
+        playerAttack(player);
+    } else if (action === 'defend') {
+        player.combatState.defending = true;
+        player.combatState.log.unshift('🛡️ Vous vous mettez en garde, prêt à encaisser le prochain coup.');
     } else if (action === 'flee') {
-        playerFlee();
-        // Si la fuite réussit, le combat se termine immédiatement.
-        if (!gameState.combatState) return;
+        playerFlee(player);
     }
 
-    // Si l'ennemi est toujours en vie après l'action du joueur
-    const enemy = getEnemy();
+    // Si le combat continue et que l'ennemi est en vie, il riposte après un court délai
+    if (!player.combatState) return;
+    const enemy = getEnemyFor(player);
     if (enemy && enemy.currentHealth > 0) {
-        // L'ennemi attaque après un court délai
         setTimeout(() => {
-            enemyAttack();
-            if (gameState.combatState) {
-                gameState.combatState.isPlayerTurn = true;
+            // Le joueur peut avoir été déconnecté ou le combat terminé entre-temps
+            if (!gameState.players[playerId] || !player.combatState) return;
+            enemyAttack(player);
+            if (player.combatState) {
+                player.combatState.turn = 'player';
             }
         }, 1000);
     }
 }
 
-function playerAttack() {
-    const player = getPlayer();
-    const enemy = getEnemy();
-    if (!player || !enemy) return;
+function playerAttack(player) {
+    const enemy = getEnemyFor(player);
+    if (!enemy) { endCombat(player, false); return; }
 
-    const weapon = player.equipment.weapon ? ITEM_TYPES[player.equipment.weapon.name] : null;
-    const damage = weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+    const weaponInstance = player.equipment.weapon;
+    const weapon = weaponInstance ? ITEM_TYPES[weaponInstance.name] : null;
+    let damage = weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+
+    // Coup critique !
+    const isCrit = Math.random() < CRIT_CHANCE;
+    if (isCrit) damage *= 2;
 
     enemy.currentHealth = Math.max(0, enemy.currentHealth - damage);
-    const message = `Vous infligez ${damage} dégâts à ${enemy.name}.`;
-    gameState.combatState.log.unshift(message);
-    player.notifications.push({ type: 'chat', message, style: 'combat' });
+    syncEnemySnapshot(player, enemy);
+    player.combatState.log.unshift(isCrit
+        ? `💥 COUP CRITIQUE ! Vous infligez ${damage} dégâts à ${enemy.name} !`
+        : `⚔️ Vous infligez ${damage} dégâts à ${enemy.name}.`);
+
+    // Usure de l'arme au combat
+    if (weaponInstance && weaponInstance.currentDurability !== undefined && Math.random() < WEAPON_WEAR_CHANCE) {
+        weaponInstance.currentDurability--;
+        if (weaponInstance.currentDurability <= 0) {
+            player.equipment.weapon = null;
+            player.combatState.log.unshift(`💔 Votre ${weaponInstance.name} se brise en plein combat !`);
+            player.notifications.push({ type: 'chat', message: `${weaponInstance.name} s'est cassé(e) !`, style: 'damage' });
+        }
+    }
 
     if (enemy.currentHealth <= 0) {
-        player.notifications.push({ type: 'chat', message: `Vous avez vaincu ${enemy.name} !`, style: 'gain' });
-        
-        // Logique de butin (loot)
+        const xpGain = (enemy.health || 5) + (enemy.damage || 1);
+        player.notifications.push({ type: 'chat', message: `🎉 Vous avez vaincu ${enemy.name} ! (+${xpGain} XP)`, style: 'gain' });
+
+        // Butin (loot)
         if (enemy.loot) {
             Object.keys(enemy.loot).forEach(itemName => {
                 const quantity = enemy.loot[itemName];
-                // La logique pour ajouter à l'inventaire devrait être dans player.js, mais on simplifie ici
                 player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
                 player.notifications.push({ type: 'floatingText', message: `+${quantity} ${itemName}`, style: 'gain' });
             });
         }
-        
-        endCombat(true); // Le joueur a gagné
+
+        addXp(player, xpGain);
+        endCombat(player, true); // Le joueur a gagné
     }
 }
 
-function enemyAttack() {
-    const player = getPlayer();
-    const enemy = getEnemy();
-    if (!player || !enemy || player.health <= 0) return;
+function enemyAttack(player) {
+    const enemy = getEnemyFor(player);
+    if (!enemy || player.health <= 0) { endCombat(player, false); return; }
+
+    // Esquive !
+    if (Math.random() < DODGE_CHANCE) {
+        player.combatState.log.unshift(`💨 Vous esquivez l'attaque de ${enemy.name} !`);
+        return;
+    }
 
     const defense = (player.equipment.body?.stats?.defense || 0) +
                     (player.equipment.head?.stats?.defense || 0) +
                     (player.equipment.feet?.stats?.defense || 0) +
                     (player.equipment.shield?.stats?.defense || 0);
-    
-    const damageTaken = Math.max(0, enemy.damage - defense);
-    player.health = Math.max(0, player.health - damageTaken);
 
-    const message = `${enemy.name} vous inflige ${damageTaken} dégâts.`;
-    gameState.combatState.log.unshift(message);
-    player.notifications.push({ type: 'chat', message, style: 'damage' });
+    let damageTaken = Math.max(0, enemy.damage - defense);
+
+    // Garde levée : dégâts divisés par deux
+    if (player.combatState.defending) {
+        damageTaken = Math.floor(damageTaken / 2);
+        player.combatState.defending = false;
+        player.combatState.log.unshift(`🛡️ Vous bloquez ! ${enemy.name} ne vous inflige que ${damageTaken} dégâts.`);
+    } else {
+        player.combatState.log.unshift(`🩸 ${enemy.name} vous inflige ${damageTaken} dégâts.`);
+    }
+
+    player.health = Math.max(0, player.health - damageTaken);
 
     if (player.health <= 0) {
         player.notifications.push({ type: 'chat', message: "Vous avez été vaincu...", style: 'damage' });
-        endCombat(false); // Le joueur a perdu
+        endCombat(player, false); // Le joueur a perdu (respawn géré par updatePlayerState)
     }
 }
 
-function playerFlee() {
-    const player = getPlayer();
-    if (!player) return;
-
+function playerFlee(player) {
     if (Math.random() < COMBAT_CONFIG.FLEE_CHANCE) {
-        const message = "Vous avez réussi à fuir !";
-        gameState.combatState.log.unshift(message);
-        player.notifications.push({ type: 'chat', message, style: 'system_info' });
-        endCombat(false); // Le joueur n'a pas gagné, mais a mis fin au combat
+        player.notifications.push({ type: 'chat', message: "Vous avez réussi à fuir !", style: 'system_info' });
+        endCombat(player, false); // Fuite réussie : fin du combat
     } else {
-        const message = "Votre tentative de fuite a échoué !";
-        gameState.combatState.log.unshift(message);
-        player.notifications.push({ type: 'chat', message, style: 'combat' });
+        player.combatState.log.unshift("🏃 Votre tentative de fuite a échoué !");
     }
 }
