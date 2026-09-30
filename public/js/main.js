@@ -82,7 +82,6 @@ function handleServerMessage(event) {
             return;
         }
         if (data.type === 'gameState') {
-            console.log('Received gameState from server:', data.payload); // DEBUG
             gameState = data.payload;
 
             // Convertir les tableaux de tuiles visitées en Sets
@@ -154,6 +153,12 @@ function fullUIUpdate() {
     UI.updateAllUI(gameState);
     UI.renderScene(gameState);
 
+    // Garder la modale d'équipement à jour si elle est ouverte
+    const equipmentModal = document.getElementById('equipment-modal');
+    if (equipmentModal && !equipmentModal.classList.contains('hidden')) {
+        UI.updateEquipmentModal(gameState);
+    }
+
     // Secousse d'écran quand on encaisse des dégâts
     if (lastKnownHealth !== null && gameState.player.health < lastKnownHealth - 0.5) {
         if (UI.triggerScreenShake) UI.triggerScreenShake();
@@ -209,7 +214,7 @@ function showVictoryScreen(victory, player) {
         if (title) title.textContent = '🚁 SAUVÉS !';
         if (message) message.textContent = `${victory.by} a tiré un signal de détresse depuis la plage. Un hélicoptère vous ramène à la civilisation !`;
     } else {
-        if (title) title.textContent = '🏆 VICTOIRE !';
+        if (title) title.innerHTML = '<img class="icon-img victory-trophy" src="assets/icons/trophy.png" alt="🏆" draggable="false"> VICTOIRE !';
         if (message) message.textContent = `Vous avez survécu ${victory.day} jours sur l'île. Les secours vous ont enfin repérés !`;
     }
     if (stats) {
@@ -257,12 +262,91 @@ function setupEventListeners() {
     });
     const soundToggle = document.getElementById('sound-toggle');
     if (soundToggle) {
+        // Refléter la préférence sonore mémorisée
+        soundToggle.textContent = isAudioEnabled() ? '🔊' : '🔇';
+        soundToggle.title = isAudioEnabled() ? 'Couper le son' : 'Activer le son';
         soundToggle.addEventListener('click', () => {
             initAudio();
             const on = toggleAudio();
             soundToggle.textContent = on ? '🔊' : '🔇';
             soundToggle.title = on ? 'Couper le son' : 'Activer le son';
         });
+    }
+
+    // --- Clavier : déplacements (flèches / ZQSD / WASD) et Échap pour fermer ---
+    const KEY_DIRECTIONS = {
+        arrowup: 'north', arrowdown: 'south', arrowleft: 'west', arrowright: 'east',
+        w: 'north', z: 'north', s: 'south', a: 'west', q: 'west', d: 'east',
+    };
+    document.addEventListener('keydown', (e) => {
+        // Ne pas interférer avec la saisie de texte
+        const tag = (e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
+            if (e.key === 'Escape') e.target.blur();
+            return;
+        }
+        if (e.key === 'Escape') {
+            if (UI.closeTopModal && UI.closeTopModal()) e.preventDefault();
+            return;
+        }
+        const dir = KEY_DIRECTIONS[e.key.toLowerCase()];
+        if (!dir || e.ctrlKey || e.metaKey || e.altKey) return;
+        // Pas de déplacement si une modale est ouverte ou si le joueur est occupé
+        const modalOpen = ['inventory-modal', 'equipment-modal', 'build-modal', 'workshop-modal',
+            'chest-modal', 'combat-modal', 'large-map-modal', 'quantity-modal', 'lock-modal']
+            .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
+        if (modalOpen) return;
+        const p = window.gameState && window.gameState.player;
+        if (p && (p.isBusy || p.animationState)) return;
+        e.preventDefault();
+        sendAction(ACTIONS.MOVE, { direction: dir });
+    });
+
+    // --- Chat rapide (+) : afficher/masquer le menu et envoyer les phrases toutes prêtes ---
+    const quickChatBtn = document.getElementById('quick-chat-button');
+    const quickChatMenu = document.getElementById('quick-chat-menu');
+    if (quickChatBtn && quickChatMenu) {
+        quickChatBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            quickChatMenu.classList.toggle('visible');
+        });
+        quickChatMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('.quick-chat-item');
+            if (!item) return;
+            sendAction(ACTIONS.SEND_CHAT_MESSAGE, { message: item.textContent.trim() });
+            quickChatMenu.classList.remove('visible');
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#chat-input-area')) quickChatMenu.classList.remove('visible');
+        });
+    }
+
+    // --- Agrandir / réduire le chat ---
+    const toggleChatBtn = document.getElementById('toggle-chat-size-btn');
+    const chatPanel = document.getElementById('bottom-bar-chat-panel');
+    if (toggleChatBtn && chatPanel) {
+        toggleChatBtn.addEventListener('click', () => {
+            const expanded = chatPanel.classList.toggle('chat-expanded');
+            toggleChatBtn.textContent = expanded ? '⌄' : '⌃';
+            const msgs = document.getElementById('chat-messages');
+            if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        });
+    }
+
+    // --- Ouvrir la fiche Équipement en cliquant sur l'aperçu du bas ---
+    const equipmentPanel = document.getElementById('bottom-bar-equipment-panel');
+    if (equipmentPanel) {
+        equipmentPanel.addEventListener('dblclick', () => {
+            if (window.gameState && window.gameState.player) UI.showEquipmentModal(window.gameState);
+        });
+        const preview = equipmentPanel.querySelector('.player-character-placeholder-small');
+        if (preview) {
+            preview.style.cursor = 'pointer';
+            preview.title = "Ouvrir l'équipement";
+            preview.addEventListener('click', () => {
+                if (window.gameState && window.gameState.player) UI.showEquipmentModal(window.gameState);
+            });
+        }
     }
 
     // Replier/déplier le panneau d'objectifs
@@ -311,6 +395,8 @@ function setupUIListeners() {
     if(UI.setupLockModalListeners) UI.setupLockModalListeners();
     if(UI.setupBuildModalListeners) UI.setupBuildModalListeners();
     if(UI.setupChestModalListeners) UI.setupChestModalListeners();
+    if(UI.setupWorkshopModalListeners) UI.setupWorkshopModalListeners();
+    if(UI.setupMiscModalListeners) UI.setupMiscModalListeners();
 }
 
 document.addEventListener('DOMContentLoaded', init);

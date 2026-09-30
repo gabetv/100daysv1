@@ -7,6 +7,7 @@ import * as ModalsModule from './ui/modals.js';
 import * as TutorialModule from './ui/tutorial.js';
 import * as MobileModule from './ui/mobile.js';
 import * as RenderModule from './ui/render.js';
+import { OBJECTIVE_IMAGES } from './ui/icons.js';
 
 // --- Ré-exporter explicitement les fonctions ---
 
@@ -54,6 +55,11 @@ export const showLockModal = ModalsModule.showLockModal;
 export const hideLockModal = ModalsModule.hideLockModal;
 export const setupLockModalListeners = ModalsModule.setupLockModalListeners;
 export const setupBuildModalListeners = ModalsModule.setupBuildModalListeners;
+export const setupChestModalListeners = ModalsModule.setupChestModalListeners;
+export const setupMiscModalListeners = ModalsModule.setupMiscModalListeners;
+export const closeTopModal = ModalsModule.closeTopModal;
+export const hideChestModal = ModalsModule.hideChestModal;
+export const showChestModal = ModalsModule.showChestModal;
 
 
 // Depuis ./ui/panels.js
@@ -145,7 +151,12 @@ function updateObjectivesPanel(player) {
         const li = document.createElement('li');
         if (obj.done) li.classList.add('done');
         const check = document.createElement('span');
-        check.textContent = obj.done ? '✅' : obj.icon;
+        const iconSrc = !obj.done && OBJECTIVE_IMAGES[obj.icon];
+        if (iconSrc) {
+            check.innerHTML = `<img class="icon-img" src="${iconSrc}" alt="" draggable="false">`;
+        } else {
+            check.textContent = obj.done ? '✅' : obj.icon;
+        }
         const text = document.createElement('span');
         text.textContent = obj.text;
         li.appendChild(check);

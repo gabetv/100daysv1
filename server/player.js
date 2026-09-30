@@ -1283,7 +1283,7 @@ function respawnPlayer(player) {
     player.hunger = Math.ceil(player.maxHunger / 2);
     player.thirst = Math.ceil(player.maxThirst / 2);
     player.sleep = Math.ceil(player.maxSleep / 2);
-    player.status = [];
+    player.status = {};
     player.isBusy = false;
     if (player.visitedTiles instanceof Set) player.visitedTiles.add('10,10');
     player.notifications.push({ type: 'chat', message: `💀 Vous avez succombé... Vous vous réveillez au camp, affaibli (mort n°${player.deaths}).`, style: 'damage' });

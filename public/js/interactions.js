@@ -17,7 +17,8 @@ let contextMenuItemData = null; // Pour stocker les infos de l'objet du menu con
 function showContextMenu(e, itemElement) {
     e.preventDefault();
 
-    const { itemName, itemKey, owner, slotType } = itemElement.dataset;
+    const { itemName, itemKey, slotType } = itemElement.dataset;
+    const owner = itemElement.dataset.owner || '';
     const itemDef = ITEM_TYPES[itemName] || {};
     const menu = document.getElementById('item-context-menu');
     const actionsContainer = document.getElementById('context-menu-actions');
@@ -280,20 +281,24 @@ export function initInteractions() {
         if (!player || !player.inventory) return;
 
         let bestItem = null;
+        let bestValue = -Infinity;
 
         for (const itemKey in player.inventory) {
-            const item = ITEM_TYPES[itemKey];
-            if (item && item.effects && item.effects[stat] > 0) {
-                if (!bestItem || item.effects[stat] > ITEM_TYPES[bestItem].effects[stat]) {
-                    bestItem = itemKey;
-                }
+            const value = player.inventory[itemKey];
+            // Les objets uniques sont stockés sous forme d'instances { name: ... }
+            const baseName = (typeof value === 'object' && value && value.name) ? value.name : itemKey;
+            const item = ITEM_TYPES[baseName];
+            if (item && item.effects && item.effects[stat] > 0 && item.effects[stat] > bestValue) {
+                bestValue = item.effects[stat];
+                bestItem = itemKey;
             }
         }
 
         if (bestItem) {
             sendAction(ACTIONS.CONSUME_ITEM_CONTEXT, { itemKey: bestItem });
         } else {
-            window.UI.addChatMessage(`Vous n'avez rien pour restaurer votre ${stat}.`, 'system_warning');
+            const statLabels = { health: 'santé', thirst: 'soif', hunger: 'faim' };
+            window.UI.addChatMessage(`Vous n'avez rien pour restaurer votre ${statLabels[stat] || stat}.`, 'system_warning');
         }
     }
 

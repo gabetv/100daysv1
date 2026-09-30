@@ -3,6 +3,7 @@ import { notifyChatMessage } from './mobile.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
 import { showChestModal, showLockModal, hideLockModal } from './modals.js';
+import { itemIconHTML, tileIconHTML } from './icons.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -39,8 +40,10 @@ export function updateStatsPanel(player) {
     updateSquaresBar(sleepSquaresContainerEl, player.sleep, player.maxSleep, 'sleep');
 
     if (healthStatusEl) {
-        const statusNames = Object.keys(player.status);
+        // player.status peut être un objet {Nom: {duration}} ou un tableau (anciennes sauvegardes)
+        const statusNames = Array.isArray(player.status) ? player.status : Object.keys(player.status || {});
         healthStatusEl.textContent = statusNames.length > 0 ? statusNames.join(', ') : 'normale';
+        healthStatusEl.classList.toggle('status-bad', statusNames.length > 0);
     }
 
     if (healthSquaresContainerEl) healthSquaresContainerEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
@@ -53,8 +56,38 @@ export function updateStatsPanel(player) {
 
 export function updateQuickSlots(player) { /* Not implemented */ }
 
+// --- Recherche + repli des catégories de l'inventaire ---
+let inventorySearchTerm = '';
+const collapsedCategories = new Set();
+let inventoryControlsReady = false;
+
+function initInventoryControls() {
+    if (inventoryControlsReady) return;
+    inventoryControlsReady = true;
+
+    if (DOM.inventorySearchEl) {
+        DOM.inventorySearchEl.addEventListener('input', () => {
+            inventorySearchTerm = DOM.inventorySearchEl.value.toLowerCase().trim();
+            if (window.gameState && window.gameState.player) updateInventory(window.gameState.player);
+        });
+    }
+    // Plier / déplier une catégorie en cliquant sur son en-tête
+    if (DOM.inventoryCategoriesEl) {
+        DOM.inventoryCategoriesEl.addEventListener('click', (e) => {
+            const header = e.target.closest('.category-header');
+            if (!header) return;
+            const key = header.dataset.categoryKey;
+            if (!key) return;
+            if (collapsedCategories.has(key)) collapsedCategories.delete(key);
+            else collapsedCategories.add(key);
+            if (window.gameState && window.gameState.player) updateInventory(window.gameState.player);
+        });
+    }
+}
+
 export function updateInventory(player) {
     if (!player || !player.inventory || !DOM.inventoryCategoriesEl || !DOM.inventoryCapacityEl) return;
+    initInventoryControls();
 
     DOM.inventoryCategoriesEl.innerHTML = '';
     const total = getTotalResources(player.inventory);
@@ -66,6 +99,7 @@ export function updateInventory(player) {
         const itemValue = player.inventory[itemKey];
         const isInstance = typeof itemValue === 'object' && itemValue.name;
         const baseItemName = isInstance ? itemValue.name : itemKey;
+        if (inventorySearchTerm && !baseItemName.toLowerCase().includes(inventorySearchTerm)) continue;
         const baseItemDef = ITEM_TYPES[baseItemName] || { type: 'resource', icon: '❓' };
         
         let type = 'divers';
@@ -89,13 +123,16 @@ export function updateInventory(player) {
         const itemsInCategory = categories[cat.key];
         if (Object.keys(itemsInCategory).length > 0) {
             hasItems = true;
+            const isCollapsed = collapsedCategories.has(cat.key) && !inventorySearchTerm;
             const categoryDiv = document.createElement('div');
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
-            header.className = 'category-header open';
-            header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
+            header.className = `category-header ${isCollapsed ? '' : 'open'}`;
+            header.dataset.categoryKey = cat.key;
+            header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">${isCollapsed ? '▶' : '▼'}</span>`;
             const content = document.createElement('ul');
-            content.className = 'category-content visible';
+            content.className = `category-content ${isCollapsed ? '' : 'visible'}`;
+            if (isCollapsed) content.style.display = 'none';
             
             Object.keys(itemsInCategory).sort().forEach(baseItemName => {
                 itemsInCategory[baseItemName].forEach(itemData => {
@@ -114,7 +151,7 @@ export function updateInventory(player) {
                     if (typeof value === 'object' && value.hasOwnProperty('currentDurability')) {
                         displayName += ` (${value.currentDurability}/${value.durability})`;
                     }
-                    li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
+                    li.innerHTML = `${itemIconHTML(baseItemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
                     content.appendChild(li);
                 });
             });
@@ -124,7 +161,9 @@ export function updateInventory(player) {
         }
     });
 
-    if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>';
+    if (!hasItems) {
+        DOM.inventoryCategoriesEl.innerHTML = `<li class="inventory-empty">${inventorySearchTerm ? '(Aucun résultat)' : '(Vide)'}</li>`;
+    }
 }
 
 export function updateDayCounter(day) {
@@ -134,15 +173,17 @@ export function updateDayCounter(day) {
 export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
     
-    DOM.tileNameEl.textContent = tile.type.name;
+    DOM.tileNameEl.innerHTML = `${tileIconHTML(tile.type.name, tile.type.icon || '', 'tile-name-icon')} ${tile.type.name}`;
 
     let infoText = tile.type.description || "";
     if(tile.buildings && tile.buildings.length > 0){
         const building = tile.buildings[0];
         const buildingDef = TILE_TYPES[building.key];
-        infoText = `${buildingDef.name} - ${buildingDef.description}`;
-        if(building.hasOwnProperty('durability')) {
-            infoText += ` (Durabilité: ${building.durability}/${building.maxDurability})`
+        if (buildingDef) {
+            infoText = `${buildingDef.name} - ${buildingDef.description || ''}`;
+            if(building.hasOwnProperty('durability')) {
+                infoText += ` (Durabilité: ${building.durability}/${building.maxDurability})`
+            }
         }
     }
     DOM.tileHarvestsInfoEl.textContent = infoText;
@@ -186,11 +227,16 @@ export function addChatMessage(message, type, author) {
 export function updateAllButtonsState(gameState) {
     if (!gameState || !gameState.player) return;
     const isPlayerBusy = gameState.player.isBusy || !!gameState.player.animationState;
-    document.querySelectorAll('button').forEach(b => {
-        if (!b.closest('#admin-modal')) { // Don't disable admin buttons
-            b.disabled = isPlayerBusy;
-        }
-    });
+    // Ne désactiver que les boutons d'action du jeu : les commandes d'interface
+    // (fermer une modale, onglets, son, chat...) doivent toujours rester utilisables.
+    const selectors = [
+        '.nav-button-overlay',
+        '#actions-tab-content button',
+        '.consume-btn',
+        '#central-actions-panel button',
+    ].join(', ');
+    document.querySelectorAll(selectors).forEach(b => { b.disabled = isPlayerBusy; });
+    document.body.classList.toggle('player-busy', isPlayerBusy);
 }
 
 export function updateGroundItemsPanel(tile) {
@@ -211,7 +257,7 @@ export function updateGroundItemsPanel(tile) {
             li.dataset.itemCount = count;
             li.dataset.owner = 'ground';
             li.draggable = true;
-            li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemKey}</span><span class="inventory-count">${count}</span>`;
+            li.innerHTML = `${itemIconHTML(itemKey, itemDef.icon)}<span class="inventory-name">${itemKey}</span><span class="inventory-count">${count}</span>`;
             list.appendChild(li);
         }
     }
@@ -230,7 +276,7 @@ export function updateBottomBarEquipmentPanel(player) {
         const equippedItem = player.equipment[slotType];
         if (equippedItem) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
-            slotEl.innerHTML = `<div class="inventory-item" draggable="true" data-item-name="${equippedItem.name}" data-owner="equipment" data-slot-type="${slotType}"><span class="inventory-icon">${itemDef.icon}</span></div>`;
+            slotEl.innerHTML = `<div class="inventory-item" draggable="true" data-item-name="${equippedItem.name}" data-owner="equipment" data-slot-type="${slotType}" title="${equippedItem.name}">${itemIconHTML(equippedItem.name, itemDef.icon)}</div>`;
         }
         slotsContainer.appendChild(slotEl);
     });

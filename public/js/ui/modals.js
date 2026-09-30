@@ -4,6 +4,14 @@ import DOM from './dom.js';
 import * as Draw from './draw.js';
 import { sendAction } from '../main.js';
 import { sfx } from '../audio.js';
+import { itemIconHTML, tileIconHTML, ENEMY_IMAGES } from './icons.js';
+
+/** Vérifie un statut quel que soit son format (objet {Nom:{...}} ou tableau). */
+function hasStatus(player, statusName) {
+    if (!player || !player.status) return false;
+    if (Array.isArray(player.status)) return player.status.includes(statusName);
+    return !!player.status[statusName];
+}
 
 let quantityConfirmCallback = null;
 let currentWorkshopRecipes = [];
@@ -52,7 +60,7 @@ function populateInventoryList(inventory, listElement, owner, searchTerm = '') {
         if(typeof firstItem === 'object' && firstItem.hasOwnProperty('currentDurability')) {
             displayName += ` (${firstItem.currentDurability}/${firstItem.durability})`;
         }
-        li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
+        li.innerHTML = `${itemIconHTML(itemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
         listElement.appendChild(li);
     });
 }
@@ -126,6 +134,31 @@ export function setupChestModalListeners() {
     DOM.closeChestModalBtn?.addEventListener('click', hideChestModal);
 }
 
+/** Boutons de fermeture des modales d'inventaire et d'équipement. */
+export function setupMiscModalListeners() {
+    DOM.closeInventoryModalBtn?.addEventListener('click', hideInventoryModal);
+    DOM.closeEquipmentModalBtn?.addEventListener('click', hideEquipmentModal);
+}
+
+/** Ferme la modale visible la plus prioritaire (touche Échap). Renvoie true si une modale a été fermée. */
+export function closeTopModal() {
+    const closers = [
+        ['quantity-modal', hideQuantityModal],
+        ['lock-modal', hideLockModal],
+        ['build-modal', hideBuildModal],
+        ['workshop-modal', hideWorkshopModal],
+        ['chest-modal', hideChestModal],
+        ['inventory-modal', hideInventoryModal],
+        ['equipment-modal', hideEquipmentModal],
+        ['large-map-modal', hideLargeMap],
+    ];
+    for (const [id, closeFn] of closers) {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) { closeFn(); return true; }
+    }
+    return false;
+}
+
 export function showEquipmentModal(gameState) {
     if (!DOM.equipmentModal) return;
     updateEquipmentModal(gameState);
@@ -159,7 +192,7 @@ export function updateEquipmentModal(gameState) {
                 itemDiv.dataset.itemKey = `${equippedItem.name}_equipped`;
                 itemDiv.dataset.owner = 'equipment';
                 itemDiv.dataset.slotType = slotType;
-                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span>`;
+                itemDiv.innerHTML = `${itemIconHTML(equippedItem.name, itemDef.icon)}<span class="inventory-name">${displayName}</span>`;
                 slotEl.appendChild(itemDiv);
             }
         });
@@ -207,9 +240,18 @@ export function updateCombatUI(combatState) {
     const { enemy, turn, log } = combatState;
     if (!enemy) return;
 
-    // Portraits + nom du joueur
+    // Portraits + nom du joueur (image générée si disponible, sinon emoji)
     const enemyPortrait = document.getElementById('combat-enemy-portrait');
-    if (enemyPortrait) enemyPortrait.textContent = enemy.icon || '👹';
+    if (enemyPortrait) {
+        const imgSrc = ENEMY_IMAGES[enemy.name];
+        if (imgSrc) {
+            if (!enemyPortrait.querySelector(`img[src="${imgSrc}"]`)) {
+                enemyPortrait.innerHTML = `<img class="portrait-img" src="${imgSrc}" alt="${enemy.name}">`;
+            }
+        } else {
+            enemyPortrait.textContent = enemy.icon || '👹';
+        }
+    }
     const playerNameEl = document.getElementById('combat-player-name');
     if (playerNameEl) playerNameEl.textContent = player.name || 'Vous';
 
@@ -357,7 +399,7 @@ export function populateBuildModal(gameState) {
         const hasEnoughResources = Object.keys(costs).every(item => (player.inventory[item] || 0) >= costs[item]);
         const canBuildHere = tile.type.buildable || (['MINE', 'CAMPFIRE', 'PETIT_PUIT'].includes(bKey));
         let hasRequiredTool = !toolReqArray || toolReqArray.some(toolName => player.equipment.weapon?.name === toolName);
-        let isDisabledByStatus = player.status.includes('Drogué');
+        let isDisabledByStatus = hasStatus(player, 'Drogué');
         const canBuild = hasEnoughResources && hasRequiredTool && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
 
         const card = document.createElement('div');
@@ -365,7 +407,7 @@ export function populateBuildModal(gameState) {
 
         const header = document.createElement('div');
         header.className = 'build-item-header';
-        header.innerHTML = `<span class="build-item-icon">${buildingType.icon || '🏛️'}</span><span class="build-item-name">${buildingType.name}</span>`;
+        header.innerHTML = `${tileIconHTML(buildingType.name, buildingType.icon || '🏛️', 'build-item-icon')}<span class="build-item-name">${buildingType.name}</span>`;
 
         const description = document.createElement('p');
         description.className = 'build-item-description';
@@ -477,13 +519,13 @@ function renderWorkshopRecipes(player, tile) {
         card.className = 'workshop-recipe-card';
         card.dataset.recipeName = recipe.name;
 
-        const header = `<div class="workshop-recipe-header"><span class="workshop-recipe-icon">${recipe.icon}</span><span class="workshop-recipe-name">${recipe.name}</span></div>`;
+        const header = `<div class="workshop-recipe-header">${itemIconHTML(recipe.name, recipe.icon, 'workshop-recipe-icon')}<span class="workshop-recipe-name">${recipe.name}</span></div>`;
         const yieldEl = `<div class="workshop-recipe-yield">Produit: <strong>${recipe.yield}</strong></div>`;
         
         let costsHtml = '<div class="workshop-recipe-costs"><h5>Coûts (par unité):</h5><ul>';
         for (const itemName in recipe.costs) {
             const itemIcon = ITEM_TYPES[itemName]?.icon || '';
-            costsHtml += `<li data-item-name="${itemName}"><span class="cost-name"><span class="item-icon">${itemIcon}</span>${itemName}</span><span class="cost-amount"></span></li>`;
+            costsHtml += `<li data-item-name="${itemName}"><span class="cost-name">${itemIconHTML(itemName, itemIcon, 'item-icon')}${itemName}</span><span class="cost-amount"></span></li>`;
         }
         costsHtml += '</ul></div>';
         
@@ -530,8 +572,13 @@ function handleWorkshopQuantityChange(event, player, recipe, tile) {
     });
     if (transformButton) transformButton.disabled = !canCraft || player.isBusy;
 }
-export function setupWorkshopModalListeners(gameState) {
-    const update = () => renderWorkshopRecipes(gameState.player, gameState.map[gameState.player.y][gameState.player.x]);
+export function setupWorkshopModalListeners() {
+    // Utilise l'état de jeu courant au moment de l'événement (et non celui de l'initialisation)
+    const update = () => {
+        const gs = window.gameState;
+        if (!gs || !gs.player || !gs.map) return;
+        renderWorkshopRecipes(gs.player, gs.map[gs.player.y][gs.player.x]);
+    };
     DOM.closeWorkshopModalBtn?.addEventListener('click', hideWorkshopModal);
     DOM.workshopSearchInputEl?.addEventListener('input', update);
     DOM.workshopCategoryFilterEl?.addEventListener('change', update);

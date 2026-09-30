@@ -1,5 +1,6 @@
 // js/ui/draw.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG } from '../config.js';
+import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
+import { getItemImage, getTileImage, tileIconHTML } from './icons.js';
 import DOM from './dom.js';
 
 const loadedAssets = {};
@@ -171,10 +172,16 @@ function drawTileProps(ctx, w, h, tile) {
             ctx.strokeStyle = 'rgba(255, 212, 121, 0.5)';
             ctx.lineWidth = 2;
             ctx.stroke();
-            ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+            const tileImg = getTileImage(def.name);
+            if (tileImg) {
+                const imgSize = size * 0.94;
+                ctx.drawImage(tileImg, cx - imgSize / 2, cy - imgSize / 2, imgSize, imgSize);
+            } else {
+                ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+            }
             ctx.restore();
         }
     });
@@ -423,12 +430,18 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
         ctx.save();
         ctx.translate(handX + 4 * s, handY - 2 * s);
         ctx.rotate(-0.35 + walk * 0.18);
-        ctx.font = `${Math.round(20 * s)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0,0,0,0.55)';
         ctx.shadowBlur = 4 * s;
-        ctx.fillText(wDef.icon || '🔧', 0, 0);
+        const wImg = getItemImage(equip.weapon.name);
+        if (wImg) {
+            const sizeW = 30 * s;
+            ctx.drawImage(wImg, -sizeW / 2, -sizeW / 2, sizeW, sizeW);
+        } else {
+            ctx.font = `${Math.round(20 * s)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(wDef.icon || '🔧', 0, 0);
+        }
         ctx.restore();
     }
 
@@ -713,11 +726,24 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.arc(enemyX, enemyY + bob, size * 0.85, 0, Math.PI * 2);
         charactersCtx.fill();
 
-        // Créature
-        charactersCtx.font = `${Math.round(size)}px sans-serif`;
-        charactersCtx.textAlign = 'center';
-        charactersCtx.textBaseline = 'middle';
-        charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+        // Créature : sprite généré si disponible, sinon emoji
+        const spriteKey = ENEMY_SPRITES[enemy.name];
+        const sprite = spriteKey ? loadedAssets[spriteKey] : null;
+        if (sprite && sprite.complete && sprite.naturalWidth) {
+            const ratio = sprite.naturalWidth / sprite.naturalHeight;
+            const sh = size * 1.35;
+            const sw = sh * ratio;
+            charactersCtx.save();
+            charactersCtx.shadowColor = 'rgba(0,0,0,0.45)';
+            charactersCtx.shadowBlur = 8 * scale;
+            charactersCtx.drawImage(sprite, enemyX - sw / 2, enemyY + bob - sh / 2, sw, sh);
+            charactersCtx.restore();
+        } else {
+            charactersCtx.font = `${Math.round(size)}px sans-serif`;
+            charactersCtx.textAlign = 'center';
+            charactersCtx.textBaseline = 'middle';
+            charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+        }
 
         // Nom + barre de vie
         const label = enemy.name || 'Créature hostile';
@@ -734,6 +760,8 @@ export function drawSceneCharacters(gameState) {
 
         charactersCtx.font = `600 ${Math.max(10, 11 * scale)}px Poppins, sans-serif`;
         charactersCtx.fillStyle = '#ffd7d7';
+        charactersCtx.textAlign = 'center';
+        charactersCtx.textBaseline = 'middle';
         charactersCtx.fillText(label, enemyX, barY - 9 * scale);
 
         charactersCtx.restore();
@@ -1005,17 +1033,23 @@ export function drawLargeMap(gameState, config) {
             largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
             largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
 
-            // Utiliser tile.type.icon si disponible, sinon TILE_ICONS comme fallback
-            const icon = tile.type.icon || TILE_ICONS[tile.type.name] || TILE_ICONS.default;
-            largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Ombre pour l'icône
-            largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
-            largeMapCtx.textAlign = 'center';
-            largeMapCtx.textBaseline = 'middle';
-            let iconOffsetY = 0; // Ajustement vertical pour certains emojis
-            if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳' || icon === '⛏️🏭') { // Added Mine Building
-                iconOffsetY = cellSize * 0.05;
+            // Icône : image générée si chargée, sinon emoji en fallback
+            const tileImg = getTileImage(tile.type.name);
+            if (tileImg) {
+                const pad = cellSize * 0.1;
+                largeMapCtx.drawImage(tileImg, drawX + pad, drawY + pad, cellSize - pad * 2, cellSize - pad * 2);
+            } else {
+                const icon = tile.type.icon || TILE_ICONS[tile.type.name] || TILE_ICONS.default;
+                largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Ombre pour l'icône
+                largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
+                largeMapCtx.textAlign = 'center';
+                largeMapCtx.textBaseline = 'middle';
+                let iconOffsetY = 0; // Ajustement vertical pour certains emojis
+                if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳' || icon === '⛏️🏭') { // Added Mine Building
+                    iconOffsetY = cellSize * 0.05;
+                }
+                largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
             }
-            largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
             
             // Ajouter un indicateur pour le nombre total d'actions restantes
             let totalActions = 0;
@@ -1136,9 +1170,9 @@ export function populateLargeMapLegend() {
         if (!addedTypes.has(tileType.name)) { // Si le nom du type n'a pas encore été ajouté
             const item = document.createElement('div');
             item.className = 'legend-item';
-            // Utiliser tile.type.icon si disponible, sinon TILE_ICONS comme fallback
-            const icon = tileType.icon || TILE_ICONS[tileType.name] || TILE_ICONS.default;
-            item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${icon} ${tileType.name}</span>`;
+            // Image générée si disponible, sinon emoji en fallback
+            const iconHtml = tileIconHTML(tileType.name, tileType.icon || TILE_ICONS[tileType.name] || TILE_ICONS.default, 'legend-tile-icon');
+            item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${iconHtml} ${tileType.name}</span>`;
             largeMapLegendEl.appendChild(item);
             addedTypes.add(tileType.name); // Marquer ce nom de type comme ajouté
         }

@@ -39,6 +39,7 @@ const DOM = {
     largeMapLegendEl: document.getElementById('large-map-legend'),
     closeLargeMapBtn: document.getElementById('close-large-map-btn'),
     inventoryModal: document.getElementById('inventory-modal'),
+    closeInventoryModalBtn: document.getElementById('close-inventory-modal-btn'),
     modalPlayerInventoryEl: document.getElementById('modal-player-inventory'),
     modalSharedInventoryEl: document.getElementById('modal-shared-inventory'),
     modalPlayerCapacityEl: document.getElementById('modal-player-capacity'),
@@ -50,6 +51,7 @@ const DOM = {
     chestPlayerCapacityEl: document.getElementById('chest-player-capacity'),
     chestBuildingCapacityEl: document.getElementById('chest-building-capacity'),
     equipmentModal: document.getElementById('equipment-modal'),
+    closeEquipmentModalBtn: document.getElementById('close-equipment-modal-btn'),
     equipmentPlayerInventoryEl: document.getElementById('equipment-player-inventory'),
     equipmentPlayerCapacityEl: document.getElementById('equipment-player-capacity'),
     playerStatAttackEl: document.getElementById('player-stat-attack'),
@@ -73,6 +75,10 @@ const DOM = {
     quantityShortcuts: document.getElementById('quantity-shortcuts'),
     buildModal: document.getElementById('build-modal'),
     buildModalGridEl: document.getElementById('build-modal-grid'),
+    closeBuildModalBtn: document.getElementById('close-build-modal-btn'),
+    inventorySearchEl: document.getElementById('inventory-search'),
+    toggleChatSizeBtn: document.getElementById('toggle-chat-size-btn'),
+    quickChatMenu: document.getElementById('quick-chat-menu'),
     workshopModal: document.getElementById('workshop-modal'),
     workshopRecipesContainerEl: document.getElementById('workshop-recipes-container'),
     workshopSearchInputEl: document.getElementById('workshop-search-input'),
@@ -114,12 +120,21 @@ export function setElementDisabled(element, disabled) {
     if (element) element.disabled = disabled;
 }
 
+// L'écran de chargement n'apparaît que si le serveur met vraiment du temps à répondre.
+// Cela évite le "flash" de l'overlay à chaque action (bug d'interface).
+let loadingTimer = null;
+const LOADING_DELAY_MS = 400;
+
 export function showLoading() {
-    if (DOM.loadingOverlay) DOM.loadingOverlay.classList.remove('hidden');
-    if (DOM.mainViewContainer) DOM.mainViewContainer.classList.add('loading-active');
+    if (loadingTimer) return;
+    loadingTimer = setTimeout(() => {
+        if (DOM.loadingOverlay) DOM.loadingOverlay.classList.remove('hidden');
+        if (DOM.mainViewContainer) DOM.mainViewContainer.classList.add('loading-active');
+    }, LOADING_DELAY_MS);
 }
 
 export function hideLoading() {
+    if (loadingTimer) { clearTimeout(loadingTimer); loadingTimer = null; }
     if (DOM.loadingOverlay) DOM.loadingOverlay.classList.add('hidden');
     if (DOM.mainViewContainer) DOM.mainViewContainer.classList.remove('loading-active');
 }
