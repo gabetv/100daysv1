@@ -240,6 +240,22 @@ export function updateCombatUI(combatState) {
     const { enemy, turn, log } = combatState;
     if (!enemy) return;
 
+    // État du tour : l'interface indique clairement quand il faut attendre.
+    const turnIndicator = document.getElementById('combat-turn-indicator');
+    const turnText = document.getElementById('combat-turn-text');
+    const commandHint = document.getElementById('combat-command-hint');
+    const playerStatus = document.getElementById('combat-player-status');
+    const enemyStatus = document.getElementById('combat-enemy-status');
+    const isPlayerTurn = turn === 'player';
+    if (turnIndicator) {
+        turnIndicator.classList.toggle('enemy-turn', !isPlayerTurn);
+        turnIndicator.classList.toggle('turn-player', isPlayerTurn);
+    }
+    if (turnText) turnText.textContent = isPlayerTurn ? 'À vous de jouer' : `${enemy.name} prépare son attaque`;
+    if (commandHint) commandHint.textContent = isPlayerTurn ? 'Choisissez une action' : 'Le tour adverse est en cours…';
+    if (playerStatus) playerStatus.textContent = combatState.defending ? 'Garde levée' : 'Prêt au combat';
+    if (enemyStatus) enemyStatus.textContent = isPlayerTurn ? 'À portée' : 'En train d’attaquer';
+
     // Portraits + nom du joueur (image générée si disponible, sinon emoji)
     const enemyPortrait = document.getElementById('combat-enemy-portrait');
     if (enemyPortrait) {
