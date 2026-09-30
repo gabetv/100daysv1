@@ -373,6 +373,57 @@ function setupEventListeners() {
         }
     }
 
+    // Interaction directe depuis la scène : ouvre toujours le menu d'actions sans
+    // demander de viser un petit bouton dans le panneau latéral.
+    const screenInteractionButton = document.getElementById('screen-interaction-button');
+    if (screenInteractionButton) {
+        screenInteractionButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const quickActions = document.getElementById('central-actions-panel');
+            // Sur mobile, la feuille Actions est plus lisible. Sur ordinateur,
+            // le petit menu flottant permet d'agir sans quitter la scène.
+            if (UI.isMobileLayout && UI.isMobileLayout()) {
+                UI.openMobileTab('actions');
+                return;
+            }
+            if (quickActions) {
+                quickActions.classList.toggle('hidden');
+                if (!quickActions.classList.contains('hidden')) {
+                    quickActions.querySelector('.central-action-button')?.focus();
+                }
+            }
+        });
+    }
+
+    // Les quatre raccourcis visibles sur la scène déclenchent la même action
+    // que le bouton correspondant dans le panneau Actions. Cela évite les
+    // raccourcis décoratifs qui ne faisaient rien.
+    const quickActionKeywords = {
+        build: ['constru', 'bâtir', 'build'],
+        harvest: ['récol', 'harvest', 'extraire'],
+        search: ['fouill', 'chercher', 'recherch', 'search'],
+        interact: ['interag', 'ouvrir', 'parler', 'utilis', 'interact'],
+    };
+    document.querySelectorAll('.central-action-button').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const state = window.gameState;
+            const actions = state?.player?.availableActions || [];
+            const keywords = quickActionKeywords[button.dataset.action] || [];
+            const action = actions.find(item => keywords.some(keyword =>
+                String(item.name || '').toLowerCase().includes(keyword)));
+            const panelButton = action && document.getElementById(`action-btn-${action.id}`);
+            if (panelButton && !panelButton.disabled) {
+                panelButton.click();
+            } else {
+                // Si le raccourci n'est pas disponible ici, ouvrir la liste
+                // complète pour conserver une explication à l'utilisateur.
+                document.getElementById('screen-interaction-button')?.click();
+            }
+            document.getElementById('central-actions-panel')?.classList.add('hidden');
+        });
+    });
+
     // Replier/déplier le panneau d'objectifs
     const objectivesTitle = document.getElementById('objectives-hud-title');
     if (objectivesTitle) {
