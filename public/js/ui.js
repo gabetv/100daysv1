@@ -29,6 +29,7 @@ export const showFloatingText = EffectsModule.showFloatingText;
 export const triggerActionFlash = EffectsModule.triggerActionFlash;
 export const triggerShake = EffectsModule.triggerShake;
 export const triggerScreenShake = EffectsModule.triggerScreenShake;
+export const showMapTransition = EffectsModule.showMapTransition;
 export const resizeGameView = EffectsModule.resizeGameView;
 
 // Depuis ./ui/modals.js
@@ -177,7 +178,15 @@ function updateObjectivesPanel(player) {
     const title = document.getElementById('objectives-hud-title');
     if (title && hud) {
         const isCollapsed = hud.classList.contains('collapsed');
-        title.innerHTML = `<span><img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes (${doneCount}/${total})</span><span id="objectives-toggle">${isCollapsed ? '▸' : '▾'}</span>`;
+        // Ne pas remplacer innerHTML ici : le titre porte le listener de
+        // repli/dépliage installé au démarrage. Remplacer ses enfants rendait
+        // le bouton muet après le premier état serveur.
+        const titleLabel = title.querySelector('span:first-child');
+        const toggle = document.getElementById('objectives-toggle');
+        if (titleLabel) {
+            titleLabel.innerHTML = `<img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes (${doneCount}/${total})`;
+        }
+        if (toggle) toggle.textContent = isCollapsed ? '▸' : '▾';
     }
 }
 

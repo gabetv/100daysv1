@@ -151,6 +151,7 @@ export function closeTopModal() {
         ['inventory-modal', hideInventoryModal],
         ['customize-modal', hideCustomizationModal],
         ['equipment-modal', hideEquipmentModal],
+        ['combat-modal', hideCombatModal],
         ['large-map-modal', hideLargeMap],
     ];
     for (const [id, closeFn] of closers) {

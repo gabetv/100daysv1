@@ -132,15 +132,17 @@ function initSwipe(onMove) {
 
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
         let direction = null;
-        // Swipe = on va vers l'endroit d'où l'on glisse (déplacement naturel)
-        if (angle >= -22.5 && angle < 22.5) direction = 'west';
-        else if (angle >= 22.5 && angle < 67.5) direction = 'nw';
-        else if (angle >= 67.5 && angle < 112.5) direction = 'north';
-        else if (angle >= 112.5 && angle < 157.5) direction = 'ne';
-        else if (angle >= 157.5 || angle < -157.5) direction = 'east';
-        else if (angle >= -157.5 && angle < -112.5) direction = 'se';
-        else if (angle >= -112.5 && angle < -67.5) direction = 'south';
-        else direction = 'sw';
+        // Le geste indique la direction du déplacement, comme la croix
+        // directionnelle (un balayage vers la droite = Est). L'ancien mapping
+        // inversait plusieurs axes et faisait partir le survivant à l'opposé.
+        if (angle >= -22.5 && angle < 22.5) direction = 'east';
+        else if (angle >= 22.5 && angle < 67.5) direction = 'se';
+        else if (angle >= 67.5 && angle < 112.5) direction = 'south';
+        else if (angle >= 112.5 && angle < 157.5) direction = 'sw';
+        else if (angle >= 157.5 || angle < -157.5) direction = 'west';
+        else if (angle >= -157.5 && angle < -112.5) direction = 'nw';
+        else if (angle >= -112.5 && angle < -67.5) direction = 'north';
+        else direction = 'ne';
 
         const labels = { north: '↑ Nord', south: '↓ Sud', east: '→ Est', west: '← Ouest', ne: '↗ N-E', nw: '↖ N-O', se: '↘ S-E', sw: '↙ S-O' };
         showSwipeHint(labels[direction] || '');

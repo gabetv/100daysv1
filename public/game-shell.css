@@ -132,6 +132,91 @@ body.game-screen #main-view-container::after {
         linear-gradient(90deg, rgba(3,13,16,.32), transparent 12%, transparent 88%, rgba(3,13,16,.32)),
         linear-gradient(0deg, rgba(3,13,16,.42), transparent 18%, transparent 86%, rgba(3,13,16,.18));
 }
+
+/* --- Changement de case : transition courte, lisible et pixelisée. --- */
+body.game-screen #map-transition {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .12s steps(2, end), visibility 0s linear .72s;
+}
+body.game-screen #map-transition.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+}
+body.game-screen .map-transition-wipe {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(4, 16, 22, .74), rgba(11, 48, 54, .38) 52%, rgba(4, 16, 22, .74)),
+        repeating-linear-gradient(0deg, rgba(255, 238, 168, .05) 0 3px, transparent 3px 8px);
+    transform: translateX(-104%);
+    opacity: .95;
+}
+body.game-screen #map-transition.is-visible .map-transition-wipe {
+    animation: map-wipe-in .72s steps(8, end) both;
+}
+body.game-screen .map-transition-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 260px;
+    padding: 9px 13px 9px 9px;
+    border: 2px solid var(--shell-gold);
+    background: rgba(5, 23, 29, .94);
+    box-shadow: 4px 4px 0 rgba(1, 8, 11, .72), inset 0 0 0 2px rgba(183, 228, 208, .16);
+    transform: translate(-50%, -50%) scale(.78);
+    opacity: 0;
+}
+body.game-screen #map-transition.is-visible .map-transition-card {
+    animation: map-card-in .72s steps(5, end) .08s both;
+}
+body.game-screen .map-transition-card img {
+    width: 76px;
+    height: 48px;
+    flex: 0 0 auto;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+body.game-screen .map-transition-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+body.game-screen .map-transition-copy span {
+    color: var(--shell-gold);
+    font: .46rem/1.45 var(--pixel-font);
+    letter-spacing: .04em;
+}
+body.game-screen .map-transition-copy strong {
+    overflow: hidden;
+    color: #fff4ca;
+    font: .68rem/1.35 var(--pixel-font);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.game-screen .map-transition-copy small {
+    color: #9ac2bf;
+    font-size: .66rem;
+}
+@keyframes map-wipe-in {
+    0% { transform: translateX(-104%); }
+    58% { transform: translateX(0); }
+    100% { transform: translateX(104%); }
+}
+@keyframes map-card-in {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.78); }
+    24% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
 body.game-screen #main-view-canvas,
 body.game-screen #characters-canvas { image-rendering: pixelated; }
 body.game-screen #depth-canvas { opacity: .48; }
@@ -475,6 +560,15 @@ body.game-screen #mobile-vitals { display: none; }
         image-rendering: pixelated;
     }
     body.game-screen #depth-canvas { opacity: .38; }
+    body.game-screen .map-transition-card {
+        width: min(286px, calc(100% - 24px));
+        min-width: 0;
+        gap: 8px;
+        padding: 8px 9px 8px 7px;
+    }
+    body.game-screen .map-transition-card img { width: 64px; height: 42px; }
+    body.game-screen .map-transition-copy strong { font-size: .56rem; }
+    body.game-screen .map-transition-copy small { font-size: .58rem; }
 
     /* Les panneaux arrivent par le bas comme des fenêtres de console. */
     body.game-screen #bottom-bar { display: contents; }
@@ -884,6 +978,10 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen #bottom-bar-chat-panel,
     body.game-screen #minimap-section,
     body.game-screen #bottom-bar-equipment-panel { transition: none !important; }
+    body.game-screen #map-transition,
+    body.game-screen .map-transition-wipe,
+    body.game-screen .map-transition-card { animation: none !important; transition: none !important; }
+    body.game-screen #map-transition.is-visible .map-transition-card { opacity: 1; transform: translate(-50%, -50%); }
 }
 
 /* =====================================================================

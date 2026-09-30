@@ -204,8 +204,35 @@ function actionBurst() {
     return p;
 }
 
+function mapRoute() {
+    const p = new PixelCanvas(160, 96);
+    // Mini-carte de navigation : elle apparaît pendant le fondu de changement
+    // de case et doit rester lisible même réduite sur un petit écran.
+    p.rect(4, 7, 152, 82, C.shadow);
+    p.rect(7, 4, 146, 82, C.gold);
+    p.rect(10, 7, 140, 76, C.deep);
+    p.rect(13, 10, 134, 70, [17, 67, 75, 255]);
+    for (let y = 14; y < 78; y += 8) p.rect(13, y, 134, 2, [27, 92, 95, 210]);
+    for (let x = 17; x < 147; x += 10) p.rect(x, 10, 2, 70, [27, 92, 95, 145]);
+    // Îlot en gros pixels, avec relief et plage.
+    p.polygon([[42, 61], [48, 37], [65, 26], [91, 28], [110, 42], [104, 66], [79, 74], [56, 70]], [35, 101, 64, 255]);
+    p.polygon([[49, 54], [55, 37], [72, 31], [86, 35], [78, 46], [61, 50]], [72, 143, 71, 255]);
+    p.polygon([[79, 46], [86, 35], [103, 43], [99, 62], [85, 68], [75, 59]], [46, 119, 67, 255]);
+    p.line(50, 63, 66, 69, [231, 196, 111, 255], 3);
+    p.line(66, 69, 78, 58, [231, 196, 111, 255], 3);
+    p.line(78, 58, 94, 47, [231, 196, 111, 255], 3);
+    [[50, 63], [66, 69], [78, 58], [94, 47]].forEach(([x, y]) => p.rect(x - 2, y - 2, 5, 5, C.white));
+    p.circle(94, 47, 4, C.coral);
+    // Rose des vents discrète en haut à droite.
+    p.rect(123, 16, 18, 3, C.gold); p.rect(131, 8, 3, 18, C.gold);
+    p.polygon([[132, 8], [138, 18], [132, 16], [126, 18]], C.white);
+    p.rect(130, 16, 5, 5, C.coral);
+    return p;
+}
+
 panelFrame().save(path.join(OUT, 'panel-frame.png'));
 actionButton().save(path.join(OUT, 'button-action.png'));
 compass().save(path.join(OUT, 'compass.png'));
 rotateLandscape().save(path.join(OUT, 'rotate-landscape.png'));
 actionBurst().save(path.join(OUT, 'action-burst.png'));
+mapRoute().save(path.join(OUT, 'map-route.png'));

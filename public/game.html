@@ -39,6 +39,17 @@
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
                     <canvas id="main-view-canvas" aria-label="Scène de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
+                    <div id="map-transition" class="map-transition" aria-live="polite" aria-hidden="true">
+                        <div class="map-transition-wipe"></div>
+                        <div class="map-transition-card">
+                            <img src="/assets/ui/map-route.png" alt="">
+                            <div class="map-transition-copy">
+                                <span data-map-transition-direction>→ NOUVELLE CASE</span>
+                                <strong data-map-transition-title>Nouvelle zone</strong>
+                                <small data-map-transition-coords>Position (0, 0)</small>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div id="main-view-overlay">
                         <div id="mobile-vitals" aria-label="Jauges de survie">

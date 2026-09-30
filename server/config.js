@@ -20,16 +20,16 @@ const ENEMY_TYPES = {
 };
 
 const TILE_TYPES = {
-    WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1'], icon: '🌊', description: "Une étendue d'eau salée infranchissable." },
+    WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1', 'bg_sand_3', 'bg_sand_4'], icon: '🌊', description: "Une étendue d'eau salée infranchissable." },
     PLAGE: {
-        name: 'Plage', accessible: true, buildable: false, color: '#f4d35e', background: ['bg_sand_2'], icon: '🏖️',
+        name: 'Plage', accessible: true, buildable: false, color: '#f4d35e', background: ['bg_sand_2', 'bg_sand_4'], icon: '🏖️',
         description: "Du sable fin à perte de vue.",
         actionsAvailable: { search_zone: 10, harvest_sand: 10, fish: 5, harvest_salt_water: 10 }
     },
-    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 1 }, accessible: true, buildable: false, color: '#2d6a4f', background: ['bg_forest_1'], icon: '🌲', description: "Une forêt dense.", woodActionsLeft: 10, huntActionsLeft: 10, searchActionsLeft: 15 },
-    WASTELAND: { name: 'Friche', accessible: true, buildable: true, color: '#9c6644', background: ['bg_wasteland_1'], icon: '🍂', regeneration: { cost: { 'Eau pure': 5, 'Graine d\'arbre': 10 }, target: 'FOREST' }, description: "Une terre aride et désolée." },
-    PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1'], icon: '🌳', buildable: true, description: "Une vaste étendue herbeuse.", huntActionsLeft: 5, searchActionsLeft: 10 },
-    MINE_TERRAIN: { name: 'Mine (Terrain)', accessible: true, buildable: false, color: '#8d99ae', background: ['bg_stone_1'], resource: { type: 'Pierre', yield: 1 }, harvests: 10, icon: '⛰️', description: "Un affleurement rocheux riche en minerais.", action: { id: 'search_ore_tile', name: 'Chercher du Minerai (Terrain)', results: [ { item: 'Minerai d\'or', chance: 0.001 }, {item: 'Minerai de cuivre', chance: 0.10}, { item: 'Minerai d\'argent', chance: 0.01 }, { item: 'Souffre', chance: 0.05 }, { item: 'Minerai de fer', chance: 0.20 }, { item: 'Charbon', chance: 0.50 } ]} },
+    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 1 }, accessible: true, buildable: false, color: '#2d6a4f', background: ['bg_forest_1', 'bg_forest_2', 'bg_forest_3', 'bg_forest_4'], icon: '🌲', description: "Une forêt dense.", woodActionsLeft: 10, huntActionsLeft: 10, searchActionsLeft: 15 },
+    WASTELAND: { name: 'Friche', accessible: true, buildable: true, color: '#9c6644', background: ['bg_wasteland_1', 'bg_wasteland_2', 'bg_wasteland_3', 'bg_wasteland_4'], icon: '🍂', regeneration: { cost: { 'Eau pure': 5, 'Graine d\'arbre': 10 }, target: 'FOREST' }, description: "Une terre aride et désolée." },
+    PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1', 'bg_plains_2', 'bg_plains_3', 'bg_plains_4'], icon: '🌳', buildable: true, description: "Une vaste étendue herbeuse.", huntActionsLeft: 5, searchActionsLeft: 10 },
+    MINE_TERRAIN: { name: 'Mine (Terrain)', accessible: true, buildable: false, color: '#8d99ae', background: ['bg_stone_1', 'bg_stone_2', 'bg_stone_3', 'bg_stone_4'], resource: { type: 'Pierre', yield: 1 }, harvests: 10, icon: '⛰️', description: "Un affleurement rocheux riche en minerais.", action: { id: 'search_ore_tile', name: 'Chercher du Minerai (Terrain)', results: [ { item: 'Minerai d\'or', chance: 0.001 }, {item: 'Minerai de cuivre', chance: 0.10}, { item: 'Minerai d\'argent', chance: 0.01 }, { item: 'Souffre', chance: 0.05 }, { item: 'Minerai de fer', chance: 0.20 }, { item: 'Charbon', chance: 0.50 } ]} },
     TREASURE_CHEST: {
         name: 'Trésor Caché', accessible: true, color: '#DAA520', icon: '💎',
         background: ['bg_treasure_chest'],
