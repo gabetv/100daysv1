@@ -63,6 +63,9 @@ Le jeu possède déjà une base solide : un monde persistant, du multijoueur Web
 - Un déplacement bloqué ne coûte plus d'énergie ; un déplacement valide reste coûteux.
 - Chat limité à 240 caractères avec un cooldown serveur de 700 ms.
 - Respect de `prefers-reduced-motion` pour les animations et la couche 3D.
+- Tutoriel désormais réellement lancé à la première connexion, ramené à 5 étapes et relié aux boutons de l'interface.
+- Anti-double-clic côté client pendant le retour d'état serveur pour éviter les actions accidentellement répétées.
+- Messages rapides coopératifs ajoutés : découverte, rassemblement au camp et demande d'aide au combat.
 
 ## 5. Direction artistique proposée
 

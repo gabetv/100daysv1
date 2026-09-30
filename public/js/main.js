@@ -10,6 +10,7 @@ let gameState = null;
 let myPlayerId = null;
 let ws;
 let wasKicked = false;
+let actionPending = false;
 window.gameState = {};
 
 // Le pseudo du compte connecté (défini par la page de login)
@@ -102,6 +103,8 @@ function handleServerMessage(event) {
                 return;
             }
             window.gameState = gameState;
+            actionPending = false;
+            document.body.classList.remove('action-pending');
             
             if (gameState.player.notifications) {
                 gameState.player.notifications.forEach(notification => {
@@ -140,6 +143,12 @@ function handleServerMessage(event) {
             }
             
             fullUIUpdate();
+            // Le tutoriel est local à l'appareil : il ne doit pas bloquer le
+            // flux réseau et ne s'affiche qu'une seule fois par session.
+            if (!tutorialInitialized) {
+                tutorialInitialized = true;
+                setTimeout(() => UI.initTutorial(), 260);
+            }
         }
     } catch (e) {
         console.error("Erreur lors du traitement du message serveur:", e);
@@ -148,7 +157,16 @@ function handleServerMessage(event) {
 }
 
 export function sendAction(actionId, data) {
+    const isChat = actionId === ACTIONS.SEND_CHAT_MESSAGE;
+    if (!isChat && actionPending) return;
     if (ws && ws.readyState === WebSocket.OPEN) {
+        if (!isChat) {
+            actionPending = true;
+            document.body.classList.add('action-pending');
+        }
+        if (actionId === ACTIONS.MOVE && UI.playerMovedForTutorial) {
+            UI.playerMovedForTutorial();
+        }
         UI.showLoading();
         ws.send(JSON.stringify({ id: actionId, data }));
     } else {
@@ -161,6 +179,7 @@ window.handleGlobalPlayerAction = sendAction;
 let combatModalVisible = false;
 let victoryShown = false;
 let lastKnownHealth = null;
+let tutorialInitialized = false;
 
 // Traduit les notifications du serveur en effets sonores
 function playNotificationSound(notification) {
@@ -259,6 +278,31 @@ function showVictoryScreen(victory, player) {
 }
 
 function setupEventListeners() {
+    // Tutoriel court et actionnable : il guide sans transformer la première
+    // partie en manuel de l'interface.
+    const tutorialNextButton = document.getElementById('tutorial-next-btn');
+    const tutorialSkipButton = document.getElementById('tutorial-skip-btn');
+    tutorialNextButton?.addEventListener('click', () => {
+        const action = tutorialNextButton.dataset.action;
+        if (action === 'tutorial_hide_and_move') {
+            if (window.gameState?.tutorialState) {
+                window.gameState.tutorialState.isTemporarilyHidden = true;
+            }
+            UI.highlightElement?.(null, true);
+            document.getElementById('tutorial-overlay')?.classList.add('hidden');
+            return;
+        }
+        if (action === 'tutorial_open_actions') {
+            if (UI.isMobileLayout?.()) {
+                UI.openMobileTab?.('actions');
+            } else {
+                document.getElementById('screen-interaction-button')?.click();
+            }
+        }
+        UI.advanceTutorial?.();
+    });
+    tutorialSkipButton?.addEventListener('click', () => UI.skipTutorial?.());
+
     document.querySelectorAll('.nav-button-overlay').forEach(button => {
         button.addEventListener('click', (e) => {
             const direction = (e.currentTarget.id || e.target.id).replace('nav-', '');

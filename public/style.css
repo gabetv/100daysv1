@@ -2973,3 +2973,10 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
 .tutorial-highlight#tile-info-hud,
 .tutorial-highlight#game-info-hud,
 .tutorial-highlight#screen-interaction-button { position: absolute; }
+
+/* Anti double-clic : le serveur garde la main pendant le retour d'état. */
+body.action-pending #actions-tab-content .action-button,
+body.action-pending #central-actions-panel .central-action-button {
+    cursor: wait;
+    filter: saturate(.65) brightness(.88);
+}
