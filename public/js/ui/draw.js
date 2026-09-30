@@ -79,6 +79,9 @@ export function drawMainBackground(gameState) {
     if (!mainViewCtx || !mainViewCanvas) return;
 
     const w = mainViewCanvas.width, h = mainViewCanvas.height;
+    // Les décors et sprites gardent des bords francs, y compris après le
+    // recadrage vertical de la scène mobile.
+    mainViewCtx.imageSmoothingEnabled = false;
 
     if (!gameState || !gameState.player || !gameState.map ||
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
@@ -1185,6 +1188,7 @@ export function drawSceneCharacters(gameState) {
     const { charactersCtx, charactersCanvas } = DOM;
     if (!charactersCtx || !charactersCanvas) return;
 
+    charactersCtx.imageSmoothingEnabled = false;
     charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height);
     const canvasWidth = charactersCanvas.width;
     const canvasHeight = charactersCanvas.height;

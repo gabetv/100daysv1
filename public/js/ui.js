@@ -90,7 +90,6 @@ export const highlightElement = TutorialModule.highlightElement;
 
 // Depuis ./ui/mobile.js
 export const initMobileUI = MobileModule.initMobileUI;
-export const initOrientationExperience = MobileModule.initOrientationExperience;
 export const openMobileTab = MobileModule.openTab;
 export const closeMobileSheets = MobileModule.closeSheets;
 export const isMobileLayout = MobileModule.isMobileLayout;

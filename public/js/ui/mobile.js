@@ -11,57 +11,9 @@ const TAB_TARGETS = {
 
 let currentTab = 'scene';
 let initialized = false;
-let orientationInitialized = false;
 
 export function isMobileLayout() {
     return window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)').matches;
-}
-
-function isLandscapeLayout() {
-    return isMobileLayout() && window.matchMedia('(orientation: landscape)').matches;
-}
-
-function updateOrientationGate() {
-    const gate = document.getElementById('orientation-gate');
-    if (!gate) return;
-    const portrait = isMobileLayout() && window.matchMedia('(orientation: portrait)').matches;
-    const allowed = sessionStorage.getItem('allowPortraitGame') === '1';
-    document.body.classList.toggle('allow-portrait', allowed);
-    gate.setAttribute('aria-hidden', String(!portrait || allowed));
-}
-
-export function initOrientationExperience() {
-    if (orientationInitialized) return;
-    orientationInitialized = true;
-    const enterButton = document.getElementById('enter-landscape-button');
-    const continueButton = document.getElementById('continue-portrait-button');
-    const status = document.getElementById('orientation-lock-status');
-
-    enterButton?.addEventListener('click', async () => {
-        vibrate(10);
-        if (status) status.textContent = 'Activation du mode paysage…';
-        try {
-            if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-                await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-            }
-            if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-            if (status) status.textContent = 'Mode paysage activé.';
-        } catch (error) {
-            console.info('Verrouillage paysage non disponible :', error);
-            if (status) status.textContent = 'Tourne maintenant ton téléphone pour entrer sur l’île.';
-        }
-        updateOrientationGate();
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 120);
-    });
-
-    continueButton?.addEventListener('click', () => {
-        sessionStorage.setItem('allowPortraitGame', '1');
-        document.body.classList.add('allow-portrait');
-        updateOrientationGate();
-        window.dispatchEvent(new Event('resize'));
-    });
-
-    updateOrientationGate();
 }
 
 function vibrate(ms = 8) {
@@ -201,9 +153,7 @@ function initSheetDrag() {
     allSheets().forEach(sheet => {
         let startY = 0, dragging = false, atTop = true;
         sheet.addEventListener('touchstart', (e) => {
-            // En paysage les panneaux sont latéraux : le glissement vertical ne doit
-            // pas déplacer toute la feuille pendant que l'on fait défiler son contenu.
-            if (isLandscapeLayout() || e.touches.length !== 1) {
+            if (e.touches.length !== 1) {
                 dragging = false;
                 return;
             }
@@ -229,8 +179,6 @@ function initSheetDrag() {
 export function initMobileUI({ onMove } = {}) {
     if (initialized) return;
     initialized = true;
-
-    initOrientationExperience();
 
     document.querySelectorAll('.mobile-tab').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -274,12 +222,10 @@ export function initMobileUI({ onMove } = {}) {
     window.addEventListener('orientationchange', () => setTimeout(() => {
         allSheets().forEach(sheet => { sheet.style.transform = ''; });
         applyCompact();
-        updateOrientationGate();
         window.dispatchEvent(new Event('resize'));
     }, 250));
     window.addEventListener('resize', () => {
         applyCompact();
-        updateOrientationGate();
         if (!isMobileLayout()) {
             document.body.classList.remove('sheet-open');
             allSheets().forEach(el => el.classList.remove('sheet-active'));
