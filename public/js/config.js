@@ -418,6 +418,12 @@ export const SPRITESHEET_PATHS = {
     sprite_snake: 'assets/icons/snake.png',
     sprite_rat: 'assets/icons/rat.png',
     sprite_guardian: 'assets/icons/guardian.png',
+    // Nouvelles spritesheets pixel art animées
+    spritesheet_campfire: 'assets/spritesheet_campfire.png',
+    spritesheet_creatures: 'assets/spritesheet_creatures.png',
+    spritesheet_effects: 'assets/spritesheet_effects.png',
+    spritesheet_water: 'assets/spritesheet_water.png',
+    spritesheet_character: 'assets/spritesheet_character.png',
 };
 
 // Correspondance nom d'ennemi -> sprite préchargé (dessin dans la scène)
