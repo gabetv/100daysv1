@@ -1139,73 +1139,210 @@ button::after {
 #build-modal-grid::-webkit-scrollbar-thumb { background: var(--action-color); border-radius: 4px; }
 #build-modal-grid::-webkit-scrollbar-thumb:hover { background: #5e9ac4; }
 
-/* ---- MODALE ADMIN ---- */
+/* ---- MODE TEST OUVERT À TOUS ---- */
 #admin-modal {
     position: fixed;
     inset: 0;
-    z-index: 10001; 
-    background-color: rgba(10, 20, 30, 0.85);
-    backdrop-filter: blur(6px);
+    z-index: 10001;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     padding: 20px;
+    background: rgba(5, 17, 23, .86);
+    backdrop-filter: blur(7px);
     opacity: 0;
-    transition: opacity 0.2s ease-in-out;
     pointer-events: none;
+    transition: opacity .2s ease;
 }
-#admin-modal:not(.hidden) {
-    opacity: 1;
-    pointer-events: auto;
-}
-
+#admin-modal:not(.hidden) { opacity: 1; pointer-events: auto; }
 #admin-modal-content {
-    background-color: var(--bg-panel);
-    border: 2px solid var(--accent-color);
-    border-radius: var(--border-radius);
-    padding: 25px 30px;
-    width: 100%;
-    max-width: 380px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    width: min(100%, 570px);
+    max-height: min(88vh, 760px);
+    overflow-y: auto;
+    padding: 22px;
+    border: 2px solid #e1b85e;
+    border-radius: 6px;
+    background:
+        linear-gradient(180deg, rgba(20, 61, 69, .98), rgba(8, 31, 39, .99)),
+        repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.025) 5px 6px);
+    box-shadow: 7px 7px 0 rgba(1, 13, 18, .78), 0 0 34px rgba(0, 0, 0, .58);
+    color: #eaf6f4;
+    scrollbar-color: #d6a84e #0b2730;
+}
+.admin-modal-heading {
     display: flex;
-    flex-direction: column;
-    gap: 18px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 15px;
+    padding-bottom: 13px;
+    border-bottom: 1px solid rgba(255, 220, 139, .24);
+}
+.admin-eyebrow {
+    display: block;
+    margin-bottom: 7px;
+    color: #f4d37c;
+    font-family: var(--pixel-font, 'Press Start 2P', monospace);
+    font-size: .52rem;
+    letter-spacing: .08em;
 }
 #admin-modal-content h2 {
-    text-align: center;
-    margin-bottom: 10px;
-    color: var(--accent-color);
-    font-size: 1.5em;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding-bottom: 12px;
+    margin: 0;
+    color: #fff1bc;
+    font-family: var(--pixel-font, 'Press Start 2P', monospace);
+    font-size: 1.18rem;
+    line-height: 1.4;
+}
+.admin-close-button#admin-close-modal-btn {
+    flex: 0 0 40px;
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 236, 176, .42);
+    border-radius: 3px;
+    background: #17434e;
+    color: #ffe9a9;
+    font-size: 1.65rem;
+    line-height: 1;
+}
+.admin-close-button#admin-close-modal-btn:hover { background: #246474; }
+.admin-modal-intro {
+    margin: 14px 0 10px;
+    color: #b9d5d4;
+    font-size: .76rem;
+    line-height: 1.5;
+}
+.admin-mode-status {
+    margin: 0 0 16px;
+    padding: 9px 11px;
+    border: 1px solid rgba(255, 219, 130, .2);
+    border-radius: 3px;
+    background: rgba(4, 18, 24, .48);
+    color: #b5cbca;
+    font-size: .72rem;
+    font-weight: 700;
+}
+.admin-mode-status.is-active {
+    border-color: rgba(123, 226, 159, .58);
+    background: rgba(35, 116, 82, .3);
+    color: #a8f2bd;
+}
+.admin-action-group {
+    margin-top: 13px;
+    padding: 13px;
+    border: 1px solid rgba(167, 212, 211, .16);
+    border-radius: 4px;
+    background: rgba(3, 21, 28, .3);
+}
+.admin-action-group h3 {
+    margin: 0 0 10px;
+    color: #f2d488;
+    font-family: var(--pixel-font, 'Press Start 2P', monospace);
+    font-size: .61rem;
+    letter-spacing: .03em;
+}
+.admin-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
 }
 #admin-modal-content button {
-    padding: 12px 15px;
-    font-size: 1em;
-    font-weight: 600;
-    font-family: 'Poppins', sans-serif;
-    border: none;
-    border-radius: 6px;
+    min-height: 46px;
+    padding: 10px 11px;
+    border: 1px solid rgba(196, 230, 221, .2);
+    border-radius: 3px;
+    background: linear-gradient(#255c66, #16424d);
+    box-shadow: 3px 3px 0 rgba(1, 13, 18, .58);
+    color: #e9f7f3;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
+    font-family: var(--pixel-font, 'Press Start 2P', monospace);
+    font-size: .56rem;
+    font-weight: 700;
+    line-height: 1.45;
+    text-align: left;
+    transition: filter .15s ease, transform .1s ease, border-color .15s ease;
 }
-#admin-modal-content button:active {
-    transform: translateY(1px);
+#admin-modal-content button:hover { filter: brightness(1.16); border-color: rgba(255, 222, 133, .7); }
+#admin-modal-content button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(1, 13, 18, .58); }
+#admin-modal-content .admin-action-primary {
+    border-color: rgba(255, 225, 133, .72);
+    background: linear-gradient(#bb8040, #81502d);
+    color: #fff4c9;
+}
+#admin-modal-content .admin-action-treasure {
+    border-color: rgba(235, 190, 88, .55);
+    background: linear-gradient(#765c32, #4e3c25);
+}
+#admin-modal-content .admin-action-protection {
+    width: 100%;
+    border-color: rgba(126, 211, 188, .4);
+}
+#admin-modal-content .admin-action-protection.is-active {
+    border-color: rgba(132, 237, 155, .75);
+    background: linear-gradient(#327752, #20533d);
+    color: #d9ffdd;
+}
+.admin-help-text {
+    display: block;
+    margin-top: 9px;
+    color: #91b3b2;
+    font-size: .63rem;
+    line-height: 1.45;
+}
+#admin-modal-content .admin-secondary-button {
+    width: 100%;
+    margin-top: 14px;
+    justify-content: center;
+    background: #173b45;
+    color: #b9d5d4;
+    text-align: center;
+}
+#admin-open-btn {
+    display: block;
+    width: 100%;
+    min-height: 31px;
+    margin: 8px 0 2px;
+    padding: 6px 7px;
+    border: 1px solid rgba(255, 212, 121, .62);
+    border-radius: 3px;
+    background: linear-gradient(#946839, #68432a);
+    box-shadow: 2px 2px 0 rgba(1, 13, 18, .65);
+    color: #fff0bc;
+    cursor: pointer;
+    font-family: var(--pixel-font, 'Press Start 2P', monospace);
+    font-size: .5rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+/* Le HUD est posé au-dessus du canvas qui ignore les clics : son bouton doit rester tactile. */
+#navigation-edge-panel #game-info-hud { pointer-events: auto; }
+#admin-open-btn:hover { filter: brightness(1.16); }
+#admin-open-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(1, 13, 18, .65); }
+#admin-open-btn.is-active {
+    border-color: #9cf0ae;
+    background: linear-gradient(#367551, #23543e);
+    color: #e0ffe4;
 }
 
-#admin-give-all-resources-btn {
-    background-color: var(--action-color);
-    color: var(--text-light);
+@media (max-width: 680px), (pointer: coarse) and (max-width: 900px) {
+    #admin-modal { align-items: flex-end; padding: 0; }
+    #admin-modal-content {
+        width: 100%;
+        max-height: min(91dvh, 760px);
+        padding: 18px 14px calc(15px + env(safe-area-inset-bottom, 0px));
+        border-width: 2px 0 0;
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -7px 0 rgba(1, 13, 18, .42), 0 -10px 32px rgba(0, 0, 0, .5);
+    }
+    #admin-modal-content h2 { font-size: 1rem; }
+    .admin-modal-intro { font-size: .7rem; }
+    .admin-action-grid { gap: 7px; }
+    #admin-modal-content button { min-height: 50px; font-size: .51rem; }
+    #admin-open-btn { width: auto; min-width: 116px; margin: 4px 0 0; }
 }
-#admin-give-all-resources-btn:hover {
-    background-color: #5e9ac4;
-}
-#admin-close-modal-btn {
-    background-color: #5a6470;
-    color: var(--text-light);
-}
-#admin-close-modal-btn:hover {
-    background-color: #6b7280;
+@media (max-width: 380px) {
+    #admin-modal-content { padding-left: 10px; padding-right: 10px; }
+    .admin-action-grid { grid-template-columns: 1fr; }
+    #admin-modal-content button { min-height: 44px; }
 }
 
 

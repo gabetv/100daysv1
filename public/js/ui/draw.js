@@ -39,8 +39,8 @@ export function loadAssets(paths) {
 
 export function getAsset(key) { return loadedAssets[key]; }
 
-let bgState = { key: null, prevKey: null, since: 0 };
-const BG_FADE_MS = 420;
+let bgState = { sceneKey: null, imageKey: null, prevImageKey: null, since: 0 };
+const BG_FADE_MS = 520;
 
 // Certaines constructions disposent d'une vraie illustration de fond. Quand
 // elles sont présentes, on l'utilise comme décor principal plutôt que de poser
@@ -178,10 +178,19 @@ export function drawMainBackground(gameState) {
     }
 
     const playerTile = gameState.map[gameState.player.y][gameState.player.x];
-    const key = getSceneBackgroundKey(playerTile);
+    const imageKey = getSceneBackgroundKey(playerTile);
+    // Chaque case a sa propre identité visuelle, même quand deux cases
+    // partagent le même biome. Cela garantit un vrai changement de décor à
+    // chaque déplacement au lieu de garder l'ancienne image figée.
+    const sceneKey = `${playerTile.x ?? gameState.player.x}:${playerTile.y ?? gameState.player.y}:${imageKey}`;
 
-    if (key !== bgState.key) {
-        bgState = { key, prevKey: bgState.key, since: Date.now() };
+    if (sceneKey !== bgState.sceneKey) {
+        bgState = {
+            sceneKey,
+            imageKey,
+            prevImageKey: bgState.imageKey,
+            since: Date.now(),
+        };
     }
     const elapsed = Date.now() - bgState.since;
     const fade = Math.min(1, elapsed / BG_FADE_MS);
@@ -191,10 +200,10 @@ export function drawMainBackground(gameState) {
     mainViewCtx.fillRect(0, 0, w, h);
 
     // Ancienne image en fondu sortant + zoom léger
-    if (bgState.prevKey && fade < 1) {
-        paintBackgroundImage(mainViewCtx, loadedAssets[bgState.prevKey], w, h, 1 - ease, 1 + 0.05 * ease);
+    if (bgState.prevImageKey && fade < 1) {
+        paintBackgroundImage(mainViewCtx, loadedAssets[bgState.prevImageKey], w, h, 1 - ease, 1 + 0.05 * ease);
     }
-    const drawn = paintBackgroundImage(mainViewCtx, loadedAssets[key], w, h, ease, 1.05 - 0.05 * ease);
+    const drawn = paintBackgroundImage(mainViewCtx, loadedAssets[bgState.imageKey], w, h, ease, 1.05 - 0.05 * ease);
     if (!drawn && fade >= 1) {
         mainViewCtx.fillStyle = playerTile.type.color || '#222';
         mainViewCtx.fillRect(0, 0, w, h);

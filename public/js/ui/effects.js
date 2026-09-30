@@ -34,6 +34,53 @@ export function triggerScreenShake() {
     }, 500);
 }
 
+let mapTransitionTimer = null;
+let mapTransitionToken = 0;
+
+/**
+ * Signale un changement de case sans masquer la scène ni bloquer les commandes.
+ * Le décor fait son propre fondu dans draw.js ; cette couche ajoute un repère
+ * lisible (direction, biome, coordonnées) pour que le joueur comprenne où il
+ * arrive, surtout sur mobile.
+ */
+export function showMapTransition({ from, to, tile } = {}) {
+    const transition = document.getElementById('map-transition');
+    if (!transition || !to) return;
+
+    const token = ++mapTransitionToken;
+    const dx = Math.sign((to.x ?? 0) - (from?.x ?? to.x ?? 0));
+    const dy = Math.sign((to.y ?? 0) - (from?.y ?? to.y ?? 0));
+    const direction = {
+        '-1,-1': 'NORD-OUEST', '0,-1': 'NORD', '1,-1': 'NORD-EST',
+        '-1,0': 'OUEST', '1,0': 'EST',
+        '-1,1': 'SUD-OUEST', '0,1': 'SUD', '1,1': 'SUD-EST',
+    }[`${dx},${dy}`] || 'NOUVELLE CASE';
+
+    const directionEl = transition.querySelector('[data-map-transition-direction]');
+    const titleEl = transition.querySelector('[data-map-transition-title]');
+    const coordsEl = transition.querySelector('[data-map-transition-coords]');
+    if (directionEl) directionEl.textContent = `→ ${direction}`;
+    if (titleEl) titleEl.textContent = tile?.type?.name || 'Nouvelle zone';
+    if (coordsEl) coordsEl.textContent = `Position (${to.x}, ${to.y})`;
+
+    if (mapTransitionTimer) clearTimeout(mapTransitionTimer);
+    transition.className = 'map-transition';
+    transition.classList.add(`direction-${dx}-${dy}`);
+    transition.setAttribute('aria-hidden', 'false');
+
+    // Deux frames garantissent que l'animation redémarre sur deux déplacements
+    // rapides consécutifs, sans réutiliser un ancien état CSS.
+    requestAnimationFrame(() => {
+        if (token !== mapTransitionToken) return;
+        transition.classList.add('is-visible');
+    });
+    mapTransitionTimer = setTimeout(() => {
+        if (token !== mapTransitionToken) return;
+        transition.classList.remove('is-visible');
+        transition.setAttribute('aria-hidden', 'true');
+    }, 720);
+}
+
 export function triggerShake(element) {
     if (!element) return;
     element.classList.add('action-failed-shake');

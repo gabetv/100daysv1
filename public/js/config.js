@@ -69,6 +69,17 @@ export const ACTIONS = {
     PICKUP_ITEM_CONTEXT: 'pickup_item_context',
     OPEN_BUILD_MODAL: 'open_build_modal',
     SEND_CHAT_MESSAGE: 'send_chat_message',
+
+    // Mode test disponible à tous : raccourcis de validation du jeu.
+    ADMIN_GIVE_ALL: 'admin_give_all',
+    // Alias conservé pour les anciennes versions du panneau de test.
+    ADMIN_GIVE_ALL_RESOURCES: 'admin_give_all_resources',
+    ADMIN_RESTORE_STATS: 'admin_restore_stats',
+    ADMIN_REVEAL_MAP: 'admin_reveal_map',
+    ADMIN_TELEPORT_TREASURE: 'admin_teleport_treasure',
+    ADMIN_TELEPORT_CAMP: 'admin_teleport_camp',
+    ADMIN_OPEN_TREASURE: 'admin_open_treasure',
+    ADMIN_TOGGLE_INVINCIBILITY: 'admin_toggle_invincibility',
 };
 
 export const CONFIG = {
@@ -301,7 +312,7 @@ export const ITEM_TYPES = {
     'Explosif': { type: 'resource', icon: '💥' },
     'Huile de coco': { type: 'consumable', icon: '🧴', effects: { health: 1 } },
     'Savon': { type: 'consumable', icon: '🧼', effects: { health: 3 } },
-    'Eau croupie': { type: 'consumable', icon: '🚱', effects: { thirst: 2, custom: 'eauCroupieEffect' } },
+    'Eau croupie': { type: 'consumable', icon: '🚱', effects: { thirst: 8, custom: 'eauCroupieEffect' } },
     'Hameçon': { type: 'resource', icon: '🪝' },
     'Plan d\'ingénieur': { type: 'resource', icon: '📐', rarity: 'veryRare' },
     'Recette médicinale': { type: 'resource', icon: '🧾', rarity: 'veryRare' },
@@ -311,20 +322,20 @@ export const ITEM_TYPES = {
     'Écran électronique': { type: 'resource', icon: '🖥️' },
 
     // === CONSOMMABLES ===
-    'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
+    'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 20 } },
     'Eau salée': { type: 'consumable', icon: '🌊', effects: { thirst: 3, health: -1, custom: 'eauSaleeEffect' } },
-    'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
-    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: [{ name: 'Malade', chance: 0.3, duration: 180 }] } },
-    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
-    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: [{ name: 'Malade', chance: 0.8, duration: 180 }] } },
-    'Poisson cuit': { type: 'consumable', icon: '🍤', effects: { hunger: 2 } },
-    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: [{ name: 'Malade', chance: 0.6, duration: 180 }] } },
-    'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 3 } },
-    'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
-    'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
-    'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
-    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 4, thirst: -1 } },
-    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
+    'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 5 } },
+    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 4, status: [{ name: 'Malade', chance: 0.3, duration: 180 }] } },
+    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 8 } },
+    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 5, status: [{ name: 'Malade', chance: 0.8, duration: 180 }] } },
+    'Poisson cuit': { type: 'consumable', icon: '🍤', effects: { hunger: 8 } },
+    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 4, status: [{ name: 'Malade', chance: 0.6, duration: 180 }] } },
+    'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 7 } },
+    'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 7, thirst: 3 } },
+    'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 8, hunger: 2 } },
+    'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 6, thirst: -1 } },
+    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 8, thirst: -1 } },
+    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 12, sleep: 4 } },
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: ['Malade', 'Drogué'], status: 'normale', health: 4 } },
     'Antiseptique': { type: 'consumable', icon: '🧴', effects: { ifStatus: ['Blessé', 'Malade'], status: 'normale', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { health: 2 } },
@@ -490,16 +501,16 @@ export const ENEMY_SPRITES = {
 };
 
 export const TILE_TYPES = {
-    WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1'], icon: '🌊', description: "Une étendue d'eau salée infranchissable." },
+    WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1', 'bg_sand_3', 'bg_sand_4'], icon: '🌊', description: "Une étendue d'eau salée infranchissable." },
     PLAGE: {
-        name: 'Plage', accessible: true, buildable: false, color: '#f4d35e', background: ['bg_sand_2'], icon: '🏖️',
+        name: 'Plage', accessible: true, buildable: false, color: '#f4d35e', background: ['bg_sand_2', 'bg_sand_4'], icon: '🏖️',
         description: "Du sable fin à perte de vue.",
         actionsAvailable: { search_zone: 10, harvest_sand: 10, fish: 5, harvest_salt_water: 10 }
     },
-    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 1 }, accessible: true, buildable: false, color: '#2d6a4f', background: ['bg_forest_1'], icon: '🌲', description: "Une forêt dense.", woodActionsLeft: 10, huntActionsLeft: 10, searchActionsLeft: 15 },
-    WASTELAND: { name: 'Friche', accessible: true, buildable: true, color: '#9c6644', background: ['bg_wasteland_1'], icon: '🍂', regeneration: { cost: { 'Eau pure': 5, 'Graine d\'arbre': 10 }, target: 'FOREST' }, description: "Une terre aride et désolée." },
-    PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1'], icon: '🌳', buildable: true, description: "Une vaste étendue herbeuse.", huntActionsLeft: 5, searchActionsLeft: 10 },
-    MINE_TERRAIN: { name: 'Mine (Terrain)', accessible: true, buildable: false, color: '#8d99ae', background: ['bg_stone_1'], resource: { type: 'Pierre', yield: 1 }, harvests: 10, icon: '⛰️', description: "Un affleurement rocheux riche en minerais.", action: { id: 'search_ore_tile', name: 'Chercher du Minerai (Terrain)', results: [ { item: 'Minerai d\'or', chance: 0.001 }, {item: 'Minerai de cuivre', chance: 0.10}, { item: 'Minerai d\'argent', chance: 0.01 }, { item: 'Souffre', chance: 0.05 }, { item: 'Minerai de fer', chance: 0.20 }, { item: 'Charbon', chance: 0.50 } ]} },
+    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 1 }, accessible: true, buildable: false, color: '#2d6a4f', background: ['bg_forest_1', 'bg_forest_2', 'bg_forest_3', 'bg_forest_4'], icon: '🌲', description: "Une forêt dense.", woodActionsLeft: 10, huntActionsLeft: 10, searchActionsLeft: 15 },
+    WASTELAND: { name: 'Friche', accessible: true, buildable: true, color: '#9c6644', background: ['bg_wasteland_1', 'bg_wasteland_2', 'bg_wasteland_3', 'bg_wasteland_4'], icon: '🍂', regeneration: { cost: { 'Eau pure': 5, 'Graine d\'arbre': 10 }, target: 'FOREST' }, description: "Une terre aride et désolée." },
+    PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1', 'bg_plains_2', 'bg_plains_3', 'bg_plains_4'], icon: '🌳', buildable: true, description: "Une vaste étendue herbeuse.", huntActionsLeft: 5, searchActionsLeft: 10 },
+    MINE_TERRAIN: { name: 'Mine (Terrain)', accessible: true, buildable: false, color: '#8d99ae', background: ['bg_stone_1', 'bg_stone_2', 'bg_stone_3', 'bg_stone_4'], resource: { type: 'Pierre', yield: 1 }, harvests: 10, icon: '⛰️', description: "Un affleurement rocheux riche en minerais.", action: { id: 'search_ore_tile', name: 'Chercher du Minerai (Terrain)', results: [ { item: 'Minerai d\'or', chance: 0.001 }, {item: 'Minerai de cuivre', chance: 0.10}, { item: 'Minerai d\'argent', chance: 0.01 }, { item: 'Souffre', chance: 0.05 }, { item: 'Minerai de fer', chance: 0.20 }, { item: 'Charbon', chance: 0.50 } ]} },
 
     CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'], icon: '🔥', isBuilding: true, durability: 20,
                  cost: { 'Bois': 5, 'Pierre': 2, 'toolRequired': ['Briquet', 'Allumettes', 'Loupe']},

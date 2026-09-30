@@ -75,9 +75,15 @@ export function spawnGuardian(map) {
 
 const ENEMY_MOVE_INTERVAL_MS = 4000;
 
+function isTreasureSanctuary(x, y) {
+    return gameState.map?.[y]?.[x]?.key === 'TREASURE_CHEST';
+}
+
 /**
  * Déplace les ennemis : errance aléatoire, ou traque d'un joueur proche (aggro).
  * Si un ennemi arrive sur la case d'un joueur libre, le combat s'engage.
+ * La case du coffre est un sanctuaire : les monstres peuvent y être visibles,
+ * mais ne peuvent ni y poursuivre ni y attaquer un survivant.
  */
 export function updateEnemies(deltaTime, startCombatFn) {
     const { enemies, map, players } = gameState;
@@ -88,7 +94,9 @@ export function updateEnemies(deltaTime, startCombatFn) {
 
         // Le boss ne bouge jamais : il monte la garde et attaque quiconque approche
         if (enemy.isBoss) {
-            const intruder = Object.values(players).find(p => p.x === enemy.x && p.y === enemy.y && p.health > 0 && !p.combatState);
+            const intruder = Object.values(players).find(p =>
+                p.x === enemy.x && p.y === enemy.y && p.health > 0 &&
+                !p.combatState && !isTreasureSanctuary(p.x, p.y));
             if (intruder && startCombatFn) startCombatFn(intruder, enemy);
             continue;
         }
@@ -101,7 +109,7 @@ export function updateEnemies(deltaTime, startCombatFn) {
         let target = null;
         let bestDist = Infinity;
         for (const player of Object.values(players)) {
-            if (player.health <= 0 || player.combatState) continue;
+            if (player.health <= 0 || player.combatState || isTreasureSanctuary(player.x, player.y)) continue;
             const dist = Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y);
             if (dist <= (enemy.aggroRadius || 2) && dist < bestDist) {
                 bestDist = dist;
@@ -156,7 +164,9 @@ export function updateEnemies(deltaTime, startCombatFn) {
         }
 
         // Attaque : un joueur libre est sur la même case ?
-        const victim = Object.values(players).find(p => p.x === enemy.x && p.y === enemy.y && p.health > 0 && !p.combatState);
+        const victim = Object.values(players).find(p =>
+            p.x === enemy.x && p.y === enemy.y && p.health > 0 &&
+            !p.combatState && !isTreasureSanctuary(p.x, p.y));
         if (victim && startCombatFn) {
             startCombatFn(victim, enemy);
         }

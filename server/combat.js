@@ -99,6 +99,22 @@ function enemyAttack(player) {
     const enemy = getEnemyFor(player);
     if (!enemy || player.health <= 0) { endCombat(player, false); return; }
 
+    // Filet de sécurité : même un ancien combat restauré ne peut infliger
+    // de dégâts dans le sanctuaire du coffre.
+    const tile = gameState.map?.[player.y]?.[player.x];
+    if (tile?.key === 'TREASURE_CHEST') {
+        player.combatState.log.unshift('🛡️ Le sanctuaire du coffre neutralise l\'attaque ennemie.');
+        endCombat(player, false);
+        return;
+    }
+
+    // Protection de test : l'attaque conserve son tour de combat, mais ne
+    // retire aucun PV afin de pouvoir tester les ennemis sans mourir.
+    if (player.adminInvincible) {
+        player.combatState.log.unshift(`🛡️ Protection de test : ${enemy.name} ne vous inflige aucun dégât.`);
+        return;
+    }
+
     // Esquive !
     if (Math.random() < DODGE_CHANCE) {
         player.combatState.log.unshift(`💨 Vous esquivez l'attaque de ${enemy.name} !`);

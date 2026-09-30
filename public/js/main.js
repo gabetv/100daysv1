@@ -99,6 +99,8 @@ function handleServerMessage(event) {
             return;
         }
         if (data.type === 'gameState') {
+            const previousPlayer = gameState?.player;
+            const previousPosition = previousPlayer ? { x: previousPlayer.x, y: previousPlayer.y } : null;
             gameState = data.payload;
 
             // Convertir les tableaux de tuiles visitées en Sets
@@ -117,6 +119,11 @@ function handleServerMessage(event) {
                 gameState.player = gameState.players[myPlayerId];
             } else {
                 return;
+            }
+            if (previousPosition &&
+                (previousPosition.x !== gameState.player.x || previousPosition.y !== gameState.player.y)) {
+                const arrivedTile = gameState.map?.[gameState.player.y]?.[gameState.player.x];
+                UI.showMapTransition?.({ from: previousPosition, to: gameState.player, tile: arrivedTile });
             }
             window.gameState = gameState;
             actionPending = false;
@@ -211,6 +218,7 @@ function fullUIUpdate() {
     if (!gameState || !gameState.player) return;
     UI.updateAllUI(gameState);
     UI.renderScene(gameState);
+    Admin.updateAdminStatus(gameState);
 
     // Garder la modale d'équipement à jour si elle est ouverte
     const equipmentModal = document.getElementById('equipment-modal');
@@ -376,8 +384,8 @@ function setupEventListeners() {
         const dir = KEY_DIRECTIONS[e.key.toLowerCase()];
         if (!dir || e.ctrlKey || e.metaKey || e.altKey) return;
         // Pas de déplacement si une modale est ouverte ou si le joueur est occupé
-        const modalOpen = ['inventory-modal', 'equipment-modal', 'build-modal', 'workshop-modal',
-            'chest-modal', 'combat-modal', 'large-map-modal', 'quantity-modal', 'lock-modal']
+        const modalOpen = ['inventory-modal', 'equipment-modal', 'customize-modal', 'build-modal', 'workshop-modal',
+            'chest-modal', 'combat-modal', 'large-map-modal', 'quantity-modal', 'lock-modal', 'admin-modal', 'victory-overlay']
             .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
         if (modalOpen) return;
         const p = window.gameState && window.gameState.player;

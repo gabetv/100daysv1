@@ -39,6 +39,17 @@
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
                     <canvas id="main-view-canvas" aria-label="Scène de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
+                    <div id="map-transition" class="map-transition" aria-live="polite" aria-hidden="true">
+                        <div class="map-transition-wipe"></div>
+                        <div class="map-transition-card">
+                            <img src="/assets/ui/map-route.png" alt="">
+                            <div class="map-transition-copy">
+                                <span data-map-transition-direction>→ NOUVELLE CASE</span>
+                                <strong data-map-transition-title>Nouvelle zone</strong>
+                                <small data-map-transition-coords>Position (0, 0)</small>
+                            </div>
+                        </div>
+                    </div>
                     
                     <div id="main-view-overlay">
                         <div id="mobile-vitals" aria-label="Jauges de survie">
@@ -75,6 +86,7 @@
                                 <p id="daytime-display" data-phase="jour">☀️ Jour</p>
                                 <p id="level-display">⭐ Niveau 1</p>
                                 <div id="xp-bar-container"><div id="xp-bar"></div></div>
+                                <button id="admin-open-btn" type="button" aria-expanded="false" title="Ouvrir les outils de test">🛠 MODE TEST</button>
                                 <p id="time-display">👥 1 survivant</p>
                                 <p id="position-display-nav">Position: (0, 0)</p>
                                 <p id="controls-hint"><span>⌨</span> ZQSD / flèches <i>·</i> glisser sur mobile</p>
@@ -378,12 +390,43 @@
         </div>
     </div>
 
-    <!-- MODALE ADMIN (cachée par défaut) -->
-    <div id="admin-modal" class="hidden">
+    <!-- MODE TEST OUVERT À TOUS (caché par défaut) -->
+    <div id="admin-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
         <div id="admin-modal-content">
-            <h2>Menu Admin</h2>
-            <button id="admin-give-all-resources-btn">Donner Toutes les Ressources de Base</button>
-            <button id="admin-close-modal-btn">Fermer</button>
+            <div class="admin-modal-heading">
+                <div>
+                    <span class="admin-eyebrow">OUTILS DE VALIDATION</span>
+                    <h2 id="admin-modal-title">Mode test</h2>
+                </div>
+                <button id="admin-close-modal-btn" class="admin-close-button" type="button" aria-label="Fermer">×</button>
+            </div>
+            <p class="admin-modal-intro">Disponible pour tous les joueurs. Les actions sont appliquées par le serveur et synchronisées avec la partie.</p>
+            <p id="admin-mode-status" class="admin-mode-status" aria-live="polite">Protection de test désactivée</p>
+
+            <div class="admin-action-group">
+                <h3>Préparer un scénario</h3>
+                <div class="admin-action-grid">
+                    <button id="admin-give-all-resources-btn" type="button" class="admin-action-primary">🧰 Tout donner</button>
+                    <button id="admin-restore-stats-btn" type="button">💚 Restaurer les jauges</button>
+                    <button id="admin-reveal-map-btn" type="button">🗺️ Révéler la carte</button>
+                </div>
+            </div>
+
+            <div class="admin-action-group">
+                <h3>Se déplacer</h3>
+                <div class="admin-action-grid">
+                    <button id="admin-teleport-camp-btn" type="button">⛺ Aller au camp</button>
+                    <button id="admin-teleport-treasure-btn" type="button">💎 Aller au coffre</button>
+                    <button id="admin-open-treasure-btn" type="button" class="admin-action-treasure">🔑 Ouvrir le coffre</button>
+                </div>
+            </div>
+
+            <div class="admin-action-group">
+                <h3>Combat et protection</h3>
+                <button id="admin-toggle-invincibility-btn" type="button" class="admin-action-protection">🛡️ Activer la protection</button>
+                <small class="admin-help-text">La protection ignore les dégâts de faim, de statut, de météo, de combat et de duel.</small>
+            </div>
+            <button id="admin-close-modal-secondary-btn" type="button" class="admin-secondary-button">Fermer</button>
         </div>
     </div>
 

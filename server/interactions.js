@@ -30,6 +30,15 @@ const FREE_ACTIONS = new Set([
     ACTIONS.UNEQUIP_ITEM_CONTEXT,
     ACTIONS.DROP_ITEM_CONTEXT,
     ACTIONS.PICKUP_ITEM_CONTEXT,
+    // Le panneau de test ne doit pas vider les jauges avant d'appliquer son action.
+    ACTIONS.ADMIN_GIVE_ALL,
+    ACTIONS.ADMIN_GIVE_ALL_RESOURCES,
+    ACTIONS.ADMIN_RESTORE_STATS,
+    ACTIONS.ADMIN_REVEAL_MAP,
+    ACTIONS.ADMIN_TELEPORT_TREASURE,
+    ACTIONS.ADMIN_TELEPORT_CAMP,
+    ACTIONS.ADMIN_OPEN_TREASURE,
+    ACTIONS.ADMIN_TOGGLE_INVINCIBILITY,
 ]);
 
 export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
@@ -68,6 +77,33 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             }
             break;
         }
+
+        // --- MODE TEST OUVERT À TOUS ---
+        // Aucune vérification de rôle ou de compte : chaque survivant peut
+        // tester le jeu, mais chaque effet est validé et appliqué ici.
+        case ACTIONS.ADMIN_GIVE_ALL:
+        case ACTIONS.ADMIN_GIVE_ALL_RESOURCES:
+            Player.adminGiveAll(player);
+            break;
+        case ACTIONS.ADMIN_RESTORE_STATS:
+            Player.adminRestoreStats(player);
+            break;
+        case ACTIONS.ADMIN_REVEAL_MAP:
+            Player.adminRevealMap(player);
+            break;
+        case ACTIONS.ADMIN_TELEPORT_TREASURE:
+            Player.adminTeleportTreasure(player);
+            break;
+        case ACTIONS.ADMIN_TELEPORT_CAMP:
+            Player.adminTeleportCamp(player);
+            break;
+        case ACTIONS.ADMIN_OPEN_TREASURE:
+            Player.adminOpenTreasure(player);
+            break;
+        case ACTIONS.ADMIN_TOGGLE_INVINCIBILITY:
+            Player.adminToggleInvincibility(player);
+            break;
+
         // --- INVENTORY, APPARENCE & MOVEMENT ---
         case ACTIONS.CUSTOMIZE_CHARACTER:
             Player.customizeAppearance(player, data?.appearance);

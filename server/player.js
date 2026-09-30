@@ -56,6 +56,148 @@ function removeItemFromInventory(player, itemKey, quantity = 1) {
     return true;
 }
 
+// --- MODE TEST OUVERT À TOUS ---
+// Ces helpers restent côté serveur : les boutons de la modale ne sont donc pas
+// de simples changements visuels et l'état renvoyé par WebSocket fait foi.
+const ADMIN_STACK_SIZE = 99;
+
+function playerHasItemInstance(player, itemName) {
+    const inInventory = Object.values(player.inventory || {}).some(item =>
+        item && typeof item === 'object' && item.name === itemName);
+    const equipped = Object.values(player.equipment || {}).some(item =>
+        item && typeof item === 'object' && item.name === itemName);
+    return inInventory || equipped;
+}
+
+function markTileVisited(player, tile) {
+    if (tile && player.visitedTiles instanceof Set) {
+        player.visitedTiles.add(`${tile.x},${tile.y}`);
+    }
+}
+
+export function adminRestoreStats(player) {
+    player.health = player.maxHealth;
+    player.hunger = player.maxHunger;
+    player.thirst = player.maxThirst;
+    player.sleep = player.maxSleep;
+    player.status = {};
+    player._emptyNeedWarnings = {};
+    player._notifCooldowns = {};
+    player.notifications.push({
+        type: 'chat',
+        message: '🧪 Mode test : santé, faim, soif et sommeil restaurés.',
+        style: 'gain',
+    });
+}
+
+export function adminGiveAll(player) {
+    // Le sac de test ne doit pas bloquer la construction ou le craft.
+    player.maxInventory = 9999;
+
+    for (const [itemName, itemDef] of Object.entries(ITEM_TYPES)) {
+        const isInstance = itemDef.type === 'tool' || itemDef.type === 'weapon' || itemDef.slot;
+        if (isInstance) {
+            if (!playerHasItemInstance(player, itemName)) addItemToInventory(player, itemName, 1);
+        } else {
+            const quantity = itemDef.unique || itemDef.type === 'key' ? 1 : ADMIN_STACK_SIZE;
+            if (typeof player.inventory[itemName] === 'number') {
+                player.inventory[itemName] = Math.max(player.inventory[itemName], quantity);
+            } else {
+                addItemToInventory(player, itemName, quantity);
+            }
+        }
+
+        if (itemDef.teachesRecipe) {
+            player.knownRecipes[itemDef.teachesRecipe] = true;
+            gameState.knownRecipes[itemDef.teachesRecipe] = true;
+        }
+    }
+
+    // Le kit du coffre est également disponible sans devoir jouer toute la quête.
+    for (const [itemName, quantity] of Object.entries(TREASURE_COMBAT_KIT)) {
+        addItemToInventory(player, itemName, Math.max(quantity, 1));
+    }
+    player.inventory['Clé du Trésor'] = 1;
+
+    player.notifications.push({
+        type: 'chat',
+        message: '🧰 Mode test : ressources, consommables, outils, équipement, clé et recettes débloqués.',
+        style: 'gain',
+    });
+}
+
+export function adminRevealMap(player) {
+    const allTiles = [];
+    for (const row of gameState.map) {
+        for (const tile of row) {
+            const key = `${tile.x},${tile.y}`;
+            allTiles.push(key);
+            gameState.globallyRevealedTiles.add(key);
+        }
+    }
+    player.visitedTiles = new Set(allTiles);
+    player.notifications.push({
+        type: 'chat',
+        message: '🗺️ Mode test : toute la carte est révélée.',
+        style: 'gain',
+    });
+}
+
+export function adminTeleportCamp(player) {
+    if (player.combatState) endCombat(player, false);
+    player.x = 10;
+    player.y = 10;
+    markTileVisited(player, gameState.map[10]?.[10]);
+    player.notifications.push({
+        type: 'chat',
+        message: '⛺ Téléportation de test : retour au camp.',
+        style: 'system_info',
+    });
+}
+
+export function adminTeleportTreasure(player, notify = true) {
+    const treasureTile = gameState.map.flat().find(tile => tile.key === 'TREASURE_CHEST');
+    if (!treasureTile) {
+        player.notifications.push({ type: 'chat', message: 'Le coffre du trésor est introuvable sur cette carte.', style: 'system_error' });
+        return null;
+    }
+    if (player.combatState) endCombat(player, false);
+    player.x = treasureTile.x;
+    player.y = treasureTile.y;
+    markTileVisited(player, treasureTile);
+    if (notify) {
+        player.notifications.push({
+            type: 'chat',
+            message: '💎 Téléportation de test : vous êtes devant le coffre.',
+            style: 'system_info',
+        });
+    }
+    return treasureTile;
+}
+
+export function adminOpenTreasure(player) {
+    const treasureTile = adminTeleportTreasure(player, false);
+    if (!treasureTile) return;
+    if (treasureTile.isOpened) {
+        player.notifications.push({ type: 'chat', message: '💎 Le coffre est déjà ouvert. Le kit est disponible via « Tout donner ».', style: 'system_info' });
+        return;
+    }
+    player.inventory['Clé du Trésor'] = 1;
+    openTreasure(player);
+}
+
+export function adminToggleInvincibility(player) {
+    player.adminInvincible = !player.adminInvincible;
+    if (player.adminInvincible) player.health = player.maxHealth;
+    player.notifications.push({
+        type: 'chat',
+        message: player.adminInvincible
+            ? '🛡️ Protection de test activée : les dégâts sont ignorés.'
+            : '⚔️ Protection de test désactivée : les dégâts sont à nouveau appliqués.',
+        style: player.adminInvincible ? 'gain' : 'system_info',
+    });
+}
+
 // --- EXPÉRIENCE & NIVEAUX ---
 
 /** XP nécessaire pour passer au niveau suivant. */
@@ -241,10 +383,24 @@ export function consumeItem(player, itemKey) {
     if (removeItemFromInventory(player, itemKey)) {
         if (itemDef.effects) {
             // Apply direct stat effects
-            if(itemDef.effects.health) player.health = Math.min(player.maxHealth, player.health + itemDef.effects.health);
-            if(itemDef.effects.thirst) player.thirst = Math.min(player.maxThirst, player.thirst + itemDef.effects.thirst);
-            if(itemDef.effects.hunger) player.hunger = Math.min(player.maxHunger, player.hunger + itemDef.effects.hunger);
-            if(itemDef.effects.sleep) player.sleep = Math.min(player.maxSleep, player.sleep + itemDef.effects.sleep);
+            if(itemDef.effects.health) player.health = Math.max(0, Math.min(player.maxHealth, player.health + itemDef.effects.health));
+            if(itemDef.effects.thirst) player.thirst = Math.max(0, Math.min(player.maxThirst, player.thirst + itemDef.effects.thirst));
+            if(itemDef.effects.hunger) player.hunger = Math.max(0, Math.min(player.maxHunger, player.hunger + itemDef.effects.hunger));
+            if(itemDef.effects.sleep) player.sleep = Math.max(0, Math.min(player.maxSleep, player.sleep + itemDef.effects.sleep));
+
+            // Un vrai repas ou une boisson utile relance aussi légèrement la
+            // santé. Cela évite que la jauge remonte puis que les dégâts de
+            // faim/soif annulent immédiatement le bénéfice.
+            const safeHealthEffect = (itemDef.effects.health || 0) >= 0;
+            let nutritionRecovery = 0;
+            if (safeHealthEffect && (itemDef.effects.hunger || 0) > 0) nutritionRecovery += 1;
+            if (safeHealthEffect && (itemDef.effects.thirst || 0) > 0) nutritionRecovery += 1;
+            if (nutritionRecovery > 0 && player.health > 0 && player.health < player.maxHealth) {
+                player.health = Math.min(player.maxHealth, player.health + nutritionRecovery);
+                player.notifications.push({ type: 'floatingText', message: `+${nutritionRecovery} Santé`, style: 'gain' });
+            }
+            if ((itemDef.effects.hunger || 0) > 0) clearEmptyNeedWarning(player, 'hunger');
+            if ((itemDef.effects.thirst || 0) > 0) clearEmptyNeedWarning(player, 'thirst');
             
             // Appliquer les effets de statut
             if (itemDef.effects.status) {
@@ -690,16 +846,23 @@ export function openTreasure(player) {
     const tile = gameState.map[player.y][player.x];
     if (tile.type.name !== 'Trésor Caché' || tile.isOpened) return;
 
-    // Le Gardien doit être vaincu d'abord !
+    // La case du coffre est un sanctuaire : le Gardien ne peut pas engager
+    // le joueur. Quand le survivant arrive avec la clé, le Gardien se retire
+    // et le coffre reste ouvrable sans combat obligatoire.
     const guardian = gameState.enemies.find(e => e.isBoss && e.x === tile.x && e.y === tile.y);
-    if (guardian) {
+    const isTreasureSanctuary = tile.key === 'TREASURE_CHEST' || tile.type.name === 'Trésor Caché';
+    if (guardian && !isTreasureSanctuary) {
         player.notifications.push({ type: 'chat', message: `🗿 ${guardian.name} bloque le coffre de son corps de pierre ! Vainquez-le d'abord !`, style: 'system_warning' });
         return;
     }
-
     if (!player.inventory['Clé du Trésor']) {
         player.notifications.push({ type: 'chat', message: "Il vous faut la Clé du Trésor pour ouvrir ce coffre.", style: 'system_warning' });
         return;
+    }
+
+    if (guardian && isTreasureSanctuary) {
+        gameState.enemies = gameState.enemies.filter(enemy => enemy !== guardian);
+        player.notifications.push({ type: 'chat', message: '🛡️ Le Gardien recule dans le sanctuaire. Vous pouvez ouvrir le coffre sans être attaqué.', style: 'system_info' });
     }
 
     removeItemFromInventory(player, 'Clé du Trésor', 1);
@@ -965,9 +1128,11 @@ export function getAvailableActions(player) {
     const tile = gameState.map[player.y]?.[player.x];
     if (!tile) return availableActions;
 
-    // Combat : un ennemi rôde sur cette case
+    // Combat : le coffre est une zone sûre, aucun monstre ne peut y engager
+    // le joueur ni afficher une action d'attaque.
     const enemyHere = gameState.enemies.find(e => e.x === player.x && e.y === player.y);
-    if (enemyHere && !player.combatState) {
+    const isTreasureSanctuary = tile.key === 'TREASURE_CHEST';
+    if (enemyHere && !player.combatState && !isTreasureSanctuary) {
         availableActions.push({ id: ACTIONS.INITIATE_COMBAT, name: `⚔️ Attaquer ${enemyHere.name}` });
     }
 
@@ -1219,7 +1384,9 @@ export function getObjectives(player) {
 
 // --- PLAYER STATE UPDATE ---
 
-// Évite de spammer la même notification à chaque tick (500 ms)
+// Évite de spammer la même notification à chaque tick (500 ms).
+// Les dégâts continuent d'exister si une jauge est vide, mais le journal ne
+// doit plus afficher « -1 » en boucle et noyer les contrôles de nourriture.
 const DAMAGE_NOTIF_COOLDOWN_MS = 5000;
 function notifyThrottled(player, cause, notification) {
     const now = Date.now();
@@ -1230,6 +1397,17 @@ function notifyThrottled(player, cause, notification) {
     }
 }
 
+function notifyEmptyNeedOnce(player, need, message) {
+    if (!player._emptyNeedWarnings) player._emptyNeedWarnings = {};
+    if (player._emptyNeedWarnings[need]) return;
+    player._emptyNeedWarnings[need] = true;
+    player.notifications.push({ type: 'floatingText', message, style: 'damage' });
+}
+
+function clearEmptyNeedWarning(player, need) {
+    if (player._emptyNeedWarnings) delete player._emptyNeedWarnings[need];
+}
+
 export function updatePlayerState(player, deltaTime) {
     const secondsPassed = deltaTime / 1000;
 
@@ -1238,14 +1416,20 @@ export function updatePlayerState(player, deltaTime) {
     player.thirst = Math.max(0, player.thirst - 0.02 * secondsPassed);
     player.sleep  = Math.max(0, player.sleep  - 0.01 * secondsPassed);
 
-    // Conséquences des stats à zéro
+    // Conséquences des stats à zéro : dégâts volontairement modérés pour
+    // laisser le temps d'utiliser un repas ou une boisson. Une seule alerte
+    // visuelle est affichée à l'entrée dans la zone critique.
     if (player.hunger === 0) {
-        player.health = Math.max(0, player.health - 0.1 * secondsPassed); // Dégâts de faim
-        notifyThrottled(player, 'hunger', { type: 'floatingText', message: '-1 Santé (Faim)', style: 'damage' });
+        if (!player.adminInvincible) player.health = Math.max(0, player.health - 0.025 * secondsPassed); // Dégâts de faim
+        notifyEmptyNeedOnce(player, 'hunger', 'La faim vous affaiblit');
+    } else {
+        clearEmptyNeedWarning(player, 'hunger');
     }
     if (player.thirst === 0) {
-        player.health = Math.max(0, player.health - 0.15 * secondsPassed); // Dégâts de soif
-        notifyThrottled(player, 'thirst', { type: 'floatingText', message: '-1 Santé (Soif)', style: 'damage' });
+        if (!player.adminInvincible) player.health = Math.max(0, player.health - 0.035 * secondsPassed); // Dégâts de soif
+        notifyEmptyNeedOnce(player, 'thirst', 'La soif vous affaiblit');
+    } else {
+        clearEmptyNeedWarning(player, 'thirst');
     }
 
     // Gérer les effets et la durée des statuts
@@ -1255,11 +1439,11 @@ export function updatePlayerState(player, deltaTime) {
         // Appliquer l'effet du statut
         switch (statusName) {
             case 'Malade':
-                player.health = Math.max(0, player.health - 0.05 * secondsPassed);
+                if (!player.adminInvincible) player.health = Math.max(0, player.health - 0.05 * secondsPassed);
                 notifyThrottled(player, 'malade', { type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
                 break;
             case 'Empoisonné':
-                player.health = Math.max(0, player.health - 0.2 * secondsPassed);
+                if (!player.adminInvincible) player.health = Math.max(0, player.health - 0.2 * secondsPassed);
                 notifyThrottled(player, 'poison', { type: 'floatingText', message: '-2 Santé (Poison)', style: 'damage' });
                 break;
             case 'Alcoolisé':

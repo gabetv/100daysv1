@@ -371,6 +371,8 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         treasureOpened: false,
         xp: 0,
         level: 1,
+        // Protection temporaire du mode test, jamais persistée dans le compte.
+        adminInvincible: false,
     };
 
     // Restaurer la progression sauvegardée (comptes uniquement)
@@ -560,6 +562,15 @@ function generateMap(width, height) {
  */
 export function startCombat(player, enemy) {
     if (player.combatState) return; // Ce joueur est déjà en combat
+
+    // La case du coffre devient un sanctuaire : elle sert à ouvrir le coffre
+    // et récupérer le butin sans qu'un monstre puisse lancer un combat dessus.
+    const currentTile = gameState.map?.[player.y]?.[player.x];
+    if (currentTile?.key === 'TREASURE_CHEST') {
+        player.notifications.push({ type: 'chat', message: '🛡️ La zone du coffre est protégée : aucun monstre ne peut vous attaquer ici.', style: 'system_info' });
+        return;
+    }
+
     if (enemy.inCombatWith && gameState.players[enemy.inCombatWith]) {
         player.notifications.push({ type: 'chat', message: `${enemy.name} est déjà aux prises avec un autre survivant !`, style: 'system_warning' });
         return;
