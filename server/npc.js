@@ -1,5 +1,6 @@
 import { CONFIG } from '../public/js/config.js';
 import { gameState } from './state.js';
+import { addXp } from './player.js';
 
 export function initNpcs(config, map) {
     const npcs = [];
@@ -132,9 +133,10 @@ export function handleNpcInteraction(player, npc) {
         if (player.inventory[item] <= 0) delete player.inventory[item];
         player.inventory[quest.reward.item] = (player.inventory[quest.reward.item] || 0) + quest.reward.amount;
         quest.isCompleted = true;
-        player.notifications.push({ type: 'chat', message: `${npc.name} : « Merci infiniment ! Tiens, c'est pour toi. »`, style: 'gain' });
+        player.notifications.push({ type: 'chat', message: `${npc.name} : « Merci infiniment ! Tiens, c'est pour toi. » (+10 XP)`, style: 'gain' });
         player.notifications.push({ type: 'floatingText', message: `+${quest.reward.amount} ${quest.reward.item}`, style: 'gain' });
         player.notifications.push({ type: 'floatingText', message: `-${amount} ${item}`, style: 'cost' });
+        addXp(player, 10);
     } else {
         player.notifications.push({ type: 'chat', message: `${npc.name} : « ${quest.description} » (${owned}/${amount} ${item} — récompense : ${quest.reward.amount} ${quest.reward.item})`, style: 'system_info' });
     }

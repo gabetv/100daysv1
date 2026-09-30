@@ -56,6 +56,36 @@ function removeItemFromInventory(player, itemKey, quantity = 1) {
     return true;
 }
 
+// --- EXPÉRIENCE & NIVEAUX ---
+
+/** XP nécessaire pour passer au niveau suivant. */
+export function xpForNextLevel(level) {
+    return level * 25;
+}
+
+/**
+ * Ajoute de l'expérience au joueur ; gère les montées de niveau (+2 PV max, soin).
+ */
+export function addXp(player, amount) {
+    if (!amount || amount <= 0) return;
+    player.xp = (player.xp || 0) + amount;
+    player.level = player.level || 1;
+
+    let leveledUp = false;
+    while (player.xp >= xpForNextLevel(player.level)) {
+        player.xp -= xpForNextLevel(player.level);
+        player.level++;
+        player.maxHealth += 2;
+        player.health = Math.min(player.maxHealth, player.health + 5);
+        leveledUp = true;
+    }
+
+    if (leveledUp) {
+        player.notifications.push({ type: 'chat', message: `🆙 NIVEAU ${player.level} ! Votre corps s'endurcit (+2 PV max, +5 PV).`, style: 'gain' });
+        player.notifications.push({ type: 'floatingText', message: `NIVEAU ${player.level} !`, style: 'gain' });
+    }
+}
+
 
 // --- CORE ACTIONS (Existing + Refactored) ---
 
@@ -273,6 +303,7 @@ export function harvestResource(player, action) {
     if (resourceName) {
         addItemToInventory(player, resourceName, amount);
         player.notifications.push({ type: 'floatingText', message: `+${amount} ${resourceName}`, style: 'gain' });
+        addXp(player, 1);
     }
 }
 
@@ -318,6 +349,7 @@ export function buildStructure(player, structureKey) {
     };
     tile.buildings.push(newBuilding);
     player.notifications.push({ type: 'chat', message: `Vous avez construit : ${buildingType.name}.`, style: 'gain' });
+    addXp(player, 5);
 }
 
 export function craftItem(player, recipeName, costs, quantity) {
@@ -335,6 +367,7 @@ export function craftItem(player, recipeName, costs, quantity) {
     // Add crafted item
     addItemToInventory(player, recipeName, quantity);
     player.notifications.push({ type: 'floatingText', message: `Fabriqué : +${quantity} ${recipeName}`, style: 'gain' });
+    addXp(player, 2 * quantity);
 }
 
 export function searchZone(player) {
@@ -358,6 +391,7 @@ export function searchZone(player) {
         addItemToInventory(player, found, 1);
         player.notifications.push({ type: 'chat', message: `✨ Incroyable ! En fouillant, vous avez déniché : ${found} !`, style: 'gain' });
         player.notifications.push({ type: 'floatingText', message: `+1 ${found}`, style: 'gain' });
+        addXp(player, 10);
         return;
     }
 
@@ -386,6 +420,7 @@ export function searchZone(player) {
         const rarityLabel = { rare: ' (rare !)', veryRare: ' (très rare !)', offTable: ' (exceptionnel !!)' }[chosenTier] || '';
         player.notifications.push({ type: 'chat', message: `En fouillant, vous avez trouvé : ${foundItem}${rarityLabel}.`, style: chosenTier === 'common' ? 'system_info' : 'gain' });
         player.notifications.push({ type: 'floatingText', message: `+1 ${foundItem}`, style: 'gain' });
+        addXp(player, 1);
     } else {
         player.notifications.push({ type: 'chat', message: "Vous n'avez rien trouvé d'intéressant.", style: 'system_info' });
     }
@@ -621,6 +656,7 @@ export function openTreasure(player) {
     }
 
     player.notifications.push({ type: 'chat', message: "💎 Vous avez ouvert le trésor : équipement de combat... et une FUSÉE DE DÉTRESSE ! Tirez-la depuis une plage pour alerter les secours !", style: 'gain' });
+    addXp(player, 25);
 }
 
 export function huntOnTile(player) {
@@ -651,6 +687,8 @@ export function huntOnTile(player) {
 
     if (!lootGained) {
         player.notifications.push({ type: 'chat', message: "Vous avez pisté une proie, mais elle s'est échappée.", style: 'system_info' });
+    } else {
+        addXp(player, 2);
     }
 }
 
@@ -766,6 +804,7 @@ export function fishOnTile(player, action) {
         const amount = action === 'fish' ? 1 : Math.floor(Math.random() * 3) + 1; // Le filet attrape plus
         addItemToInventory(player, 'Poisson cru', amount);
         player.notifications.push({ type: 'floatingText', message: `+${amount} Poisson cru`, style: 'gain' });
+        addXp(player, 2);
     } else {
         player.notifications.push({ type: 'chat', message: "Ça ne mord pas cette fois...", style: 'system_info' });
     }
@@ -1044,6 +1083,11 @@ function notifyThrottled(player, cause, notification) {
 
 export function updatePlayerState(player, deltaTime) {
     const secondsPassed = deltaTime / 1000;
+
+    // Le temps épuise lentement le corps (en plus du coût des actions)
+    player.hunger = Math.max(0, player.hunger - 0.015 * secondsPassed);
+    player.thirst = Math.max(0, player.thirst - 0.02 * secondsPassed);
+    player.sleep  = Math.max(0, player.sleep  - 0.01 * secondsPassed);
 
     // Conséquences des stats à zéro
     if (player.hunger === 0) {

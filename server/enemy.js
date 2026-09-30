@@ -29,14 +29,23 @@ export function spawnSingleEnemy(map) {
         (gameState.players && Object.values(gameState.players).some(p => Math.hypot(x - p.x, y - p.y) < 5))
     );
 
-    return {
+    // La difficulté monte avec les jours : les bêtes deviennent plus coriaces
+    const day = gameState.day || 1;
+    const healthBonus = Math.floor(day / 10);   // +1 PV tous les 10 jours
+    const damageBonus = Math.floor(day / 25);   // +1 dégât tous les 25 jours
+
+    const enemy = {
         id: `enemy_${Date.now()}_${Math.random()}`,
         ...JSON.parse(JSON.stringify(type)),
         x,
         y,
-        currentHealth: type.health,
         timeSinceLastMove: 0,
     };
+    enemy.health += healthBonus;
+    enemy.damage += damageBonus;
+    enemy.currentHealth = enemy.health;
+    if (healthBonus >= 3) enemy.name = `${enemy.name} alpha`; // Les vétérans ont un titre
+    return enemy;
 }
 
 export function findEnemyOnTile(x, y, enemies) {

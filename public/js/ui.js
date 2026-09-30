@@ -111,6 +111,15 @@ export function updateAllUI(gameState) {
     if (positionDisplay) positionDisplay.textContent = `Position: (${player.x}, ${player.y})`;
     if (timeDisplay) timeDisplay.textContent = `👥 ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
 
+    // Niveau & expérience
+    const levelDisplay = document.getElementById('level-display');
+    const xpBar = document.getElementById('xp-bar');
+    const level = player.level || 1;
+    const xp = Math.floor(player.xp || 0);
+    const xpNeeded = level * 25;
+    if (levelDisplay) levelDisplay.textContent = `⭐ Niveau ${level} · ${xp}/${xpNeeded} XP`;
+    if (xpBar) xpBar.style.width = `${Math.min(100, (xp / xpNeeded) * 100)}%`;
+
     // Panneau d'objectifs
     updateObjectivesPanel(player);
 }

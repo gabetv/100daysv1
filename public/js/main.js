@@ -111,11 +111,18 @@ window.handleGlobalPlayerAction = sendAction;
 
 let combatModalVisible = false;
 let victoryShown = false;
+let lastKnownHealth = null;
 
 function fullUIUpdate() {
     if (!gameState || !gameState.player) return;
     UI.updateAllUI(gameState);
     UI.renderScene(gameState);
+
+    // Secousse d'écran quand on encaisse des dégâts
+    if (lastKnownHealth !== null && gameState.player.health < lastKnownHealth - 0.5) {
+        if (UI.triggerScreenShake) UI.triggerScreenShake();
+    }
+    lastKnownHealth = gameState.player.health;
 
     // --- Combat : afficher/mettre à jour/fermer la modale ---
     const combatState = gameState.player.combatState;

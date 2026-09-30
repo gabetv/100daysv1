@@ -235,13 +235,15 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         knownRecipes: {},
         deaths: 0,
         treasureOpened: false,
+        xp: 0,
+        level: 1,
     };
 
     // Restaurer la progression sauvegardée (comptes uniquement)
     if (savedData && typeof savedData === 'object') {
         const restorable = ['x', 'y', 'color', 'health', 'maxHealth', 'thirst', 'maxThirst',
             'hunger', 'maxHunger', 'sleep', 'maxSleep', 'inventory', 'maxInventory',
-            'equipment', 'status', 'knownRecipes', 'deaths', 'treasureOpened'];
+            'equipment', 'status', 'knownRecipes', 'deaths', 'treasureOpened', 'xp', 'level'];
         for (const key of restorable) {
             if (savedData[key] !== undefined) newPlayer[key] = savedData[key];
         }
@@ -293,6 +295,8 @@ export function serializePlayer(player) {
         knownRecipes: player.knownRecipes,
         deaths: player.deaths || 0,
         treasureOpened: player.treasureOpened || false,
+        xp: player.xp || 0,
+        level: player.level || 1,
         visitedTiles: Array.from(player.visitedTiles || []),
     };
 }

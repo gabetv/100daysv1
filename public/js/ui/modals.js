@@ -177,12 +177,25 @@ export function updateEquipmentModal(gameState) {
 
 export function showCombatModal(combatState) {
     if (!combatState || !DOM.combatModal) return;
+    lastCombatPlayerHealth = null;
+    lastCombatEnemyHealth = null;
     updateCombatUI(combatState);
     DOM.combatModal.classList.remove('hidden');
 }
 export function hideCombatModal() {
     if(DOM.combatModal) DOM.combatModal.classList.add('hidden');
 }
+let lastCombatPlayerHealth = null;
+let lastCombatEnemyHealth = null;
+
+function flashPortrait(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('hit');
+    void el.offsetWidth; // Relancer l'animation
+    el.classList.add('hit');
+}
+
 export function updateCombatUI(combatState) {
     if (!combatState || !DOM.combatModal) return;
     const { combatEnemyName, combatEnemyHealthBar, combatEnemyHealthText, combatPlayerHealthBar, combatPlayerHealthText, combatLogEl, combatActionsEl } = DOM;
@@ -192,25 +205,55 @@ export function updateCombatUI(combatState) {
     const { enemy, turn, log } = combatState;
     if (!enemy) return;
 
-    if(combatEnemyName) combatEnemyName.textContent = `${enemy.icon || ''} ${enemy.name}`;
-    if(combatEnemyHealthBar) combatEnemyHealthBar.style.width = `${Math.max(0, (enemy.currentHealth / enemy.health) * 100)}%`;
+    // Portraits + nom du joueur
+    const enemyPortrait = document.getElementById('combat-enemy-portrait');
+    if (enemyPortrait) enemyPortrait.textContent = enemy.icon || '👹';
+    const playerNameEl = document.getElementById('combat-player-name');
+    if (playerNameEl) playerNameEl.textContent = player.name || 'Vous';
+
+    // Animations de coup (la vie a baissé depuis la dernière mise à jour)
+    if (lastCombatEnemyHealth !== null && enemy.currentHealth < lastCombatEnemyHealth) flashPortrait('combat-enemy-portrait');
+    if (lastCombatPlayerHealth !== null && player.health < lastCombatPlayerHealth) flashPortrait('combat-player-portrait');
+    lastCombatEnemyHealth = enemy.currentHealth;
+    lastCombatPlayerHealth = player.health;
+
+    // Barres de vie (couleur selon le pourcentage)
+    const setBar = (barEl, current, max) => {
+        if (!barEl) return;
+        const pct = Math.max(0, (current / max) * 100);
+        barEl.style.width = `${pct}%`;
+        barEl.classList.toggle('low', pct <= 35);
+        barEl.classList.toggle('critical', pct <= 15);
+    };
+    if(combatEnemyName) combatEnemyName.textContent = enemy.name;
+    setBar(combatEnemyHealthBar, enemy.currentHealth, enemy.health);
     if(combatEnemyHealthText) combatEnemyHealthText.textContent = `${Math.max(0, Math.ceil(enemy.currentHealth))} / ${enemy.health}`;
-    if(combatPlayerHealthBar) combatPlayerHealthBar.style.width = `${Math.max(0, (player.health / player.maxHealth) * 100)}%`;
+    setBar(combatPlayerHealthBar, player.health, player.maxHealth);
     if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${Math.max(0, Math.ceil(player.health))} / ${player.maxHealth}`;
+
     if(combatLogEl) {
         combatLogEl.innerHTML = '';
-        (log || []).slice(0, 15).forEach(msg => {
+        (log || []).slice(0, 15).forEach((msg, i) => {
             const p = document.createElement('p');
             p.textContent = msg;
+            if (i === 0) p.classList.add('latest');
+            if (msg.includes('CRITIQUE')) p.classList.add('crit');
+            else if (msg.includes('esquivez') || msg.includes('bloquez')) p.classList.add('defense');
+            else if (msg.includes('vous inflige')) p.classList.add('damage');
             combatLogEl.appendChild(p);
         });
     }
     
     if (combatActionsEl) {
         const isPlayerTurn = turn === 'player';
-        combatActionsEl.innerHTML = `<button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button><button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>`;
+        const dis = !isPlayerTurn ? 'disabled' : '';
+        combatActionsEl.innerHTML =
+            `<button id="combat-attack-btn" ${dis}>⚔️ Attaquer</button>` +
+            `<button id="combat-defend-btn" ${dis}>🛡️ Défendre</button>` +
+            `<button id="combat-flee-btn" ${dis}>🏃 Fuir</button>`;
         if (isPlayerTurn) {
             document.getElementById('combat-attack-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'attack' }));
+            document.getElementById('combat-defend-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'defend' }));
             document.getElementById('combat-flee-btn')?.addEventListener('click', () => sendAction('combat_action', { type: 'flee' }));
         }
     }

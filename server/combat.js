@@ -1,6 +1,11 @@
 // server/combat.js
 import { gameState, endCombat } from './state.js';
 import { ITEM_TYPES, COMBAT_CONFIG } from '../public/js/config.js';
+import { addXp } from './player.js';
+
+const CRIT_CHANCE = 0.15;      // 15% de chance de coup critique (x2 dégâts)
+const DODGE_CHANCE = 0.12;     // 12% de chance d'esquiver l'attaque ennemie
+const WEAPON_WEAR_CHANCE = 0.25; // Usure de l'arme : 25% de chance par attaque
 
 function getEnemyFor(player) {
     if (!player || !player.combatState) return null;
@@ -22,6 +27,9 @@ export function handleCombatAction(playerId, action) {
 
     if (action === 'attack') {
         playerAttack(player);
+    } else if (action === 'defend') {
+        player.combatState.defending = true;
+        player.combatState.log.unshift('🛡️ Vous vous mettez en garde, prêt à encaisser le prochain coup.');
     } else if (action === 'flee') {
         playerFlee(player);
     }
@@ -45,16 +53,33 @@ function playerAttack(player) {
     const enemy = getEnemyFor(player);
     if (!enemy) { endCombat(player, false); return; }
 
-    const weapon = player.equipment.weapon ? ITEM_TYPES[player.equipment.weapon.name] : null;
-    const damage = weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+    const weaponInstance = player.equipment.weapon;
+    const weapon = weaponInstance ? ITEM_TYPES[weaponInstance.name] : null;
+    let damage = weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+
+    // Coup critique !
+    const isCrit = Math.random() < CRIT_CHANCE;
+    if (isCrit) damage *= 2;
 
     enemy.currentHealth = Math.max(0, enemy.currentHealth - damage);
     syncEnemySnapshot(player, enemy);
-    const message = `Vous infligez ${damage} dégâts à ${enemy.name}.`;
-    player.combatState.log.unshift(message);
+    player.combatState.log.unshift(isCrit
+        ? `💥 COUP CRITIQUE ! Vous infligez ${damage} dégâts à ${enemy.name} !`
+        : `⚔️ Vous infligez ${damage} dégâts à ${enemy.name}.`);
+
+    // Usure de l'arme au combat
+    if (weaponInstance && weaponInstance.currentDurability !== undefined && Math.random() < WEAPON_WEAR_CHANCE) {
+        weaponInstance.currentDurability--;
+        if (weaponInstance.currentDurability <= 0) {
+            player.equipment.weapon = null;
+            player.combatState.log.unshift(`💔 Votre ${weaponInstance.name} se brise en plein combat !`);
+            player.notifications.push({ type: 'chat', message: `${weaponInstance.name} s'est cassé(e) !`, style: 'damage' });
+        }
+    }
 
     if (enemy.currentHealth <= 0) {
-        player.notifications.push({ type: 'chat', message: `🎉 Vous avez vaincu ${enemy.name} !`, style: 'gain' });
+        const xpGain = (enemy.health || 5) + (enemy.damage || 1);
+        player.notifications.push({ type: 'chat', message: `🎉 Vous avez vaincu ${enemy.name} ! (+${xpGain} XP)`, style: 'gain' });
 
         // Butin (loot)
         if (enemy.loot) {
@@ -65,6 +90,7 @@ function playerAttack(player) {
             });
         }
 
+        addXp(player, xpGain);
         endCombat(player, true); // Le joueur a gagné
     }
 }
@@ -73,16 +99,29 @@ function enemyAttack(player) {
     const enemy = getEnemyFor(player);
     if (!enemy || player.health <= 0) { endCombat(player, false); return; }
 
+    // Esquive !
+    if (Math.random() < DODGE_CHANCE) {
+        player.combatState.log.unshift(`💨 Vous esquivez l'attaque de ${enemy.name} !`);
+        return;
+    }
+
     const defense = (player.equipment.body?.stats?.defense || 0) +
                     (player.equipment.head?.stats?.defense || 0) +
                     (player.equipment.feet?.stats?.defense || 0) +
                     (player.equipment.shield?.stats?.defense || 0);
 
-    const damageTaken = Math.max(0, enemy.damage - defense);
-    player.health = Math.max(0, player.health - damageTaken);
+    let damageTaken = Math.max(0, enemy.damage - defense);
 
-    const message = `${enemy.name} vous inflige ${damageTaken} dégâts.`;
-    player.combatState.log.unshift(message);
+    // Garde levée : dégâts divisés par deux
+    if (player.combatState.defending) {
+        damageTaken = Math.floor(damageTaken / 2);
+        player.combatState.defending = false;
+        player.combatState.log.unshift(`🛡️ Vous bloquez ! ${enemy.name} ne vous inflige que ${damageTaken} dégâts.`);
+    } else {
+        player.combatState.log.unshift(`🩸 ${enemy.name} vous inflige ${damageTaken} dégâts.`);
+    }
+
+    player.health = Math.max(0, player.health - damageTaken);
 
     if (player.health <= 0) {
         player.notifications.push({ type: 'chat', message: "Vous avez été vaincu...", style: 'damage' });
@@ -95,6 +134,6 @@ function playerFlee(player) {
         player.notifications.push({ type: 'chat', message: "Vous avez réussi à fuir !", style: 'system_info' });
         endCombat(player, false); // Fuite réussie : fin du combat
     } else {
-        player.combatState.log.unshift("Votre tentative de fuite a échoué !");
+        player.combatState.log.unshift("🏃 Votre tentative de fuite a échoué !");
     }
 }
