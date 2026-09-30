@@ -1,0 +1,13 @@
+# Déploiement du serveur de jeu temps réel (Express + WebSocket) sur Render.
+services:
+  - type: web
+    name: iles-100-jours-game
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false   # à coller depuis Neon dans le dashboard Render

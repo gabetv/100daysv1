@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = loginForm.elements['login-password'].value;
 
         try {
-            const response = await fetch('/login', {
+            const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = registerForm.elements['register-password'].value;
 
         try {
-            const response = await fetch('/register', {
+            const response = await fetch('/api/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

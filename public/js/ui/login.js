@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
 
-            const response = await fetch('/login', {
+            const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
 
             if (result.success) {
+                sessionStorage.setItem('username', result.username || username);
                 window.location.href = '/game.html';
             } else {
                 alert(result.message);
@@ -51,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('register-username').value;
             const password = document.getElementById('register-password').value;
 
-            const response = await fetch('/register', {
+            const response = await fetch('/api/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
