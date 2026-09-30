@@ -218,6 +218,7 @@ function fullUIUpdate() {
     if (!gameState || !gameState.player) return;
     UI.updateAllUI(gameState);
     UI.renderScene(gameState);
+    Admin.updateAdminStatus(gameState);
 
     // Garder la modale d'équipement à jour si elle est ouverte
     const equipmentModal = document.getElementById('equipment-modal');

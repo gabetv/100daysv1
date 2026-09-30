@@ -108,6 +108,13 @@ function enemyAttack(player) {
         return;
     }
 
+    // Protection de test : l'attaque conserve son tour de combat, mais ne
+    // retire aucun PV afin de pouvoir tester les ennemis sans mourir.
+    if (player.adminInvincible) {
+        player.combatState.log.unshift(`🛡️ Protection de test : ${enemy.name} ne vous inflige aucun dégât.`);
+        return;
+    }
+
     // Esquive !
     if (Math.random() < DODGE_CHANCE) {
         player.combatState.log.unshift(`💨 Vous esquivez l'attaque de ${enemy.name} !`);

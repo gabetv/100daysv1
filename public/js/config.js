@@ -69,6 +69,17 @@ export const ACTIONS = {
     PICKUP_ITEM_CONTEXT: 'pickup_item_context',
     OPEN_BUILD_MODAL: 'open_build_modal',
     SEND_CHAT_MESSAGE: 'send_chat_message',
+
+    // Mode test disponible à tous : raccourcis de validation du jeu.
+    ADMIN_GIVE_ALL: 'admin_give_all',
+    // Alias conservé pour les anciennes versions du panneau de test.
+    ADMIN_GIVE_ALL_RESOURCES: 'admin_give_all_resources',
+    ADMIN_RESTORE_STATS: 'admin_restore_stats',
+    ADMIN_REVEAL_MAP: 'admin_reveal_map',
+    ADMIN_TELEPORT_TREASURE: 'admin_teleport_treasure',
+    ADMIN_TELEPORT_CAMP: 'admin_teleport_camp',
+    ADMIN_OPEN_TREASURE: 'admin_open_treasure',
+    ADMIN_TOGGLE_INVINCIBILITY: 'admin_toggle_invincibility',
 };
 
 export const CONFIG = {

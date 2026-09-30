@@ -371,6 +371,8 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         treasureOpened: false,
         xp: 0,
         level: 1,
+        // Protection temporaire du mode test, jamais persistée dans le compte.
+        adminInvincible: false,
     };
 
     // Restaurer la progression sauvegardée (comptes uniquement)
