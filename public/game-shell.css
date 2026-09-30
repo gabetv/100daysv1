@@ -1,5 +1,5 @@
 /* =====================================================================
-   COQUILLE DE JEU — paysage d'abord, HUD pixel art, scène prioritaire
+   COQUILLE DE JEU — HUD pixel art, scène prioritaire
    Chargée après style.css pour remplacer proprement les règles historiques.
    ===================================================================== */
 
@@ -109,6 +109,19 @@ body.game-screen #main-view-container {
         inset 0 0 0 2px rgba(255,255,255,.09),
         0 12px 28px rgba(0,0,0,.55);
 }
+body.game-screen #main-view-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    opacity: .2;
+    background-image:
+        linear-gradient(90deg, rgba(222, 247, 216, .12) 50%, transparent 50%),
+        linear-gradient(rgba(5, 17, 23, .12) 50%, transparent 50%);
+    background-size: 6px 6px;
+    mix-blend-mode: soft-light;
+}
 body.game-screen #main-view-container::after {
     content: '';
     position: absolute;
@@ -120,7 +133,7 @@ body.game-screen #main-view-container::after {
         linear-gradient(0deg, rgba(3,13,16,.42), transparent 18%, transparent 86%, rgba(3,13,16,.18));
 }
 body.game-screen #main-view-canvas,
-body.game-screen #characters-canvas { image-rendering: auto; }
+body.game-screen #characters-canvas { image-rendering: pixelated; }
 body.game-screen #depth-canvas { opacity: .48; }
 
 /* --- Panneau gauche compact : survie lisible sans occuper 400 px. --- */
@@ -359,70 +372,6 @@ body.game-screen .nav-button-overlay {
 /* Jauges mobiles : cachées sur ordinateur. */
 body.game-screen #mobile-vitals { display: none; }
 
-/* --- Écran de rotation paysage --- */
-#orientation-gate {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 12000;
-    place-items: center;
-    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-    overflow: auto;
-    background:
-        radial-gradient(circle at 50% 28%, rgba(45, 132, 129, .25), transparent 50%),
-        #06171e;
-}
-.orientation-card {
-    width: min(420px, 100%);
-    padding: 22px 18px;
-    border: 12px solid transparent;
-    border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
-    color: #e9f6ec;
-    text-align: center;
-}
-.orientation-card > img {
-    display: block;
-    width: min(192px, 52vw);
-    height: auto;
-    margin: 2px auto 8px;
-    image-rendering: pixelated;
-}
-.orientation-kicker {
-    color: var(--shell-gold);
-    font-family: var(--pixel-font);
-    font-size: .55rem;
-    letter-spacing: .08em;
-}
-.orientation-card h1 {
-    margin: 9px 0;
-    color: #fff1bd;
-    font-family: var(--pixel-font);
-    font-size: clamp(1rem, 5vw, 1.35rem);
-    line-height: 1.55;
-    text-shadow: 3px 3px 0 #0b3138;
-}
-.orientation-card p { margin: 0 auto 15px; max-width: 340px; color: #aacdca; font-size: .82rem; line-height: 1.5; }
-.orientation-card button {
-    width: 100%;
-    min-height: 48px;
-    margin-top: 8px;
-    border: 1px solid #ffe298;
-    border-radius: 3px;
-    background: linear-gradient(#da963f, #a95b2b);
-    box-shadow: 0 4px 0 #5c301c;
-    color: #fff3c8;
-    font-family: var(--pixel-font);
-    font-size: .55rem;
-    line-height: 1.5;
-}
-.orientation-card #continue-portrait-button {
-    border-color: #34666b;
-    background: #153d46;
-    box-shadow: 0 4px 0 #071b21;
-    color: #a9c8c6;
-}
-.orientation-card small { display: block; margin-top: 13px; color: #668f92; font-size: .64rem; }
-
 /* --- Desktop compact : on rogne les panneaux, jamais la scène. --- */
 @media (max-width: 1220px) and (min-width: 901px) {
     body.game-screen #main-area { grid-template-columns: 205px minmax(390px, 1fr) 290px; }
@@ -438,192 +387,317 @@ body.game-screen #mobile-vitals { display: none; }
 }
 
 /* =====================================================================
-   MOBILE PAYSAGE — barre latérale, panneaux latéraux, scène persistante
+   MOBILE VERTICAL — scène plein écran, commandes au pouce et tiroirs
+   pixel art. Aucun écran de rotation ni verrouillage d'orientation.
    ===================================================================== */
-@media (max-width: 900px) and (orientation: portrait),
-       (pointer: coarse) and (max-width: 1100px) and (orientation: portrait) {
-    body.game-screen:not(.allow-portrait) #orientation-gate { display: grid; }
-}
-
-@media (max-width: 900px) and (orientation: landscape),
-       (pointer: coarse) and (max-width: 1100px) and (orientation: landscape) {
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
     :root {
-        --mobile-rail: calc(58px + env(safe-area-inset-left, 0px));
-        --safe-r: env(safe-area-inset-right, 0px);
+        --tabbar-h: 67px;
         --safe-t: env(safe-area-inset-top, 0px);
+        --safe-r: env(safe-area-inset-right, 0px);
         --safe-b: env(safe-area-inset-bottom, 0px);
-        --tabbar-h: 0px;
+        --safe-l: env(safe-area-inset-left, 0px);
+        --dpad-unit: clamp(35px, 10.4vw, 42px);
+    }
+
+    html:has(body.game-screen),
+    body.game-screen {
+        width: 100%;
+        height: 100%;
+        min-height: 100dvh;
+        overflow: hidden;
+        overscroll-behavior: none;
+        -webkit-text-size-adjust: 100%;
     }
     body.game-screen {
+        position: fixed;
+        inset: 0;
+        display: block;
+        padding: 0;
+        background: #06171e;
+        touch-action: manipulation;
+    }
+    body.game-screen #game-container {
         position: fixed;
         inset: 0;
         width: 100%;
         height: 100dvh;
         min-height: 0;
+        max-height: none;
+        display: block;
         padding: 0;
-        background: var(--shell-ink);
-    }
-    body.game-screen #game-container {
-        inset: 0;
-        width: 100%;
-        height: 100dvh;
-        padding: 0;
+        overflow: hidden;
         border: 0;
+        border-radius: 0;
+        background: #06171e;
+        box-shadow: none;
     }
     body.game-screen #main-area {
-        inset: 0 0 0 var(--mobile-rail);
-        height: 100dvh;
+        position: absolute;
+        inset: 0 0 calc(var(--tabbar-h) + var(--safe-b)) 0;
+        display: block;
+        width: auto;
+        height: auto;
+        min-height: 0;
+        overflow: hidden;
     }
-    body.game-screen #main-view-wrapper { inset: 0; }
+    body.game-screen #main-view-wrapper {
+        position: absolute;
+        inset: 0;
+        display: block;
+        overflow: hidden;
+        z-index: 1;
+    }
     body.game-screen #main-view-container {
         width: 100% !important;
         height: 100% !important;
-        border-width: 0;
-        box-shadow: inset 0 0 0 2px rgba(248, 204, 105, .34);
-    }
-
-    /* La navigation principale devient un rail de console : aucune hauteur perdue. */
-    body.game-screen #mobile-tabbar {
-        display: grid;
-        grid-template-columns: 1fr;
-        grid-template-rows: repeat(6, 1fr);
-        left: 0;
-        right: auto;
-        top: 0;
-        bottom: 0;
-        width: var(--mobile-rail);
-        height: 100dvh;
-        padding: var(--safe-t) 0 var(--safe-b) env(safe-area-inset-left, 0px);
+        max-width: none;
+        max-height: none;
         border: 0;
-        border-right: 2px solid #b98742;
-        background: #071b22;
-        box-shadow: 4px 0 0 rgba(3, 12, 16, .52);
+        border-radius: 0;
+        background: #071923;
+        box-shadow: inset 0 0 0 2px rgba(248, 204, 105, .38);
     }
-    body.game-screen .mobile-tab {
-        min-height: 0;
-        padding: 3px;
-        gap: 0;
-        border-bottom: 1px solid rgba(183, 228, 208, .08);
-        color: #70999c;
+    body.game-screen #main-view-container::before {
+        opacity: .13;
+        background-size: 5px 5px;
     }
-    body.game-screen .mobile-tab .mt-label { display: none; }
-    body.game-screen .mobile-tab .mt-icon { line-height: 0; }
-    body.game-screen .mobile-tab .mt-icon .icon-img { width: 27px; height: 27px; }
-    body.game-screen .mobile-tab.active {
-        color: var(--shell-gold);
-        background: linear-gradient(90deg, rgba(216,130,53,.28), rgba(216,130,53,.03));
+    body.game-screen #main-view-container::after {
+        z-index: 39;
+        background:
+            linear-gradient(90deg, rgba(3,13,16,.27), transparent 16%, transparent 84%, rgba(3,13,16,.27)),
+            linear-gradient(0deg, rgba(3,13,16,.36), transparent 22%, rgba(3,13,16,.12));
     }
-    body.game-screen .mobile-tab.active::before {
-        top: 18%;
-        bottom: 18%;
-        left: 0;
-        right: auto;
-        width: 4px;
-        height: auto;
-        border-radius: 0 2px 2px 0;
-        background: var(--shell-gold);
+    body.game-screen #main-view-canvas,
+    body.game-screen #characters-canvas {
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
     }
-    body.game-screen .mobile-tab .mt-badge {
-        top: 5px;
-        right: 4px;
-        transform: none;
-    }
+    body.game-screen #depth-canvas { opacity: .38; }
 
-    /* Les feuilles entrent par la gauche et la scène reste visible à droite. */
+    /* Les panneaux arrivent par le bas comme des fenêtres de console. */
+    body.game-screen #bottom-bar { display: contents; }
     body.game-screen #left-panel,
     body.game-screen #right-panel,
     body.game-screen #bottom-bar-chat-panel,
     body.game-screen #minimap-section,
     body.game-screen #bottom-bar-equipment-panel {
-        top: 0;
-        bottom: 0;
-        left: var(--mobile-rail);
-        right: auto;
-        width: min(390px, 48vw);
-        height: 100dvh;
+        position: fixed;
+        z-index: 3001;
+        right: max(7px, var(--safe-r));
+        bottom: calc(var(--tabbar-h) + var(--safe-b));
+        left: max(7px, var(--safe-l));
+        width: auto;
+        height: min(71dvh, 590px);
         max-height: none;
+        min-height: 0;
         margin: 0;
-        padding: calc(5px + var(--safe-t)) 5px calc(5px + var(--safe-b));
-        border: 12px solid transparent;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 10px 16px;
+        overflow: auto;
+        border: 11px solid transparent;
         border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
         border-radius: 0;
-        background: #10343d !important;
-        box-shadow: 8px 0 22px rgba(0, 0, 0, .48);
-        transform: translateX(-105%);
+        background: #123943 !important;
+        box-shadow: 0 -8px 0 rgba(3, 12, 16, .58), 0 -16px 32px rgba(0, 0, 0, .46);
+        opacity: 1;
+        pointer-events: none;
+        transform: translateY(108%);
         transition: transform .22s steps(4, end);
+        visibility: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
     body.game-screen #left-panel::before,
     body.game-screen #right-panel::before,
     body.game-screen #bottom-bar-chat-panel::before,
     body.game-screen #minimap-section::before,
-    body.game-screen #bottom-bar-equipment-panel::before { display: none; }
+    body.game-screen #bottom-bar-equipment-panel::before {
+        content: '';
+        display: block;
+        flex: 0 0 auto;
+        width: 36px;
+        height: 4px;
+        margin: -2px auto 2px;
+        border: 1px solid #6ba3a1;
+        border-radius: 0;
+        background: #d9bd71;
+        box-shadow: 5px 0 0 #947044, -5px 0 0 #947044;
+    }
     body.game-screen.sheet-open #left-panel.sheet-active,
     body.game-screen.sheet-open #right-panel.sheet-active,
     body.game-screen.sheet-open #bottom-bar-chat-panel.sheet-active,
     body.game-screen.sheet-open #minimap-section.sheet-active,
     body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
-        transform: translateX(0);
+        z-index: 3001 !important;
+        opacity: 1;
+        pointer-events: auto !important;
+        transform: translateY(0);
+        visibility: visible;
     }
-    body.game-screen #mobile-sheet-backdrop {
-        inset: 0 0 0 var(--mobile-rail);
-        background: rgba(2, 10, 14, .52);
-    }
-    body.game-screen.sheet-open #mobile-sheet-backdrop { opacity: 1; }
-    body.game-screen #right-panel-tabs { top: calc(-5px - var(--safe-t)); }
-
-    /* Carte et équipement se partagent proprement le même tiroir. */
-    body.game-screen.sheet-open #minimap-section.sheet-active {
-        top: 0;
-        bottom: auto;
-        left: var(--mobile-rail);
-        width: min(390px, 48vw);
-        height: 62dvh;
-    }
-    body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
-        top: 62dvh;
-        bottom: 0;
-        left: var(--mobile-rail);
-        width: min(390px, 48vw);
-        height: 38dvh;
-        max-height: none;
+    body.game-screen #right-panel-tabs {
+        position: sticky;
+        top: -2px;
+        flex: 0 0 auto;
         margin: 0;
     }
-    body.game-screen #minimap-container { min-height: 0; }
-    body.game-screen .equipment-preview-area { min-height: 0; }
-    body.game-screen .survivor-card { min-height: 70px; }
+    body.game-screen #right-panel .panel-identity { padding-top: 2px; }
+    body.game-screen #left-panel section,
+    body.game-screen #right-panel section { padding: 9px; }
+    body.game-screen #left-panel { gap: 8px; }
+    body.game-screen #right-panel { gap: 7px; }
+    body.game-screen #actions-tab-content,
+    body.game-screen #inventory-categories { max-height: none; }
+    body.game-screen #chat-messages { min-height: 135px; max-height: none; flex: 1 1 auto; }
+    body.game-screen #chat-input-area { flex: 0 0 auto; }
 
-    /* Jauges essentielles toujours visibles. Un tap ouvre la fiche Statut. */
+    /* La carte et la fiche d'équipement sont deux petits tiroirs coordonnés. */
+    body.game-screen.sheet-open #minimap-section.sheet-active {
+        right: max(7px, var(--safe-r));
+        bottom: calc(var(--tabbar-h) + var(--safe-b));
+        left: max(7px, var(--safe-l));
+        width: auto;
+        height: min(55dvh, 420px);
+    }
+    body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        right: max(7px, var(--safe-r));
+        bottom: calc(var(--tabbar-h) + var(--safe-b) + min(55dvh, 420px) + 7px);
+        left: max(7px, var(--safe-l));
+        width: auto;
+        height: min(24dvh, 184px);
+        padding-top: 8px;
+    }
+    body.game-screen #minimap-container { min-height: 0; }
+    body.game-screen #bottom-bar-equipment-panel h4 { margin-bottom: 1px; }
+    body.game-screen #bottom-bar-equipment-panel::before { display: none; }
+    body.game-screen .equipment-preview-area { min-height: 0; }
+    body.game-screen .survivor-card { min-height: 64px; }
+    body.game-screen #loadout-avatar-canvas { height: 55px; }
+
+    body.game-screen #mobile-sheet-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 2900;
+        background: rgba(2, 10, 14, .68);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .16s steps(2, end);
+    }
+    body.game-screen.sheet-open #mobile-sheet-backdrop { opacity: 1; pointer-events: auto; }
+
+    /* Barre tactile en bas : six raccourcis, tous libellés et pixelisés. */
+    body.game-screen #mobile-tabbar {
+        position: fixed;
+        z-index: 4000;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        height: calc(var(--tabbar-h) + var(--safe-b));
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        padding: 3px max(3px, var(--safe-r)) calc(3px + var(--safe-b)) max(3px, var(--safe-l));
+        border: 0;
+        border-top: 2px solid #b98742;
+        background: #071b22;
+        box-shadow: 0 -4px 0 rgba(3, 12, 16, .7);
+    }
+    body.game-screen .mobile-tab {
+        min-width: 0;
+        min-height: 44px;
+        padding: 2px 1px;
+        gap: 3px;
+        border: 0;
+        border-right: 1px solid rgba(183, 228, 208, .09);
+        border-radius: 0;
+        background: transparent;
+        color: #86aeb0;
+        font-family: var(--pixel-font);
+        font-size: clamp(.38rem, 1.7vw, .48rem);
+        line-height: 1.2;
+        letter-spacing: 0;
+        text-transform: none;
+        box-shadow: none;
+    }
+    body.game-screen .mobile-tab:last-child { border-right: 0; }
+    body.game-screen .mobile-tab .mt-icon { display: grid; place-items: center; line-height: 0; }
+    body.game-screen .mobile-tab .mt-icon .icon-img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        image-rendering: pixelated;
+    }
+    body.game-screen .mobile-tab .mt-label {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    body.game-screen .mobile-tab.active {
+        color: #fff0bc;
+        background: linear-gradient(#24535a, #14353e);
+    }
+    body.game-screen .mobile-tab.active::before {
+        top: 0;
+        right: 12%;
+        bottom: auto;
+        left: 12%;
+        width: auto;
+        height: 3px;
+        border-radius: 0;
+        background: var(--shell-gold);
+    }
+    body.game-screen .mobile-tab .mt-badge {
+        top: 3px;
+        right: 3px;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 3px;
+        border: 1px solid #5a281f;
+        border-radius: 0;
+        background: var(--shell-coral);
+        color: #fff6d4;
+        font: 700 .52rem/13px var(--pixel-font);
+        transform: none;
+    }
+
+    /* HUD : les infos vitales restent en haut, la scène au centre est libre. */
     body.game-screen #mobile-vitals {
         position: absolute;
         z-index: 10006;
         top: calc(7px + var(--safe-t));
-        left: 50%;
+        right: max(8px, var(--safe-r));
+        left: max(8px, var(--safe-l));
         display: grid;
-        grid-template-columns: repeat(4, minmax(48px, 68px));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 4px;
-        transform: translateX(-50%);
         pointer-events: auto;
     }
     body.game-screen .mobile-vital {
         min-width: 0;
         height: 31px;
         display: grid;
-        grid-template-columns: 20px 1fr;
-        grid-template-rows: 1fr;
+        grid-template-columns: 19px minmax(0, 1fr);
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         padding: 3px 4px;
-        border: 1px solid rgba(248, 204, 105, .42);
+        border: 1px solid rgba(248, 204, 105, .5);
         border-radius: 2px;
-        background: rgba(6, 27, 34, .9);
-        box-shadow: 2px 2px 0 rgba(3, 12, 16, .58);
+        background: #092630;
+        box-shadow: 2px 2px 0 rgba(3, 12, 16, .7);
     }
-    body.game-screen .mobile-vital img { width: 19px; height: 19px; object-fit: contain; }
+    body.game-screen .mobile-vital img { width: 18px; height: 18px; object-fit: contain; image-rendering: pixelated; }
     body.game-screen .mobile-vital-track {
-        height: 6px;
+        height: 7px;
         overflow: hidden;
-        border: 1px solid rgba(255,255,255,.12);
-        background: #07151a;
+        border: 1px solid rgba(255,255,255,.13);
+        border-radius: 0;
+        background: #061318;
     }
     body.game-screen .mobile-vital-track i { display: block; width: 100%; height: 100%; background: var(--vital-color, var(--shell-green)); }
     body.game-screen .mobile-vital b { display: none; }
@@ -633,147 +707,173 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen .mobile-vital[data-vital="sleep"] { --vital-color: #d9c469; }
     body.game-screen .mobile-vital.is-low { border-color: var(--shell-coral); animation: vital-warning 1.2s steps(2, end) infinite; }
 
-    /* Le HUD est compact et ne couvre ni le survivant ni les commandes. */
-    body.game-screen #game-info-hud {
-        top: calc(7px + var(--safe-t));
-        left: 7px;
-        min-width: 0;
-        width: clamp(126px, 19vw, 168px);
-        max-width: none;
-        padding: 6px 7px;
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 2px 5px;
+    body.game-screen #game-info-hud,
+    body.game-screen #objectives-hud,
+    body.game-screen #tile-info-hud {
+        border: 1px solid rgba(248, 204, 105, .54);
         border-radius: 2px;
-        font-size: .58rem;
+        background: #0a2932;
+        box-shadow: 3px 3px 0 rgba(3, 12, 16, .66);
+        backdrop-filter: none;
     }
-    body.game-screen #day-display { font-size: .43rem; }
+    body.game-screen #game-info-hud {
+        top: calc(47px + var(--safe-t));
+        left: max(8px, var(--safe-l));
+        width: min(39vw, 142px);
+        min-width: 0;
+        max-width: none;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1px;
+        padding: 6px 7px;
+        font-size: .55rem;
+    }
+    body.game-screen #game-info-hud p { margin: 0; }
+    body.game-screen #day-display { gap: 3px; font-size: .43rem; line-height: 1.5; }
+    body.game-screen #sound-toggle { margin-left: 0; padding: 0 3px; font-size: .73rem; }
+    body.game-screen #game-info-hud #event-display,
     body.game-screen #game-info-hud #level-display,
     body.game-screen #game-info-hud #time-display,
     body.game-screen #game-info-hud #position-display-nav,
     body.game-screen #game-info-hud #controls-hint,
     body.game-screen #game-info-hud #xp-bar-container { display: none; }
-    body.game-screen #sound-toggle { font-size: .8rem; }
+    body.game-screen #daytime-display { font-size: .56rem; }
+
     body.game-screen #objectives-hud {
-        top: calc(7px + var(--safe-t)) !important;
-        right: calc(7px + var(--safe-r)) !important;
+        top: calc(47px + var(--safe-t)) !important;
+        right: max(8px, var(--safe-r)) !important;
         left: auto !important;
-        width: clamp(150px, 24vw, 205px);
+        width: min(43vw, 164px);
         min-width: 0;
         max-width: none !important;
         padding: 6px 7px !important;
-        border-radius: 2px;
-        font-size: .58rem !important;
+        font-size: .57rem !important;
     }
-    body.game-screen #objectives-hud h4 { font-size: .42rem !important; }
-    body.game-screen .objective-title-icon { width: 18px; height: 18px; }
-    body.game-screen #objectives-hud ul { max-height: 62px !important; margin-top: 4px; }
-    body.game-screen #objectives-hud li { margin: 2px 0; font-size: .56rem; line-height: 1.25; }
+    body.game-screen #objectives-hud h4 { font-size: .43rem !important; line-height: 1.45; }
+    body.game-screen .objective-title-icon { width: 17px; height: 17px; image-rendering: pixelated; }
+    body.game-screen #objectives-hud ul { max-height: 76px !important; margin-top: 4px; }
+    body.game-screen #objectives-hud li { margin: 2px 0; font-size: .55rem; line-height: 1.25; }
+    body.game-screen #objectives-hud.collapsed { width: auto; min-width: 0; }
+
     body.game-screen #tile-info-hud {
         top: auto;
-        bottom: calc(8px + var(--safe-b));
-        left: 8px;
-        width: clamp(175px, 29vw, 240px);
+        right: auto;
+        bottom: calc(76px + var(--safe-b));
+        left: max(8px, var(--safe-l));
+        width: min(48vw, 185px);
         max-width: none;
-        padding: 7px 8px;
+        padding: 6px 7px;
+        border-left: 3px solid var(--shell-gold);
     }
-    body.game-screen #tile-info-hud .context-kicker { display: none; }
-    body.game-screen #tile-info-hud h3 { margin-bottom: 2px; font-size: .67rem; }
+    body.game-screen #tile-info-hud .context-kicker,
     body.game-screen #tile-details-hud { display: none; }
-    body.game-screen #tile-info-hud .context-meta { margin-top: 3px; font-size: .5rem; }
-    body.game-screen #tile-info-hud #biome-display,
-    body.game-screen #tile-info-hud #position-display { display: block; }
+    body.game-screen #tile-info-hud h3 { margin: 0; font-size: .63rem; line-height: 1.35; }
+    body.game-screen #tile-info-hud .tile-name-icon { font-size: .92rem; }
+    body.game-screen #tile-info-hud .context-meta { margin-top: 3px; font-size: .48rem; }
 
-    /* D-pad 3x3 compact. Les diagonales restent accessibles, le centre est illustré. */
+    /* D-pad pixel 3 × 3, placé sous le pouce droit. */
     body.game-screen #navigation-edge-panel {
-        --dpad-r: calc(8px + var(--safe-r));
-        --dpad-b: calc(8px + var(--safe-b));
-        --dpad-u: 39px;
+        --dpad-r: max(9px, var(--safe-r));
+        --dpad-b: calc(9px + var(--safe-b));
+        --dpad-double: calc(var(--dpad-unit) + var(--dpad-unit));
     }
     body.game-screen #navigation-edge-panel::after {
         content: '';
         position: absolute;
         z-index: 10002;
-        right: calc(var(--dpad-r) + var(--dpad-u));
-        bottom: calc(var(--dpad-b) + var(--dpad-u));
-        width: 37px;
-        height: 37px;
-        background: url('/assets/ui/compass.png') center / contain no-repeat;
+        right: calc(var(--dpad-r) + var(--dpad-unit));
+        bottom: calc(var(--dpad-b) + var(--dpad-unit));
+        width: var(--dpad-unit);
+        height: var(--dpad-unit);
+        background: #0a2b34 url('/assets/ui/compass.png') center / 76% no-repeat;
+        border: 1px solid #4c928f;
+        box-shadow: 2px 2px 0 rgba(3, 12, 16, .66);
         image-rendering: pixelated;
         pointer-events: none;
     }
     body.game-screen .nav-button-overlay {
-        width: 37px;
-        height: 37px;
+        width: var(--dpad-unit);
+        height: var(--dpad-unit);
         padding: 0;
-        border: 1px solid rgba(248, 204, 105, .55);
+        border: 1px solid rgba(248, 204, 105, .64);
         border-radius: 2px;
-        background: rgba(8, 35, 42, .88);
+        background: #103942;
         box-shadow: 2px 2px 0 rgba(3, 12, 16, .68);
-        font-size: 1rem;
+        color: #fff0bc;
+        font-size: .95rem;
+        line-height: 1;
     }
-    body.game-screen #nav-nw    { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); }
-    body.game-screen #nav-north { right: calc(var(--dpad-r) + var(--dpad-u));     bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); }
-    body.game-screen #nav-ne    { right: var(--dpad-r);                            bottom: calc(var(--dpad-b) + var(--dpad-u) * 2); }
-    body.game-screen #nav-west  { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: calc(var(--dpad-b) + var(--dpad-u)); }
-    body.game-screen #nav-east  { right: var(--dpad-r);                            bottom: calc(var(--dpad-b) + var(--dpad-u)); }
-    body.game-screen #nav-sw    { right: calc(var(--dpad-r) + var(--dpad-u) * 2); bottom: var(--dpad-b); }
-    body.game-screen #nav-south { right: calc(var(--dpad-r) + var(--dpad-u));     bottom: var(--dpad-b); }
-    body.game-screen #nav-se    { right: var(--dpad-r);                            bottom: var(--dpad-b); }
+    body.game-screen .nav-button-overlay:active:not(:disabled) { transform: none !important; background: #24626a; }
+    body.game-screen #nav-nw    { top: auto; left: auto; right: calc(var(--dpad-r) + var(--dpad-double)); bottom: calc(var(--dpad-b) + var(--dpad-double)); }
+    body.game-screen #nav-north { top: auto; left: auto; right: calc(var(--dpad-r) + var(--dpad-unit));     bottom: calc(var(--dpad-b) + var(--dpad-double)); transform: none; }
+    body.game-screen #nav-ne    { top: auto; left: auto; right: var(--dpad-r);                              bottom: calc(var(--dpad-b) + var(--dpad-double)); }
+    body.game-screen #nav-west  { top: auto; left: auto; right: calc(var(--dpad-r) + var(--dpad-double)); bottom: calc(var(--dpad-b) + var(--dpad-unit)); transform: none; }
+    body.game-screen #nav-east  { top: auto; left: auto; right: var(--dpad-r);                              bottom: calc(var(--dpad-b) + var(--dpad-unit)); transform: none; }
+    body.game-screen #nav-sw    { top: auto; left: auto; right: calc(var(--dpad-r) + var(--dpad-double)); bottom: var(--dpad-b); }
+    body.game-screen #nav-south { top: auto; left: auto; right: calc(var(--dpad-r) + var(--dpad-unit));     bottom: var(--dpad-b); transform: none; }
+    body.game-screen #nav-se    { top: auto; left: auto; right: var(--dpad-r);                              bottom: var(--dpad-b); }
+    body.game-screen.compact-dpad #nav-nw,
+    body.game-screen.compact-dpad #nav-ne,
+    body.game-screen.compact-dpad #nav-sw,
+    body.game-screen.compact-dpad #nav-se { display: flex; }
 
     body.game-screen #screen-interaction-button {
-        left: 43%;
-        bottom: calc(8px + var(--safe-b));
-        width: auto;
-        min-width: 132px;
-        height: 44px;
-        min-height: 44px;
-        padding: 3px 8px;
-        gap: 5px;
-        transform: translateX(-50%);
-        border-width: 8px;
-        font-size: .46rem;
+        left: max(9px, var(--safe-l));
+        bottom: calc(11px + var(--safe-b));
+        width: 52px;
+        min-width: 52px;
+        height: 52px;
+        min-height: 52px;
+        padding: 6px;
+        gap: 0;
+        transform: none;
+        border: 9px solid transparent;
+        border-image: url('/assets/ui/button-action.png') 14 fill stretch;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: 3px 3px 0 rgba(3, 12, 16, .72);
     }
     body.game-screen #screen-interaction-button:hover:not(:disabled),
-    body.game-screen #screen-interaction-button:active:not(:disabled) { transform: translateX(-50%); }
-    body.game-screen #screen-interaction-button .screen-action-icon { width: 21px; height: 21px; }
+    body.game-screen #screen-interaction-button:active:not(:disabled) { transform: none; }
+    body.game-screen #screen-interaction-button .screen-action-icon { width: 26px; height: 26px; image-rendering: pixelated; }
+    body.game-screen #screen-interaction-button #screen-action-label,
+    body.game-screen #screen-interaction-button .action-count-badge { display: none; }
     body.game-screen #central-actions-panel {
-        left: 43%;
-        bottom: calc(59px + var(--safe-b));
-        transform: translateX(-50%);
-        flex-direction: row;
+        left: max(9px, var(--safe-l));
+        bottom: calc(70px + var(--safe-b));
+        width: 108px;
+        padding: 5px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        transform: none;
     }
-    body.game-screen .central-action-button { width: 43px; height: 43px; }
-    body.game-screen .central-action-button img { width: 29px; height: 29px; }
+    body.game-screen .central-action-button { width: 45px; height: 45px; }
+    body.game-screen .central-action-button img { width: 29px; height: 29px; image-rendering: pixelated; }
 
-    /* Les modales utilisent toute la hauteur paysage sans énorme en-tête. */
+    /* Les modales gardent leur cadre pixel et restent atteignables en vertical. */
     body.game-screen #inventory-modal-content,
     body.game-screen #equipment-modal-content,
     body.game-screen #build-modal-content,
     body.game-screen #workshop-modal-content,
     body.game-screen #chest-modal-content,
     body.game-screen #combat-modal-content {
-        width: min(760px, 96vw);
-        max-height: 96dvh;
+        width: min(96vw, 620px);
+        max-height: 92dvh;
         border-radius: 3px;
-        padding: 14px;
+        padding: 12px;
     }
     body.game-screen #inventory-modal-grid,
     body.game-screen #chest-modal-grid,
-    body.game-screen #equipment-grid { grid-template-columns: 1fr 1fr; }
-    body.game-screen #combat-actions { grid-template-columns: 1.35fr 1fr 1fr; }
+    body.game-screen #equipment-grid { grid-template-columns: 1fr; }
 }
 
-/* Très petit paysage : priorité absolue à la scène et aux commandes. */
-@media (max-height: 370px) and (orientation: landscape) and (max-width: 900px),
-       (pointer: coarse) and (max-height: 370px) and (orientation: landscape) and (max-width: 1100px) {
-    body.game-screen #mobile-vitals { grid-template-columns: repeat(4, 47px); }
-    body.game-screen #objectives-hud ul { display: none; }
-    body.game-screen #objectives-hud { width: 145px; }
-    body.game-screen #tile-info-hud { width: 175px; }
-    body.game-screen #tile-info-hud .context-meta { display: none; }
-    body.game-screen #game-info-hud { width: 124px; }
-    body.game-screen #screen-interaction-button { left: 42%; min-width: 112px; }
+@media (max-width: 360px) {
+    body.game-screen .mobile-tab { font-size: .36rem; }
+    body.game-screen .mobile-tab .mt-icon .icon-img { width: 22px; height: 22px; }
+    body.game-screen #game-info-hud { width: 125px; }
+    body.game-screen #objectives-hud { width: 142px; }
+    body.game-screen #tile-info-hud { width: 160px; }
 }
 
 @keyframes vital-warning { 50% { filter: brightness(1.45); } }

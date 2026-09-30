@@ -2219,23 +2219,6 @@ button::after {
     #swipe-hint.show { opacity: 1; }
 }
 
-/* Paysage bas de plafond : on réduit encore le HUD */
-@media (max-width: 900px) and (orientation: landscape) {
-    :root { --tabbar-h: 52px; }
-    .mobile-tab .mt-label { display: none; }
-    .nav-button-overlay { width: 46px; height: 46px; }
-    #navigation-edge-panel { --dpad-u: 48px; }
-    #objectives-hud {
-        display: block !important;
-        top: 6px !important;
-        right: 6px !important;
-        max-width: 36vw !important;
-        font-size: 0.68rem !important;
-        padding: 4px 8px !important;
-    }
-    #objectives-hud ul { max-height: 90px !important; }
-}
-
 /* =======================================================================
    POLISH GRAPHIQUE — profondeur, lumière et lisibilité
    ======================================================================= */

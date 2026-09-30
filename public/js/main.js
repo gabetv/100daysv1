@@ -489,9 +489,6 @@ function setupEventListeners() {
 
 function init() {
     console.log("Initializing game client...");
-    // Le bouton paysage doit répondre immédiatement, sans attendre le chargement
-    // des grands décors de l'île.
-    UI.initOrientationExperience?.();
     UI.loadAssets(SPRITESHEET_PATHS).then(() => {
         console.log('Assets loaded.');
         setupUIListeners();

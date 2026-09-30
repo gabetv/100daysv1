@@ -44,6 +44,59 @@ let lastW = 0, lastH = 0;
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 
+
+// Tous les phénomènes météo se calent sur une même petite grille. Cela évite
+// les cercles lissés et donne au ciel le même langage visuel que les sprites.
+function pixelUnit(w, h) {
+    return Math.max(2, Math.round(Math.min(w, h) / 230));
+}
+
+function snap(value, unit) {
+    return Math.round(value / unit) * unit;
+}
+
+function drawPixelOrb(ctx, cx, cy, radius, color, unit) {
+    const r = Math.max(unit * 2, snap(radius, unit));
+    ctx.fillStyle = color;
+    for (let y = -r; y <= r; y += unit) {
+        for (let x = -r; x <= r; x += unit) {
+            if (x * x + y * y <= r * r) ctx.fillRect(snap(cx + x, unit), snap(cy + y, unit), unit, unit);
+        }
+    }
+}
+
+function drawPixelDither(ctx, w, h, alpha = 0.06) {
+    const unit = pixelUnit(w, h);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#d7f1df';
+    for (let i = 0; i < 54; i++) {
+        const x = snap((i * 89 + 37) % w, unit);
+        const y = snap((i * 53 + 19) % h, unit);
+        if ((i * 7) % 5 < 2) ctx.fillRect(x, y, unit, unit);
+    }
+    ctx.restore();
+}
+
+function drawPixelSun(ctx, w, h, phase) {
+    if (phase === 'nuit') return;
+    const unit = pixelUnit(w, h);
+    const x = w * 0.74;
+    const y = h * 0.11;
+    const radius = Math.max(unit * 4, h * 0.028);
+    const colors = phase === 'aube' ? ['#f6a25d', '#ffe2a2']
+        : phase === 'crepuscule' ? ['#e76f51', '#ffc16b']
+            : ['#f4bd54', '#fff0a8'];
+    ctx.save();
+    ctx.fillStyle = colors[0];
+    for (const [dx, dy, len] of [[0, -2, 2], [0, 2, 2], [-2, 0, 2], [2, 0, 2]]) {
+        ctx.fillRect(snap(x + dx * radius, unit), snap(y + dy * radius, unit), unit * len, unit);
+    }
+    ctx.fillStyle = colors[1];
+    drawPixelOrb(ctx, x, y, radius, colors[1], unit);
+    ctx.restore();
+}
+
 function ensurePool(kind, count, factory) {
     const pool = particles[kind];
     while (pool.length < count) pool.push(factory());
@@ -61,28 +114,31 @@ function resetPoolsIfResized(w, h) {
 // --- Météo ---
 function drawRain(ctx, w, h, intensity, dt, wind) {
     const count = Math.round(intensity * (w * h) / 9000);
+    const unit = pixelUnit(w, h);
     const pool = ensurePool('rain', count, () => ({
         x: rand(0, w), y: rand(0, h), len: rand(10, 26), speed: rand(700, 1250), a: rand(0.18, 0.5)
     }));
     ctx.save();
-    ctx.lineCap = 'round';
     pool.forEach(p => {
         p.y += p.speed * dt;
         p.x += wind * p.speed * dt;
         if (p.y > h) { p.y = -20; p.x = rand(-40, w + 40); }
         if (p.x > w + 40) p.x = -40;
-        ctx.strokeStyle = `rgba(190, 225, 255, ${p.a})`;
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - wind * p.len * 3, p.y + p.len);
-        ctx.stroke();
+        ctx.fillStyle = `rgba(190, 225, 255, ${p.a})`;
+        const x = snap(p.x, unit);
+        const y = snap(p.y, unit);
+        const len = Math.max(unit * 2, snap(p.len, unit));
+        // Une diagonale en escalier plutôt qu'un trait vectoriel lissé.
+        for (let offset = 0; offset < len; offset += unit * 2) {
+            ctx.fillRect(x - wind * offset * 2, y + offset, unit, unit * 2);
+        }
     });
     ctx.restore();
 }
 
 function drawFloaters(ctx, w, h, count, colorFn, dt, opts = {}) {
     const key = opts.key || 'flakes';
+    const unit = pixelUnit(w, h);
     const pool = ensurePool(key, count, () => ({
         x: rand(0, w), y: rand(0, h), r: rand(opts.min || 1.5, opts.max || 4),
         vx: rand(-14, 26), vy: rand(6, 26), t: rand(0, 6.28)
@@ -96,14 +152,14 @@ function drawFloaters(ctx, w, h, count, colorFn, dt, opts = {}) {
         if (p.x > w + 6) p.x = -6;
         if (p.x < -6) p.x = w + 6;
         ctx.fillStyle = colorFn(p);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+        const size = Math.max(unit, snap(p.r * 1.5, unit));
+        ctx.fillRect(snap(p.x, unit), snap(p.y, unit), size, size);
     });
     ctx.restore();
 }
 
 function drawFireflies(ctx, w, h, dt) {
+    const unit = pixelUnit(w, h);
     const pool = ensurePool('fireflies', 18, () => ({
         x: rand(0, w), y: rand(h * 0.35, h * 0.92), t: rand(0, 6.28),
         vx: rand(-18, 18), vy: rand(-8, 8), r: rand(1.4, 2.6)
@@ -117,18 +173,19 @@ function drawFireflies(ctx, w, h, dt) {
         if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
         if (p.y < h * 0.3) p.y = h * 0.9; if (p.y > h * 0.95) p.y = h * 0.35;
         const glow = (Math.sin(p.t * 2.2) * 0.5 + 0.5) ** 2;
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
-        g.addColorStop(0, `rgba(210, 255, 150, ${0.75 * glow})`);
-        g.addColorStop(1, 'rgba(210, 255, 150, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 6, 0, Math.PI * 2);
-        ctx.fill();
+        const x = snap(p.x, unit), y = snap(p.y, unit);
+        ctx.globalAlpha = 0.16 + glow * 0.20;
+        ctx.fillStyle = '#d2ff96';
+        ctx.fillRect(x - unit, y - unit, unit * 3, unit * 3);
+        ctx.globalAlpha = 0.7 + glow * 0.3;
+        ctx.fillStyle = '#fff4a6';
+        ctx.fillRect(x, y, unit, unit);
     });
     ctx.restore();
 }
 
 function drawEmbers(ctx, w, h, cx, cy, dt) {
+    const unit = pixelUnit(w, h);
     const pool = ensurePool('embers', 26, () => ({
         x: cx + rand(-18, 18), y: cy + rand(-10, 10), vy: rand(-60, -22), vx: rand(-14, 14),
         life: rand(0, 1), r: rand(1, 2.4)
@@ -143,11 +200,10 @@ function drawEmbers(ctx, w, h, cx, cy, dt) {
             p.life = 1; p.x = cx + rand(-16, 16); p.y = cy + rand(-6, 8);
             p.vy = rand(-70, -25); p.vx = rand(-14, 14);
         }
-        const a = Math.max(0, p.life) * 0.9;
-        ctx.fillStyle = `rgba(255, ${Math.round(140 + 90 * p.life)}, 60, ${a})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = Math.max(0, p.life) * 0.9;
+        ctx.fillStyle = p.life > 0.55 ? '#ffd166' : '#ef6c35';
+        const size = Math.max(unit, snap(p.r, unit));
+        ctx.fillRect(snap(p.x, unit), snap(p.y, unit), size, size);
     });
     ctx.restore();
 }
@@ -188,27 +244,26 @@ function drawSunRays(ctx, w, h, strength, tint) {
 
 function drawStars(ctx, w, h, strength) {
     if (strength <= 0.05) return;
+    const unit = pixelUnit(w, h);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const t = Date.now() / 1000;
     for (let i = 0; i < 46; i++) {
-        const x = ((i * 137.51) % 1) * w;
-        const y = ((i * 91.7) % 1) * h * 0.45;
+        const x = snap(((i * 137.51) % 1) * w, unit);
+        const y = snap(((i * 91.7) % 1) * h * 0.45, unit);
         const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.7 + i));
-        ctx.fillStyle = `rgba(230, 240, 255, ${0.55 * strength * tw})`;
-        ctx.beginPath();
-        ctx.arc(x, y, i % 7 === 0 ? 1.7 : 1.05, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = 0.55 * strength * tw;
+        ctx.fillStyle = '#e6f0ff';
+        ctx.fillRect(x, y, unit, unit);
+        if (i % 7 === 0) {
+            ctx.fillRect(x - unit, y, unit * 3, unit);
+            ctx.fillRect(x, y - unit, unit, unit * 3);
+        }
     }
-    // Lune
-    const mx = w * 0.18, my = h * 0.13, mr = Math.max(14, h * 0.045);
-    const g = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 4);
-    g.addColorStop(0, `rgba(215, 230, 255, ${0.5 * strength})`);
-    g.addColorStop(1, 'rgba(215, 230, 255, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(mx, my, mr * 4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = `rgba(238, 245, 255, ${0.85 * strength})`;
-    ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+    const mx = w * 0.18, my = h * 0.13, mr = Math.max(unit * 4, h * 0.045);
+    ctx.globalAlpha = 0.85 * strength;
+    ctx.fillStyle = '#eef5ff';
+    drawPixelOrb(ctx, mx, my, mr, '#eef5ff', unit);
     ctx.restore();
 }
 
@@ -270,6 +325,7 @@ export function drawAtmosphere(ctx, w, h, gameState) {
     lastFrame = now;
 
     resetPoolsIfResized(w, h);
+    ctx.imageSmoothingEnabled = false;
     syncDay(gameState.day);
 
     const light = getLighting();
@@ -313,8 +369,10 @@ export function drawAtmosphere(ctx, w, h, gameState) {
         ctx.restore();
     }
 
+    drawPixelDither(ctx, w, h, 0.035 + light.night * 0.025);
     drawStars(ctx, w, h, Math.max(0, (light.night - 0.3) * 2.2));
     drawSunRays(ctx, w, h, light.phase === 'nuit' ? 0 : (1 - light.night) * (light.phase === 'jour' ? 0.9 : 1.1), light.tint);
+    drawPixelSun(ctx, w, h, light.phase);
 
     // 3. Météo liée à l'événement du jour
     switch (event) {

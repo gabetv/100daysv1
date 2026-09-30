@@ -6,7 +6,6 @@
     <meta name="theme-color" content="#0c1720">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="screen-orientation" content="landscape">
     <title>Île des 100 Jours</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,18 +15,6 @@
     <link rel="stylesheet" href="game-shell.css">
 </head>
 <body class="game-screen">
-    <aside id="orientation-gate" aria-labelledby="orientation-title" aria-live="polite">
-        <div class="orientation-card">
-            <span class="orientation-kicker">MODE EXPÉDITION</span>
-            <img src="/assets/ui/rotate-landscape.png" alt="Téléphone tourné en mode paysage" width="192" height="128">
-            <h1 id="orientation-title">Tourne ton téléphone</h1>
-            <p>Cette île se joue en paysage : la scène reste visible pendant que tu explores, récoltes et fabriques.</p>
-            <button id="enter-landscape-button" type="button">Passer en plein écran</button>
-            <button id="continue-portrait-button" type="button">Continuer quand même</button>
-            <small id="orientation-lock-status">Le verrouillage dépend de ton navigateur.</small>
-        </div>
-    </aside>
-
     <div id="game-container">
         <div id="main-area">
             <!-- ### PANNEAU DE GAUCHE ### -->
@@ -51,7 +38,7 @@
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
-                    <canvas id="main-view-canvas" aria-label="Paysage de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
+                    <canvas id="main-view-canvas" aria-label="Scène de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
                     
                     <div id="main-view-overlay">
                         <div id="mobile-vitals" aria-label="Jauges de survie">
