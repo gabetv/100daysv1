@@ -5,11 +5,16 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
     "express": "^4.19.2",
-    "sqlite3": "^5.1.7",
+    "pg": "^8.13.1",
     "ws": "^8.17.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

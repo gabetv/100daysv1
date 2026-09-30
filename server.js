@@ -1,7 +1,6 @@
 // server.js
 import express from 'express';
 import http from 'http';
-import sqlite3 from 'sqlite3';
 import crypto from 'crypto';
 import { WebSocketServer } from 'ws';
 import path from 'path';
@@ -14,6 +13,7 @@ import { getAvailableActions, updatePlayerState, getObjectives } from './server/
 import { updateNpcs } from './server/npc.js';
 import { updateEnemies } from './server/enemy.js';
 import { CONFIG } from './server/config.js';
+import { initDb, getUserByUsername, updateUserPassword, createUser, loadSave, saveProgress, loadWorld, saveWorldData, closeDb } from './server/db.js';
 
 // Configuration des chemins
 const __filename = fileURLToPath(import.meta.url);
@@ -31,32 +31,21 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(express.json());
 
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error('Error opening database', err.message);
-    else {
-        console.log('Connected to the SQLite database.');
-        db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)');
-        db.run('CREATE TABLE IF NOT EXISTS saves (username TEXT PRIMARY KEY, data TEXT, updated_at INTEGER)');
-        db.run('CREATE TABLE IF NOT EXISTS world (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT, updated_at INTEGER)', () => {
-            // Restaurer le monde sauvegardé (jour, carte, constructions, PNJ...)
-            db.get('SELECT data FROM world WHERE id = 1', [], (err, row) => {
-                if (!err && row) {
-                    try {
-                        if (restoreWorld(JSON.parse(row.data))) {
-                            console.log('Monde restauré depuis la sauvegarde.');
-                        }
-                    } catch (e) { console.error('World restore failed:', e); }
-                }
-            });
-        });
+await initDb();
+
+// Restaurer le monde sauvegardé (jour, carte, constructions, PNJ...)
+try {
+    const worldData = await loadWorld();
+    if (worldData && restoreWorld(worldData)) {
+        console.log('Monde restauré depuis la sauvegarde.');
     }
-});
+} catch (e) {
+    console.error('World restore failed:', e);
+}
 
 function saveWorld() {
     try {
-        const data = JSON.stringify(serializeWorld());
-        db.run('INSERT INTO world (id, data, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
-            [data, Date.now()]);
+        saveWorldData(serializeWorld());
     } catch (e) {
         console.error('Failed to save world:', e);
     }
@@ -82,57 +71,65 @@ function verifyPassword(password, stored) {
     return stored === password;
 }
 
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
+// Le client demande l'URL du serveur de jeu ; en mode "tout-en-un" c'est cet hôte.
+app.get('/api/config', (req, res) => {
+    res.json({ wsUrl: process.env.GAME_WS_URL || '', hasDatabase: true });
+});
+
+app.post(['/login', '/api/login'], async (req, res) => {
+    const { username, password } = req.body || {};
     if (!username || !password) {
         return res.status(400).json({ success: false, message: 'Champs manquants' });
     }
-    db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
-        if (err) return res.status(500).json({ success: false, message: 'Server error' });
-        if (!row || !verifyPassword(password, row.password)) {
+    try {
+        const user = await getUserByUsername(username);
+        if (!user || !verifyPassword(password, user.password)) {
             return res.status(401).json({ success: false, message: 'Identifiants invalides' });
         }
         // Migration transparente des anciens mots de passe en clair vers scrypt
-        if (!row.password.startsWith('scrypt:')) {
-            db.run('UPDATE users SET password = ? WHERE id = ?', [hashPassword(password), row.id]);
+        if (!user.password.startsWith('scrypt:')) {
+            await updateUserPassword(user.id, hashPassword(password));
         }
-        res.json({ success: true, username });
-    });
+        res.json({ success: true, username: user.username });
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
-app.post('/register', (req, res) => {
-    const { username, password } = req.body;
+app.post(['/register', '/api/register'], async (req, res) => {
+    const { username, password } = req.body || {};
     if (!username || !password || username.length < 3 || username.length > 20 || password.length < 4) {
         return res.status(400).json({ success: false, message: 'Pseudo: 3-20 caractères, mot de passe: 4 minimum.' });
     }
     if (!/^[a-zA-Z0-9_\-À-ÿ]+$/.test(username)) {
         return res.status(400).json({ success: false, message: 'Le pseudo contient des caractères non autorisés.' });
     }
-    db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashPassword(password)], function(err) {
-        if (err) res.status(400).json({ success: false, message: 'Ce pseudo est déjà pris.' });
-        else res.json({ success: true, userId: this.lastID });
-    });
+    try {
+        const id = await createUser(username, hashPassword(password));
+        if (!id) return res.status(409).json({ success: false, message: 'Ce pseudo est déjà pris.' });
+        res.json({ success: true, userId: id, username });
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 // --- SAUVEGARDE / CHARGEMENT DE LA PROGRESSION ---
 function savePlayerProgress(player) {
     if (!player || !player.username) return;
     try {
-        const data = JSON.stringify(serializePlayer(player));
-        db.run('INSERT INTO saves (username, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(username) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
-            [player.username, data, Date.now()]);
+        const result = saveProgress(player.username, serializePlayer(player));
+        if (result && typeof result.catch === 'function') {
+            result.catch(e => console.error(`Failed to save progress for ${player.username}:`, e));
+        }
     } catch (e) {
         console.error(`Failed to save progress for ${player.username}:`, e);
     }
 }
 
-function loadPlayerProgress(username) {
-    return new Promise((resolve) => {
-        db.get('SELECT data FROM saves WHERE username = ?', [username], (err, row) => {
-            if (err || !row) return resolve(null);
-            try { resolve(JSON.parse(row.data)); } catch { resolve(null); }
-        });
-    });
+async function loadPlayerProgress(username) {
+    try { return await loadSave(username); } catch { return null; }
 }
 
 // --- WEBSOCKETS (MODIFIÉ) ---

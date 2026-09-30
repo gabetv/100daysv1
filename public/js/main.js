@@ -19,9 +19,33 @@ if (!myUsername) {
     window.location.href = '/';
 }
 
-function connect() {
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(`${protocol}://${window.location.host}`);
+// URL du serveur de jeu (WebSocket). Sur Vercel, le site est statique : le serveur
+// temps réel est hébergé ailleurs et son URL est fournie par /api/config (GAME_WS_URL).
+let gameServerUrl = null;
+
+async function resolveGameServerUrl() {
+    if (gameServerUrl) return gameServerUrl;
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const sameHost = `${protocol}://${window.location.host}`;
+    try {
+        const res = await fetch('/api/config', { cache: 'no-store' });
+        if (res.ok) {
+            const { wsUrl } = await res.json();
+            if (wsUrl) {
+                gameServerUrl = wsUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+                return gameServerUrl;
+            }
+        }
+    } catch (e) {
+        console.warn('Impossible de lire /api/config, connexion à l\'hôte courant.', e);
+    }
+    gameServerUrl = sameHost;
+    return gameServerUrl;
+}
+
+async function connect() {
+    const url = await resolveGameServerUrl();
+    ws = new WebSocket(url);
     ws.onopen = () => {
         console.log('Connected to server.');
         // Rejoindre la partie avec le pseudo du compte (charge la sauvegarde côté serveur)
