@@ -2,6 +2,17 @@
 import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
 import { getItemImage, getTileImage, tileIconHTML } from './icons.js';
 import DOM from './dom.js';
+import {
+    drawAnimatedCampfire,
+    drawAnimatedCreature,
+    drawAnimatedWaterWaves,
+    drawTreasureGlintPixel,
+    drawActiveEffects,
+    wildlifeManager,
+    triggerPixelEffect
+} from './sprites.js';
+
+export { triggerPixelEffect };
 
 const loadedAssets = {};
 
@@ -268,6 +279,7 @@ function drawGroundDetails(ctx, w, h, tile, rand) {
 
 function drawTreasureGlints(ctx, w, h, tile) {
     if (tile?.type?.name !== 'Trésor Caché' || tile?.isOpened) return;
+    drawTreasureGlintPixel(ctx, w * 0.5, h * 0.65, 1.25);
     const t = Date.now() / 450;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -291,9 +303,18 @@ function drawTreasureGlints(ctx, w, h, tile) {
 
 function drawBiomeDressing(ctx, w, h, tile) {
     if (!tile?.type) return;
+    const biome = tile?.type?.name || '';
     const rand = seededRandom(getTileSeed(tile));
     drawGroundDetails(ctx, w, h, tile, rand);
     drawTreasureGlints(ctx, w, h, tile);
+
+    // Vagues et caustiques animées sur l'eau
+    drawAnimatedWaterWaves(ctx, w, h, biome);
+
+    // Faune ambiante vivante en pixel art (oiseaux, poissons, crabes, papillons)
+    const dt = 1 / 32;
+    wildlifeManager.update(w, h, biome, dt);
+    wildlifeManager.draw(ctx);
 }
 
 const PROP_FOR_BUILDING = {
@@ -321,6 +342,17 @@ function drawTileProps(ctx, w, h, tile) {
         const prop = PROP_FOR_BUILDING[b.key];
         const img = prop ? loadedAssets[prop.asset] : null;
 
+        if (b.key === 'CAMPFIRE') {
+            const targetH = h * (prop ? prop.scale : 0.30);
+            const targetW = targetH * 1.15;
+            const cx = w * ((prop ? prop.x : 0.50) + (i > 0 ? (i % 2 ? 0.14 : -0.14) : 0));
+            const baseY = h * (prop ? prop.y : 0.80);
+
+            // Feu de camp animé en pixel art avec spritesheet
+            const drewAnimated = drawAnimatedCampfire(ctx, cx, baseY, targetW, targetH);
+            if (drewAnimated) return;
+        }
+
         if (img && img.complete && img.naturalWidth) {
             const targetH = h * prop.scale;
             const ratio = img.naturalWidth / img.naturalHeight;
@@ -336,19 +368,6 @@ function drawTileProps(ctx, w, h, tile) {
             ctx.ellipse(cx, baseY, targetW * 0.4, targetH * 0.08, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-
-            if (b.key === 'CAMPFIRE') {
-                ctx.save();
-                ctx.globalCompositeOperation = 'lighter';
-                const g = ctx.createRadialGradient(cx, baseY - targetH * 0.35, 0, cx, baseY - targetH * 0.35, targetH * 1.1);
-                g.addColorStop(0, `rgba(255, 180, 80, ${0.35 * flicker})`);
-                g.addColorStop(1, 'rgba(255, 120, 30, 0)');
-                ctx.fillStyle = g;
-                ctx.beginPath();
-                ctx.arc(cx, baseY - targetH * 0.35, targetH * 1.1, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-            }
 
             ctx.drawImage(img, cx - targetW / 2, baseY - targetH, targetW, targetH);
         } else if (def) {
@@ -1031,23 +1050,26 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.arc(enemyX, enemyY + bob, size * 0.85, 0, Math.PI * 2);
         charactersCtx.fill();
 
-        // Créature : sprite généré si disponible, sinon emoji
-        const spriteKey = ENEMY_SPRITES[enemy.name];
-        const sprite = spriteKey ? loadedAssets[spriteKey] : null;
-        if (sprite && sprite.complete && sprite.naturalWidth) {
-            const ratio = sprite.naturalWidth / sprite.naturalHeight;
-            const sh = size * 1.35;
-            const sw = sh * ratio;
-            charactersCtx.save();
-            charactersCtx.shadowColor = 'rgba(0,0,0,0.45)';
-            charactersCtx.shadowBlur = 8 * scale;
-            charactersCtx.drawImage(sprite, enemyX - sw / 2, enemyY + bob - sh / 2, sw, sh);
-            charactersCtx.restore();
-        } else {
-            charactersCtx.font = `${Math.round(size)}px sans-serif`;
-            charactersCtx.textAlign = 'center';
-            charactersCtx.textBaseline = 'middle';
-            charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+        // Créature : sprite animé en pixel art avec spritesheet, sinon image fixe ou emoji
+        const drewAnimated = drawAnimatedCreature(charactersCtx, enemy.name, enemyX, enemyY, size, bob);
+        if (!drewAnimated) {
+            const spriteKey = ENEMY_SPRITES[enemy.name];
+            const sprite = spriteKey ? loadedAssets[spriteKey] : null;
+            if (sprite && sprite.complete && sprite.naturalWidth) {
+                const ratio = sprite.naturalWidth / sprite.naturalHeight;
+                const sh = size * 1.35;
+                const sw = sh * ratio;
+                charactersCtx.save();
+                charactersCtx.shadowColor = 'rgba(0,0,0,0.45)';
+                charactersCtx.shadowBlur = 8 * scale;
+                charactersCtx.drawImage(sprite, enemyX - sw / 2, enemyY + bob - sh / 2, sw, sh);
+                charactersCtx.restore();
+            } else {
+                charactersCtx.font = `${Math.round(size)}px sans-serif`;
+                charactersCtx.textAlign = 'center';
+                charactersCtx.textBaseline = 'middle';
+                charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+            }
         }
 
         // Nom + barre de vie
@@ -1132,6 +1154,9 @@ export function drawSceneCharacters(gameState) {
             charactersCtx.restore();
         }
     }
+
+    // Dessiner tous les effets d'actions animés en pixel art (coupe, minage, combat, soins, etc.)
+    drawActiveEffects(charactersCtx);
 }
 
 export function drawMinimap(gameState, config) {

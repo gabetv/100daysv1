@@ -111,6 +111,30 @@ function handleServerMessage(event) {
                         UI.showFloatingText(notification.message, notification.style);
                     }
                     playNotificationSound(notification);
+
+                    // Déclenchement d'effets visuels pixel art réactifs
+                    const msg = (notification.message || '').toLowerCase();
+                    const mainCanvas = DOM.charactersCanvas || DOM.mainViewCanvas;
+                    const cx = mainCanvas ? mainCanvas.width / 2 : 200;
+                    const cy = mainCanvas ? mainCanvas.height * 0.62 : 200;
+
+                    if (msg.includes('bois') || msg.includes('bûcheron') || msg.includes('arbre')) {
+                        UI.triggerPixelEffect('chop', cx + (Math.random() - 0.5) * 60, cy - 20, 1.2);
+                    } else if (msg.includes('pierre') || msg.includes('min') || msg.includes('minerai') || msg.includes('fer')) {
+                        UI.triggerPixelEffect('mine', cx + (Math.random() - 0.5) * 60, cy - 20, 1.2);
+                    } else if (msg.includes('fabriqué') || msg.includes('construit') || msg.includes('établi') || msg.includes('atelier')) {
+                        UI.triggerPixelEffect('craft', cx, cy - 30, 1.3);
+                    } else if (msg.includes('dégât') || msg.includes('frappé') || msg.includes('attaque') || msg.includes('blessé') || notification.style === 'damage') {
+                        UI.triggerPixelEffect('slash', cx + (Math.random() - 0.5) * 80, cy - 35, 1.3);
+                    } else if (msg.includes('poisson') || msg.includes('pêch') || msg.includes('eau')) {
+                        UI.triggerPixelEffect('splash', cx, cy + 25, 1.2);
+                    } else if (msg.includes('soin') || msg.includes('santé') || msg.includes('guéri') || notification.style === 'gain') {
+                        UI.triggerPixelEffect('heal', cx, cy - 35, 1.3);
+                    } else if (msg.includes('niveau') || msg.includes('victoire') || msg.includes('sauvé')) {
+                        UI.triggerPixelEffect('levelup', cx, cy - 45, 1.6);
+                    } else if (msg.includes('trouvé') || msg.includes('trésor') || msg.includes('découvert') || msg.includes('clé')) {
+                        UI.triggerPixelEffect('shine', cx, cy - 35, 1.4);
+                    }
                 });
                 gameState.players[myPlayerId].notifications = [];
             }
@@ -352,12 +376,15 @@ function setupEventListeners() {
     // Replier/déplier le panneau d'objectifs
     const objectivesTitle = document.getElementById('objectives-hud-title');
     if (objectivesTitle) {
-        objectivesTitle.addEventListener('click', () => {
+        objectivesTitle.addEventListener('click', (e) => {
+            e.stopPropagation();
             const hud = document.getElementById('objectives-hud');
             const arrow = document.getElementById('objectives-toggle');
             if (hud) {
                 hud.classList.toggle('collapsed');
-                if (arrow) arrow.textContent = hud.classList.contains('collapsed') ? '▸' : '▾';
+                const isCollapsed = hud.classList.contains('collapsed');
+                if (arrow) arrow.textContent = isCollapsed ? '▸' : '▾';
+                sfx('click');
             }
         });
     }

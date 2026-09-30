@@ -18,6 +18,7 @@ export const drawSceneCharacters = DrawModule.drawSceneCharacters;
 export const drawMinimap = DrawModule.drawMinimap;
 export const drawLargeMap = DrawModule.drawLargeMap;
 export const populateLargeMapLegend = DrawModule.populateLargeMapLegend;
+export const triggerPixelEffect = DrawModule.triggerPixelEffect;
 
 // Depuis ./ui/dom.js
 export const showLoading = DOMModule.showLoading;
@@ -145,9 +146,15 @@ export function updateAllUI(gameState) {
 
 function updateObjectivesPanel(player) {
     const list = document.getElementById('objectives-list');
+    const hud = document.getElementById('objectives-hud');
     if (!list || !player.objectives) return;
+
     list.innerHTML = '';
+    let doneCount = 0;
+    const total = player.objectives.length;
+
     player.objectives.forEach(obj => {
+        if (obj.done) doneCount++;
         const li = document.createElement('li');
         if (obj.done) li.classList.add('done');
         const check = document.createElement('span');
@@ -163,6 +170,12 @@ function updateObjectivesPanel(player) {
         li.appendChild(text);
         list.appendChild(li);
     });
+
+    const title = document.getElementById('objectives-hud-title');
+    if (title && hud) {
+        const isCollapsed = hud.classList.contains('collapsed');
+        title.innerHTML = `<span>🎯 Quêtes (${doneCount}/${total})</span><span id="objectives-toggle">${isCollapsed ? '▸' : '▾'}</span>`;
+    }
 }
 
 /**
