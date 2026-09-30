@@ -114,7 +114,11 @@
             <div id="bottom-bar-equipment-panel" class="bottom-bar-section">
                 <h4>Équipements</h4>
                 <div class="equipment-preview-area">
-                    <div class="player-character-placeholder-small"><div class="player-head-small"></div><div class="player-body-small"></div></div>
+                    <button id="customize-character-btn" class="survivor-card" type="button" aria-label="Personnaliser mon survivant">
+                        <canvas id="loadout-avatar-canvas" width="150" height="190" aria-hidden="true"></canvas>
+                        <span class="survivor-card-copy"><strong>Mon survivant</strong><small id="loadout-style-label">Personnaliser</small></span>
+                        <span class="survivor-card-edit" aria-hidden="true">✦</span>
+                    </button>
                     <div id="bottom-bar-equipment-slots" class="droppable" data-owner="equipment">
                     </div>
                 </div>
@@ -260,7 +264,10 @@
             <h2>Équipement & Inventaire</h2>
             <div id="equipment-grid">
                 <div id="equipment-player-view">
-                    <div class="player-character-placeholder"><div class="player-head"></div><div class="player-body"></div></div>
+                    <button id="equipment-customize-button" class="equipment-avatar-button" type="button" aria-label="Ouvrir la personnalisation du survivant">
+                        <canvas id="equipment-avatar-canvas" width="220" height="190" aria-hidden="true"></canvas>
+                        <span>✦ Personnaliser mon survivant</span>
+                    </button>
                     <div id="equipment-player-stats"><h3>Statistiques de Combat</h3><p>Attaque: <span id="player-stat-attack">1</span></p><p>Défense: <span id="player-stat-defense">0</span></p></div>
                 </div> 
                 <div id="equipment-slots">
@@ -276,6 +283,31 @@
                     <ul id="equipment-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ATELIER DE PERSONNALISATION -->
+    <div id="customize-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="customize-title">
+        <div id="customize-modal-content">
+            <button id="close-customize-modal-btn" class="modal-close-pixel" type="button" aria-label="Fermer la personnalisation">×</button>
+            <header class="customize-header">
+                <span class="customize-kicker">ATELIER DU CAMP</span>
+                <h2 id="customize-title">Crée ton survivant</h2>
+                <p>Ton style est visible par tous les survivants. Aucun bonus, juste ta légende.</p>
+            </header>
+            <div class="customize-layout">
+                <aside class="customize-preview-column">
+                    <div class="pixel-preview-frame">
+                        <canvas id="customization-preview-canvas" width="320" height="260" aria-label="Aperçu de votre survivant"></canvas>
+                    </div>
+                    <div class="customize-preview-caption"><span class="sparkle-dot">✦</span><span id="customize-look-summary">Explorateur du lagon</span></div>
+                </aside>
+                <div id="customization-controls" class="customization-controls" aria-label="Options d'apparence"></div>
+            </div>
+            <footer class="customize-actions">
+                <button id="customize-random-btn" class="customize-secondary" type="button">↻ Look surprise</button>
+                <button id="customize-save-btn" class="customize-save" type="button">✓ Sauvegarder le look</button>
+            </footer>
         </div>
     </div>
 

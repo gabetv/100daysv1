@@ -16,6 +16,7 @@ const FREE_ACTIONS = new Set([
     ACTIONS.TUTORIAL_NEXT,
     ACTIONS.TUTORIAL_SKIP,
     ACTIONS.TUTORIAL_HIDE_AND_MOVE,
+    ACTIONS.CUSTOMIZE_CHARACTER,
     ACTIONS.TALK_TO_NPC,
     ACTIONS.OPEN_LARGE_MAP,
     ACTIONS.OPEN_BUILDING_INVENTORY,
@@ -67,7 +68,10 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             }
             break;
         }
-        // --- INVENTORY & MOVEMENT ---
+        // --- INVENTORY, APPARENCE & MOVEMENT ---
+        case ACTIONS.CUSTOMIZE_CHARACTER:
+            Player.customizeAppearance(player, data?.appearance);
+            break;
         case ACTIONS.MOVE:
             if (data && data.direction && Player.movePlayer(player, data.direction)) {
                 applyActionCost(player);

@@ -4,6 +4,9 @@ export const ACTIONS = {
     // Action de déplacement
     MOVE: 'move',
 
+    // Personnalisation visuelle du survivant (sans impact sur les statistiques)
+    CUSTOMIZE_CHARACTER: 'customize_character',
+
     // Player Actions (existantes)
     INITIATE_COMBAT: 'initiate_combat',
     CONSUME_EAU_SALEE: 'consume_eau_salee', 
@@ -81,6 +84,58 @@ export const CONFIG = {
     MAX_BUILDINGS_PER_TILE: 1,
     FOG_OF_WAR_REVEAL_THRESHOLD: 5,
     VICTORY_DAY: 100,
+};
+
+// Palette et options de l'avatar. Les identifiants sont aussi validés côté serveur :
+// un look est purement cosmétique, mais il doit rester sûr à sauvegarder et à partager.
+export const CHARACTER_APPEARANCE = {
+    skin: {
+        dawn: { label: 'Aurore', color: '#f7d7bd' },
+        sand: { label: 'Sable', color: '#e8b786' },
+        amber: { label: 'Ambre', color: '#c98559' },
+        cocoa: { label: 'Cacao', color: '#915536' },
+        umber: { label: 'Terre', color: '#63351f' },
+    },
+    hair: {
+        ink: { label: 'Encre', color: '#201816' },
+        chestnut: { label: 'Châtain', color: '#61391f' },
+        copper: { label: 'Cuivré', color: '#b86028' },
+        sun: { label: 'Soleil', color: '#e6bb62' },
+        silver: { label: 'Argent', color: '#9da5a5' },
+        moss: { label: 'Mousse', color: '#426044' },
+    },
+    hairStyle: {
+        short: { label: 'Court', icon: '✦' },
+        bun: { label: 'Chignon', icon: '●' },
+        long: { label: 'Long', icon: '♢' },
+        cap: { label: 'Casquette', icon: '⌒' },
+        bald: { label: 'Rasé', icon: '○' },
+        mohawk: { label: 'Crête', icon: '▲' },
+    },
+    outfit: {
+        lagoon: { label: 'Lagon', color: '#287c9d' },
+        ember: { label: 'Braise', color: '#b84e3d' },
+        leaf: { label: 'Canopée', color: '#4f8548' },
+        sunstone: { label: 'Ocre', color: '#bd7b31' },
+        twilight: { label: 'Crépuscule', color: '#66579b' },
+        shell: { label: 'Coquillage', color: '#d16f8d' },
+    },
+    accessory: {
+        none: { label: 'Aucun', icon: '—' },
+        bandana: { label: 'Bandana', icon: '◒' },
+        flower: { label: 'Fleur', icon: '✿' },
+        monocle: { label: 'Monocle', icon: '◉' },
+        earring: { label: 'Boucle', icon: '◌' },
+        scout: { label: 'Éclaireur', icon: '⌁' },
+    },
+};
+
+export const DEFAULT_CHARACTER_APPEARANCE = {
+    skin: 'sand',
+    hair: 'chestnut',
+    hairStyle: 'short',
+    outfit: 'lagoon',
+    accessory: 'none',
 };
 
 export const COMBAT_CONFIG = {

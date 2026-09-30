@@ -1,5 +1,5 @@
 // js/ui/modals.js
-import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js';
+import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES, ACTIONS, CHARACTER_APPEARANCE, DEFAULT_CHARACTER_APPEARANCE } from '../config.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
 import { sendAction } from '../main.js';
@@ -149,6 +149,7 @@ export function closeTopModal() {
         ['workshop-modal', hideWorkshopModal],
         ['chest-modal', hideChestModal],
         ['inventory-modal', hideInventoryModal],
+        ['customize-modal', hideCustomizationModal],
         ['equipment-modal', hideEquipmentModal],
         ['large-map-modal', hideLargeMap],
     ];
@@ -207,6 +208,120 @@ export function updateEquipmentModal(gameState) {
                         (player.equipment.feet?.stats?.defense || 0) +
                         (player.equipment.shield?.stats?.defense || 0);
     }
+}
+
+/* -------------------------------------------------------------------------
+ * Atelier de personnalisation
+ * ------------------------------------------------------------------------- */
+let customizationDraft = null;
+let customizationControlsBuilt = false;
+
+const CUSTOMIZATION_SECTIONS = [
+    ['skin', 'Teint', 'Choisis la lumière de ton visage.'],
+    ['hair', 'Couleur des cheveux', 'Un repère à reconnaître de loin.'],
+    ['hairStyle', 'Coiffure', 'La silhouette compte autant que le courage.'],
+    ['outfit', 'Tunique', 'Une couleur pour ta traversée.'],
+    ['accessory', 'Détail signature', 'Petit, mais impossible à oublier.'],
+];
+
+function safeAppearance(appearance = {}) {
+    const result = {};
+    CUSTOMIZATION_SECTIONS.forEach(([category]) => {
+        const candidate = appearance[category];
+        result[category] = CHARACTER_APPEARANCE[category]?.[candidate]
+            ? candidate
+            : DEFAULT_CHARACTER_APPEARANCE[category];
+    });
+    return result;
+}
+
+function lookSummary(appearance) {
+    const outfit = CHARACTER_APPEARANCE.outfit[appearance.outfit]?.label || 'Lagon';
+    const hair = CHARACTER_APPEARANCE.hairStyle[appearance.hairStyle]?.label || 'Court';
+    const accessory = CHARACTER_APPEARANCE.accessory[appearance.accessory]?.label || 'Aucun';
+    return `${outfit} · ${hair}${accessory !== 'Aucun' ? ` · ${accessory}` : ''}`;
+}
+
+function buildCustomizationControls() {
+    if (customizationControlsBuilt || !DOM.customizationControlsEl) return;
+    customizationControlsBuilt = true;
+    DOM.customizationControlsEl.innerHTML = '';
+
+    CUSTOMIZATION_SECTIONS.forEach(([category, title, description]) => {
+        const section = document.createElement('section');
+        section.className = 'customize-option-group';
+        const heading = document.createElement('div');
+        heading.className = 'customize-option-heading';
+        heading.innerHTML = `<div><h3>${title}</h3><p>${description}</p></div>`;
+        const options = document.createElement('div');
+        options.className = `customize-option-grid option-grid-${category}`;
+
+        Object.entries(CHARACTER_APPEARANCE[category]).forEach(([id, definition]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'appearance-choice';
+            button.dataset.category = category;
+            button.dataset.value = id;
+            button.setAttribute('aria-pressed', 'false');
+            const swatchColor = definition.color || 'transparent';
+            button.style.setProperty('--appearance-swatch', swatchColor);
+            const icon = definition.icon || '';
+            button.innerHTML = `<span class="appearance-swatch${definition.color ? '' : ' symbol'}">${icon}</span><span>${definition.label}</span>`;
+            button.addEventListener('click', () => {
+                if (!customizationDraft) return;
+                customizationDraft[category] = id;
+                refreshCustomizationUI();
+            });
+            options.appendChild(button);
+        });
+        section.append(heading, options);
+        DOM.customizationControlsEl.appendChild(section);
+    });
+}
+
+function refreshCustomizationUI() {
+    if (!customizationDraft) return;
+    const player = window.gameState?.player || {};
+    document.querySelectorAll('.appearance-choice').forEach(button => {
+        const active = button.dataset.value === customizationDraft[button.dataset.category];
+        button.classList.toggle('selected', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+    if (DOM.customizeSummaryEl) DOM.customizeSummaryEl.textContent = lookSummary(customizationDraft);
+    Draw.drawCharacterPreview(DOM.customizationPreviewCanvas, player, customizationDraft);
+}
+
+export function showCustomizationModal(gameState = window.gameState) {
+    const player = gameState?.player;
+    if (!player || !DOM.customizeModal) return;
+    customizationDraft = safeAppearance(player.appearance);
+    buildCustomizationControls();
+    refreshCustomizationUI();
+    DOM.customizeModal.classList.remove('hidden');
+}
+
+export function hideCustomizationModal() {
+    DOM.customizeModal?.classList.add('hidden');
+}
+
+export function setupCustomizationListeners() {
+    const open = () => showCustomizationModal(window.gameState);
+    DOM.customizeCharacterBtn?.addEventListener('click', open);
+    DOM.equipmentCustomizeButton?.addEventListener('click', open);
+    DOM.closeCustomizeModalBtn?.addEventListener('click', hideCustomizationModal);
+    DOM.customizeRandomBtn?.addEventListener('click', () => {
+        customizationDraft = customizationDraft || safeAppearance();
+        CUSTOMIZATION_SECTIONS.forEach(([category]) => {
+            const options = Object.keys(CHARACTER_APPEARANCE[category]);
+            customizationDraft[category] = options[Math.floor(Math.random() * options.length)];
+        });
+        refreshCustomizationUI();
+    });
+    DOM.customizeSaveBtn?.addEventListener('click', () => {
+        if (!customizationDraft) return;
+        sendAction(ACTIONS.CUSTOMIZE_CHARACTER, { appearance: safeAppearance(customizationDraft) });
+        hideCustomizationModal();
+    });
 }
 
 export function showCombatModal(combatState) {

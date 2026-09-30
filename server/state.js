@@ -1,10 +1,25 @@
 // server/state.js
 
-import { TILE_TYPES, CONFIG, ITEM_TYPES } from '../public/js/config.js';
+import { TILE_TYPES, CONFIG, ITEM_TYPES, DEFAULT_CHARACTER_APPEARANCE, CHARACTER_APPEARANCE } from '../public/js/config.js';
 import { initNpcs } from './npc.js';
 import { initEnemies, spawnGuardian, spawnSingleEnemy } from './enemy.js';
 
 export let gameState = {};
+
+/**
+ * Conserve uniquement les options cosmétiques connues. Ce filtre est appliqué
+ * autant à une ancienne sauvegarde qu'aux messages WebSocket actuels.
+ */
+export function sanitizeAppearance(value = {}) {
+    const result = {};
+    for (const [category, fallback] of Object.entries(DEFAULT_CHARACTER_APPEARANCE)) {
+        const requested = value && typeof value === 'object' ? value[category] : null;
+        result[category] = CHARACTER_APPEARANCE[category]?.[requested]
+            ? requested
+            : fallback;
+    }
+    return result;
+}
 
 /**
  * Initialise ou réinitialise l'état complet du jeu.
@@ -320,6 +335,7 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         x: 10,
         y: 10,
         color: `hsl(${Math.random() * 360}, 100%, 70%)`,
+        appearance: { ...DEFAULT_CHARACTER_APPEARANCE },
         health: 20,
         maxHealth: 20,
         thirst: 20,
@@ -359,7 +375,7 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
 
     // Restaurer la progression sauvegardée (comptes uniquement)
     if (savedData && typeof savedData === 'object') {
-        const restorable = ['x', 'y', 'color', 'health', 'maxHealth', 'thirst', 'maxThirst',
+        const restorable = ['x', 'y', 'color', 'appearance', 'health', 'maxHealth', 'thirst', 'maxThirst',
             'hunger', 'maxHunger', 'sleep', 'maxSleep', 'inventory', 'maxInventory',
             'equipment', 'status', 'knownRecipes', 'deaths', 'treasureOpened', 'xp', 'level'];
         for (const key of restorable) {
@@ -367,6 +383,7 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         }
         // Migration des anciennes sauvegardes où status était un tableau
         if (Array.isArray(newPlayer.status)) newPlayer.status = {};
+        newPlayer.appearance = sanitizeAppearance(newPlayer.appearance);
         if (Array.isArray(savedData.visitedTiles)) {
             newPlayer.visitedTiles = new Set(savedData.visitedTiles);
         }
@@ -400,6 +417,7 @@ export function serializePlayer(player) {
         x: player.x,
         y: player.y,
         color: player.color,
+        appearance: sanitizeAppearance(player.appearance),
         health: player.health,
         maxHealth: player.maxHealth,
         thirst: player.thirst,

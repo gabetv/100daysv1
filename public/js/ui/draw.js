@@ -1,5 +1,5 @@
 // js/ui/draw.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
+import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES, CHARACTER_APPEARANCE, DEFAULT_CHARACTER_APPEARANCE } from '../config.js';
 import { getItemImage, getTileImage, tileIconHTML } from './icons.js';
 import DOM from './dom.js';
 import {
@@ -427,17 +427,27 @@ function hashString(str) {
 }
 
 function characterLook(character) {
-    if (character._look) return character._look;
     const h = hashString(character.id || character.name || character.color);
-    const look = {
-        skin: SKIN_TONES[h % SKIN_TONES.length],
-        hair: HAIR_COLORS[(h >> 3) % HAIR_COLORS.length],
-        style: HAIR_STYLES[(h >> 6) % HAIR_STYLES.length],
+    const appearance = character.appearance;
+    const hasAppearance = appearance && typeof appearance === 'object';
+    const skinId = CHARACTER_APPEARANCE.skin[appearance?.skin] ? appearance.skin : null;
+    const hairId = CHARACTER_APPEARANCE.hair[appearance?.hair] ? appearance.hair : null;
+    const style = CHARACTER_APPEARANCE.hairStyle[appearance?.hairStyle]
+        ? appearance.hairStyle
+        : (hasAppearance ? DEFAULT_CHARACTER_APPEARANCE.hairStyle : HAIR_STYLES[(h >> 6) % HAIR_STYLES.length]);
+    const accessory = CHARACTER_APPEARANCE.accessory[appearance?.accessory]
+        ? appearance.accessory
+        : DEFAULT_CHARACTER_APPEARANCE.accessory;
+    const outfitId = CHARACTER_APPEARANCE.outfit[appearance?.outfit] ? appearance.outfit : null;
+    return {
+        skin: skinId ? CHARACTER_APPEARANCE.skin[skinId].color : SKIN_TONES[h % SKIN_TONES.length],
+        hair: hairId ? CHARACTER_APPEARANCE.hair[hairId].color : HAIR_COLORS[(h >> 3) % HAIR_COLORS.length],
+        style,
+        accessory,
+        outfit: outfitId ? CHARACTER_APPEARANCE.outfit[outfitId].color : (character.color || '#4f8fbf'),
         beard: ((h >> 9) % 4) === 0,
         phase: (h % 100) / 100,
     };
-    try { Object.defineProperty(character, '_look', { value: look, enumerable: false }); } catch (_) {}
-    return look;
 }
 
 function shadeColor(hex, amount) {
@@ -528,11 +538,11 @@ function drawSpeechBubble(ctx, x, topY, text, scale) {
  * Le rendu est mis à l'échelle en fonction de la hauteur du canvas afin de rester
  * lisible sur mobile comme sur grand écran.
  */
-function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
+function drawLegacyCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
     const look = characterLook(character);
     const s = scale;
     const outline = 'rgba(10, 18, 24, 0.85)';
-    const cloth = character.color || '#4f8fbf';
+    const cloth = look.outfit || character.color || '#4f8fbf';
     const clothDark = shadeColor(cloth, -45);
     const clothLight = shadeColor(cloth, 35);
     const pants = shadeColor(look.hair, 10);
@@ -839,6 +849,242 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
     ctx.restore();
 }
 
+/* -------------------------------------------------------------------------
+ * Survivant pixel-art modulaire
+ * -------------------------------------------------------------------------
+ * Les décors sont peints en pixels ; le protagoniste doit l'être aussi. Cette
+ * version est volontairement dessinée sur une grille, plutôt qu'avec des
+ * formes lissées, pour garder des contours nets quelle que soit la taille de
+ * l'écran. Les couches (peau, cheveux, tenue et accessoire) sont indépendantes
+ * afin que la personnalisation reste visible dans le monde, pas seulement dans
+ * un menu.
+ */
+function drawPixelTool(ctx, item, x, y, p, swing = 0) {
+    if (!item) return;
+    const name = String(item.name || '');
+    const px = (gx, gy, gw, gh, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(Math.round(x + gx * p), Math.round(y + gy * p), Math.max(1, Math.round(gw * p)), Math.max(1, Math.round(gh * p)));
+    };
+    const offset = Math.round(swing * 1.5);
+    if (/hache/i.test(name)) {
+        px(4 + offset, -9, 1, 8, '#694227');
+        px(3 + offset, -9, 3, 3, '#c7d3d7');
+        px(2 + offset, -8, 1, 2, '#7b8e95');
+    } else if (/épée|lance|gourdain/i.test(name)) {
+        const blade = /gourdain/i.test(name) ? '#75451f' : '#dce8e9';
+        px(4 + offset, -10, 1, 9, blade);
+        px(3 + offset, -2, 3, 1, '#d6a64b');
+        if (!/gourdain/i.test(name)) px(4 + offset, -11, 1, 2, '#ffffff');
+    } else if (/pelle|pioche/i.test(name)) {
+        px(4 + offset, -9, 1, 8, '#765132');
+        px(3 + offset, -10, 3, 3, '#b9c3c8');
+    } else if (/canne|filet/i.test(name)) {
+        px(4 + offset, -11, 1, 10, '#a87635');
+        px(5 + offset, -11, 2, 1, '#d8ebee');
+    } else {
+        px(4 + offset, -7, 2, 5, '#d6a64b');
+        px(3 + offset, -8, 4, 2, '#eff5ef');
+    }
+}
+
+function drawPixelCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1, { showLabel = true } = {}) {
+    const look = characterLook(character);
+    const p = Math.max(2, Math.round(4 * scale));
+    const t = Date.now() / 1000;
+    const walking = animationProgress > 0;
+    const step = walking ? Math.round(Math.sin(animationProgress * Math.PI * 4) * 1.2) : 0;
+    const bob = walking
+        ? Math.round(Math.abs(Math.sin(animationProgress * Math.PI * 4)) * p * 0.55)
+        : Math.round(Math.sin((t + look.phase) * 1.8) * p * 0.24);
+    const hipY = Math.round(y - bob);
+    const anchorX = Math.round(x);
+    const outfit = look.outfit || '#287c9d';
+    const outline = '#122029';
+    const pants = shadeColor(look.hair, -5);
+    const shadow = '#071118';
+
+    const block = (gx, gy, gw, gh, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(
+            Math.round(anchorX + gx * p),
+            Math.round(hipY + gy * p),
+            Math.max(1, Math.round(gw * p)),
+            Math.max(1, Math.round(gh * p)),
+        );
+    };
+    const framed = (gx, gy, gw, gh, color, border = outline) => {
+        block(gx - 0.5, gy - 0.5, gw + 1, gh + 1, border);
+        block(gx, gy, gw, gh, color);
+    };
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // Ombre au sol en dalles, puis anneau de sélection du joueur.
+    block(-5, 6.5, 10, 1, shadow);
+    block(-3.5, 6, 7, 2, shadow);
+    if (isPlayer) {
+        const ring = '#f8d475';
+        block(-6, 7.5, 3, 0.45, ring); block(3, 7.5, 3, 0.45, ring);
+        block(-5.6, 6.5, 0.45, 1, ring); block(5.15, 6.5, 0.45, 1, ring);
+    }
+
+    // Jambes : le pas alterne sur une grille de pixels.
+    framed(-4, 0, 3, 6 + Math.max(0, step), pants);
+    framed(1, 0, 3, 6 + Math.max(0, -step), pants);
+    block(-4.7 + step * 0.28, 5.4 + Math.max(0, step), 4, 1.6, '#35251d');
+    block(0.7 - step * 0.28, 5.4 + Math.max(0, -step), 4, 1.6, '#35251d');
+
+    // Bras arrière et sac : superposés avant la tunique.
+    framed(-6, -9, 2, 7 - step, shadeColor(outfit, -28));
+    block(-6, -2.5 - step, 2, 1.4, look.skin);
+    if (isPlayer || character.equipment?.bag) {
+        framed(4, -9, 2.3, 7, '#65442c');
+        block(4.5, -7.3, 1.2, 1.1, '#bd8341');
+    }
+
+    // Torse et ceinture.
+    framed(-4, -11, 8, 11, outfit);
+    block(-3, -10, 2, 8, shadeColor(outfit, 22));
+    block(-3.8, -2.1, 7.6, 1.2, '#674229');
+    block(-0.55, -2.2, 1.1, 1.2, '#e1b84a');
+
+    // Bras avant et main ; l'outil est dessiné au même ancrage.
+    framed(4, -9, 2, 7 + step, outfit);
+    block(4, -2.3 + step, 2, 1.5, look.skin);
+    drawPixelTool(ctx, character.equipment?.weapon, anchorX, hipY, p, step);
+    if (character.equipment?.shield) {
+        framed(-8, -7, 2.4, 4, '#657983');
+        block(-7.55, -6.5, 1.5, 2.6, '#9ebdc4');
+    }
+
+    // Cou, tête et oreilles.
+    block(-1, -13, 2, 2, shadeColor(look.skin, -24));
+    framed(-4, -19, 8, 7, look.skin);
+    block(-4.8, -16.6, 0.9, 2.2, look.skin);
+    block(3.9, -16.6, 0.9, 2.2, look.skin);
+    // Ombre de visage + nez, sans dégradé pour préserver le rendu sprite.
+    block(2.8, -17.6, 0.7, 4.5, shadeColor(look.skin, -30));
+    block(0.5, -15.2, 1, 0.8, shadeColor(look.skin, -42));
+
+    // Chevelure interchangeable.
+    if (look.style !== 'bald') {
+        if (look.style === 'mohawk') {
+            block(-1, -22, 2, 3.5, look.hair);
+            block(-4, -19.5, 8, 2.5, look.hair);
+        } else if (look.style === 'cap') {
+            block(-4.5, -20, 9, 2.4, shadeColor(outfit, -20));
+            block(-5.2, -18, 10.3, 1.2, shadeColor(outfit, -35));
+        } else {
+            block(-4, -20, 8, 3.2, look.hair);
+            block(-3, -17.9, 6, 1.4, look.hair);
+            if (look.style === 'long') {
+                block(-4.8, -17.3, 1.4, 5.2, look.hair);
+                block(3.4, -17.3, 1.4, 5.2, look.hair);
+            }
+            if (look.style === 'bun') {
+                block(-1.8, -22, 3.6, 2.7, look.hair);
+            }
+        }
+    }
+
+    // Visage : deux pixels d'yeux et une bouche. Les yeux clignent doucement.
+    const blink = ((t + look.phase * 3) % 4.5) < 0.12;
+    block(-2.3, -16.2, 1.1, blink ? 0.35 : 0.9, '#17242b');
+    block(1.2, -16.2, 1.1, blink ? 0.35 : 0.9, '#17242b');
+    block(-1.3, -13.7, 2.6, 0.5, '#854639');
+
+    // Accessoire cosmétique, isolé afin de ne jamais modifier l'équipement.
+    if (look.accessory === 'bandana') {
+        block(-4.2, -18, 8.4, 1.15, '#d55a4a');
+        block(3.9, -17, 1.5, 1.3, '#d55a4a');
+    } else if (look.accessory === 'flower') {
+        block(-5.1, -20.4, 1.4, 1.4, '#f7d4e1');
+        block(-4.3, -21.2, 1.4, 1.4, '#f7d4e1');
+        block(-4.3, -19.6, 1.4, 1.4, '#f7d4e1');
+        block(-4.35, -20.4, 0.7, 0.7, '#f0ba43');
+    } else if (look.accessory === 'monocle') {
+        block(1.0, -16.8, 2.4, 2.4, '#e3d27b');
+        block(1.55, -16.25, 1.3, 1.3, look.skin);
+        block(3.2, -14.5, 0.5, 2.5, '#e3d27b');
+    } else if (look.accessory === 'earring') {
+        block(4.2, -14.4, 1, 1.8, '#f1ce62');
+    } else if (look.accessory === 'scout') {
+        block(-4.3, -18.8, 8.6, 1.1, '#74a85c');
+        block(2.5, -18.4, 1.2, 1.2, '#d9edab');
+    }
+
+    if (character.equipment?.head) {
+        // Le vrai casque/chapeau équipé reste prioritaire sur la coiffure.
+        block(-4.6, -20.5, 9.2, 2.5, '#e4c36b');
+        block(-5.5, -18.5, 11, 1.2, '#9b7132');
+    }
+
+    const label = showLabel ? (character.name || character.username) : '';
+    if (label) {
+        const fontSize = Math.max(9, Math.round(11 * scale));
+        ctx.font = `700 ${fontSize}px Poppins, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const width = ctx.measureText(label).width + p * 3;
+        const textY = hipY - 24 * p;
+        ctx.fillStyle = isPlayer ? '#f6d681' : 'rgba(8, 22, 30, .82)';
+        ctx.fillRect(Math.round(anchorX - width / 2), Math.round(textY - fontSize / 1.65), Math.round(width), Math.round(fontSize * 1.45));
+        ctx.fillStyle = isPlayer ? '#13232b' : '#edf8fa';
+        ctx.fillText(label, anchorX, textY);
+    }
+    if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) {
+        drawSpeechBubble(ctx, anchorX, hipY - 24 * p - (label ? 14 * scale : 0), character.chatMessage.text, scale);
+    }
+    ctx.restore();
+}
+
+function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
+    drawPixelCharacter(ctx, character, x, y, isPlayer, animationProgress, scale);
+}
+
+/** Prévisualisation de l'avatar pour le camp et le salon de personnalisation. */
+export function drawCharacterPreview(canvas, player = {}, appearance = null) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const w = canvas.width || 320;
+    const h = canvas.height || 260;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#102f3b';
+    ctx.fillRect(0, 0, w, h);
+    // Ciel, mer et îlot en dalles : un petit diorama pixel-art autonome.
+    ctx.fillStyle = '#1d5264'; ctx.fillRect(0, 0, w, h * 0.54);
+    ctx.fillStyle = '#236f82'; ctx.fillRect(0, h * 0.54, w, h * 0.46);
+    const tile = Math.max(4, Math.round(w / 44));
+    for (let i = 0; i < 22; i++) {
+        const px = (i * 37 + 13) % w;
+        const py = h * (0.58 + ((i * 11) % 23) / 100);
+        ctx.fillStyle = i % 2 ? '#68b7bd' : '#9dd8ce';
+        ctx.fillRect(px, py, tile * (1 + i % 3), Math.max(2, tile / 2));
+    }
+    ctx.fillStyle = '#d5aa5a';
+    ctx.fillRect(w * 0.14, h * 0.78, w * 0.72, h * 0.16);
+    ctx.fillStyle = '#a87c3b';
+    ctx.fillRect(w * 0.2, h * 0.9, w * 0.6, h * 0.07);
+    for (let i = 0; i < 15; i++) {
+        const px = w * (0.18 + ((i * 19) % 65) / 100);
+        const py = h * (0.81 + ((i * 7) % 10) / 100);
+        ctx.fillStyle = i % 2 ? '#edcf78' : '#af7a36';
+        ctx.fillRect(px, py, tile, tile);
+    }
+    ctx.restore();
+    const previewPlayer = {
+        ...player,
+        name: '',
+        health: player.health ?? 20,
+        maxHealth: player.maxHealth ?? 20,
+        appearance: appearance || player.appearance,
+    };
+    drawPixelCharacter(ctx, previewPlayer, w / 2, h * 0.78, true, 0, Math.min(w / 320, h / 250) * 1.2, { showLabel: false });
+}
 
 /** Dessine quelques objets laissés au sol pour relier l'inventaire au monde. */
 function drawGroundLoot(ctx, w, h, tile, scale) {

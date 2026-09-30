@@ -519,6 +519,7 @@ function setupUIListeners() {
     if(UI.setupChestModalListeners) UI.setupChestModalListeners();
     if(UI.setupWorkshopModalListeners) UI.setupWorkshopModalListeners();
     if(UI.setupMiscModalListeners) UI.setupMiscModalListeners();
+    if(UI.setupCustomizationListeners) UI.setupCustomizationListeners();
 }
 
 document.addEventListener('DOMContentLoaded', init);
