@@ -110,6 +110,26 @@ export function updateAllUI(gameState) {
     if (positionDisplayNav) positionDisplayNav.textContent = `Position: (${player.x}, ${player.y})`;
     if (positionDisplay) positionDisplay.textContent = `Position: (${player.x}, ${player.y})`;
     if (timeDisplay) timeDisplay.textContent = `👥 ${onlineCount} survivant${onlineCount > 1 ? 's' : ''} en ligne`;
+
+    // Panneau d'objectifs
+    updateObjectivesPanel(player);
+}
+
+function updateObjectivesPanel(player) {
+    const list = document.getElementById('objectives-list');
+    if (!list || !player.objectives) return;
+    list.innerHTML = '';
+    player.objectives.forEach(obj => {
+        const li = document.createElement('li');
+        if (obj.done) li.classList.add('done');
+        const check = document.createElement('span');
+        check.textContent = obj.done ? '✅' : obj.icon;
+        const text = document.createElement('span');
+        text.textContent = obj.text;
+        li.appendChild(check);
+        li.appendChild(text);
+        list.appendChild(li);
+    });
 }
 
 /**

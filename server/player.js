@@ -161,6 +161,25 @@ export function consumeItem(player, itemKey) {
 
     const itemName = typeof item === 'object' ? item.name : itemKey;
     const itemDef = ITEM_TYPES[itemName];
+
+    // Cas spécial : la Carte révèle l'emplacement du Trésor Caché !
+    if (itemName === 'Carte') {
+        let treasureTile = null;
+        for (const row of gameState.map) {
+            for (const t of row) {
+                if (t.key === 'TREASURE_CHEST') { treasureTile = t; break; }
+            }
+            if (treasureTile) break;
+        }
+        if (treasureTile) {
+            player.visitedTiles.add(`${treasureTile.x},${treasureTile.y}`);
+            player.notifications.push({ type: 'chat', message: `🗺️ La carte révèle un secret : le Trésor Caché se trouve en (${treasureTile.x}, ${treasureTile.y}) ! La position est marquée sur votre carte.`, style: 'gain' });
+        } else {
+            player.notifications.push({ type: 'chat', message: "🗺️ La carte est illisible... le trésor a peut-être déjà été pillé.", style: 'system_info' });
+        }
+        return; // La carte n'est pas consommée
+    }
+
     if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe)) {
         player.notifications.push({ type: 'chat', message: "Cet objet n'est pas consommable.", style: 'system_warning' });
         return;
@@ -595,6 +614,7 @@ export function openTreasure(player) {
 
     removeItemFromInventory(player, 'Clé du Trésor', 1);
     tile.isOpened = true;
+    player.treasureOpened = true;
 
     for (const item in TREASURE_COMBAT_KIT) {
         addItemToInventory(player, item, TREASURE_COMBAT_KIT[item]);
@@ -969,6 +989,45 @@ export function getAvailableActions(player) {
     return availableActions;
 }
 
+
+// --- OBJECTIFS (guident le joueur vers les deux fins possibles) ---
+
+/**
+ * Construit la liste d'objectifs affichée au joueur : la feuille de route vers la victoire.
+ */
+export function getObjectives(player) {
+    const hasKey = !!player.inventory['Clé du Trésor'];
+    const opened = !!player.treasureOpened;
+    const hasSignal = Object.entries(player.inventory).some(([key, it]) => {
+        const n = typeof it === 'object' ? it.name : key;
+        return n === 'Fusée de détresse' || n === 'Pistolet de détresse';
+    }) || ['Fusée de détresse', 'Pistolet de détresse'].includes(player.equipment.weapon?.name);
+    const rescued = gameState.victory?.type === 'rescue';
+    const survived = gameState.victory?.type === 'survival';
+
+    return [
+        {
+            icon: '🔑',
+            text: 'Trouver la Clé du Trésor (fouillez les zones !)',
+            done: hasKey || opened,
+        },
+        {
+            icon: '💎',
+            text: 'Ouvrir le Trésor Caché',
+            done: opened,
+        },
+        {
+            icon: '🎆',
+            text: hasSignal && !rescued ? 'Tirer le signal de détresse depuis une PLAGE !' : 'Alerter les secours (signal de détresse)',
+            done: rescued,
+        },
+        {
+            icon: '🏆',
+            text: `Ou survivre 100 jours (Jour ${gameState.day} / ${CONFIG.VICTORY_DAY})`,
+            done: survived,
+        },
+    ];
+}
 
 // --- PLAYER STATE UPDATE ---
 

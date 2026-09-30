@@ -8,9 +8,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Importations du code serveur
-import { initializeGameState, addNewPlayer, removePlayer, gameState, dailyUpdate, serializePlayer, startCombat } from './server/state.js';
+import { initializeGameState, addNewPlayer, removePlayer, gameState, dailyUpdate, serializePlayer, startCombat, serializeWorld, restoreWorld } from './server/state.js';
 import { handlePlayerAction } from './server/interactions.js';
-import { getAvailableActions, updatePlayerState } from './server/player.js'; // Import the new function
+import { getAvailableActions, updatePlayerState, getObjectives } from './server/player.js'; // Import the new function
 import { updateNpcs } from './server/npc.js';
 import { updateEnemies } from './server/enemy.js';
 import { CONFIG } from './server/config.js';
@@ -37,8 +37,30 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
         console.log('Connected to the SQLite database.');
         db.run('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)');
         db.run('CREATE TABLE IF NOT EXISTS saves (username TEXT PRIMARY KEY, data TEXT, updated_at INTEGER)');
+        db.run('CREATE TABLE IF NOT EXISTS world (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT, updated_at INTEGER)', () => {
+            // Restaurer le monde sauvegardé (jour, carte, constructions, PNJ...)
+            db.get('SELECT data FROM world WHERE id = 1', [], (err, row) => {
+                if (!err && row) {
+                    try {
+                        if (restoreWorld(JSON.parse(row.data))) {
+                            console.log('Monde restauré depuis la sauvegarde.');
+                        }
+                    } catch (e) { console.error('World restore failed:', e); }
+                }
+            });
+        });
     }
 });
+
+function saveWorld() {
+    try {
+        const data = JSON.stringify(serializeWorld());
+        db.run('INSERT INTO world (id, data, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at',
+            [data, Date.now()]);
+    } catch (e) {
+        console.error('Failed to save world:', e);
+    }
+}
 
 // --- SÉCURITÉ DES MOTS DE PASSE (scrypt, sans dépendance externe) ---
 function hashPassword(password) {
@@ -171,12 +193,23 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Sauvegarde automatique de tous les joueurs connectés (toutes les 60s)
+// Sauvegarde automatique : joueurs connectés + monde (toutes les 60s)
 setInterval(() => {
     for (const playerId in gameState.players) {
         savePlayerProgress(gameState.players[playerId]);
     }
+    saveWorld();
 }, 60000);
+
+// Sauvegarde propre à l'arrêt du serveur
+['SIGINT', 'SIGTERM'].forEach(sig => process.on(sig, () => {
+    console.log('Arrêt du serveur : sauvegarde en cours...');
+    for (const playerId in gameState.players) {
+        savePlayerProgress(gameState.players[playerId]);
+    }
+    saveWorld();
+    setTimeout(() => process.exit(0), 300);
+}));
 
 function broadcastToClients(message) {
     wss.clients.forEach((client) => {
@@ -201,10 +234,11 @@ function gameLoop() {
         updatePlayerState(player, deltaTime);
     }
 
-    // Add available actions to each player object
+    // Add available actions and objectives to each player object
     for (const playerId in gameState.players) {
         const player = gameState.players[playerId];
         player.availableActions = getAvailableActions(player);
+        player.objectives = getObjectives(player);
     }
 
     const stateToSend = JSON.stringify({ type: 'gameState', payload: gameState }, (key, value) => value instanceof Set ? Array.from(value) : value);

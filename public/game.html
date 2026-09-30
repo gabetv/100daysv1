@@ -41,6 +41,10 @@
                             <p id="biome-display" class="tile-detail">Biome: Forêt</p>
                             <p id="position-display" class="tile-detail">Position: (0, 0)</p>
                         </div>
+                        <div id="objectives-hud">
+                            <h4 id="objectives-hud-title">🎯 Objectifs <span id="objectives-toggle">▾</span></h4>
+                            <ul id="objectives-list"></ul>
+                        </div>
                     </div> 
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
@@ -332,6 +336,20 @@
             background: #ffd700; color: #14232b; border: none; border-radius: 8px; font-weight: bold;
         }
         #victory-menu-btn:hover { background: #ffe44d; }
+
+        /* --- Panneau d'objectifs --- */
+        #objectives-hud {
+            position: absolute; top: 10px; right: 10px; z-index: 50;
+            background: rgba(10, 25, 35, 0.82); border: 1px solid rgba(255, 215, 0, 0.45);
+            border-radius: 10px; padding: 10px 14px; max-width: 300px;
+            color: #e8f4fa; font-size: 0.82rem; pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        #objectives-hud h4 { margin: 0 0 6px; color: #ffd700; font-size: 0.9rem; letter-spacing: 1px; cursor: pointer; user-select: none; }
+        #objectives-hud ul { list-style: none; margin: 0; padding: 0; }
+        #objectives-hud li { margin: 4px 0; line-height: 1.35; display: flex; gap: 6px; align-items: flex-start; }
+        #objectives-hud li.done { color: #7fd98a; text-decoration: line-through; opacity: 0.75; }
+        #objectives-hud.collapsed ul { display: none; }
     </style>
 </body>
 </html>

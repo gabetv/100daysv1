@@ -179,6 +179,19 @@ function setupEventListeners() {
         });
     });
     
+    // Replier/déplier le panneau d'objectifs
+    const objectivesTitle = document.getElementById('objectives-hud-title');
+    if (objectivesTitle) {
+        objectivesTitle.addEventListener('click', () => {
+            const hud = document.getElementById('objectives-hud');
+            const arrow = document.getElementById('objectives-toggle');
+            if (hud) {
+                hud.classList.toggle('collapsed');
+                if (arrow) arrow.textContent = hud.classList.contains('collapsed') ? '▸' : '▾';
+            }
+        });
+    }
+
     initInteractions();
 }
 

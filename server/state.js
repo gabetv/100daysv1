@@ -51,6 +51,25 @@ export async function dailyUpdate() {
         player.notifications.push({ type: 'chat', message: `☀️ Jour ${gameState.day} / ${CONFIG.VICTORY_DAY} — un nouveau jour se lève.`, style: 'system_event' });
     });
 
+    // La nature reprend ses droits : les ressources se régénèrent lentement
+    regenerateResources();
+
+    // Tous les 3 jours : les PNJ ont de nouveaux besoins (quêtes réinitialisées)
+    if (gameState.day % 3 === 0) {
+        let questsReset = false;
+        gameState.npcs.forEach(npc => {
+            if (npc.availableQuest && npc.availableQuest.isCompleted) {
+                npc.availableQuest.isCompleted = false;
+                questsReset = true;
+            }
+        });
+        if (questsReset) {
+            Object.values(gameState.players).forEach(player => {
+                player.notifications.push({ type: 'chat', message: "📢 Les survivants ont de nouveaux besoins... Allez leur parler !", style: 'system_event' });
+            });
+        }
+    }
+
     // Condition de victoire : survivre 100 jours
     if (gameState.day >= CONFIG.VICTORY_DAY) {
         gameState.victory = { type: 'survival', day: gameState.day, by: null };
@@ -78,6 +97,95 @@ export async function dailyUpdate() {
     }
 
     // Autres logiques quotidiennes (ex: météo) peuvent être ajoutées ici
+}
+
+/**
+ * Régénère progressivement les ressources des tuiles (bois, gibier, fouilles, pierre).
+ */
+function regenerateResources() {
+    for (const row of gameState.map) {
+        for (const tile of row) {
+            const def = TILE_TYPES[tile.key];
+            if (!def) continue;
+            if (def.woodActionsLeft !== undefined && tile.woodActionsLeft < def.woodActionsLeft) {
+                tile.woodActionsLeft = Math.min(def.woodActionsLeft, tile.woodActionsLeft + 2);
+            }
+            if (def.huntActionsLeft !== undefined && tile.huntActionsLeft < def.huntActionsLeft) {
+                tile.huntActionsLeft = Math.min(def.huntActionsLeft, tile.huntActionsLeft + 1);
+            }
+            if (def.searchActionsLeft !== undefined && tile.searchActionsLeft < def.searchActionsLeft) {
+                tile.searchActionsLeft = Math.min(def.searchActionsLeft, tile.searchActionsLeft + 1);
+            }
+            if (def.harvests !== undefined && tile.harvests < def.harvests) {
+                tile.harvests = Math.min(def.harvests, tile.harvests + 1);
+            }
+        }
+    }
+}
+
+// --- PERSISTANCE DU MONDE (le serveur peut redémarrer sans perdre la partie) ---
+
+/**
+ * Sérialise l'état du monde (carte, jour, PNJ, ennemis...) pour la sauvegarde.
+ */
+export function serializeWorld() {
+    return {
+        day: gameState.day,
+        time: gameState.time,
+        victory: gameState.victory,
+        knownRecipes: gameState.knownRecipes,
+        globallyRevealedTiles: Array.from(gameState.globallyRevealedTiles || []),
+        npcs: gameState.npcs,
+        enemies: gameState.enemies.map(e => ({ ...e, inCombatWith: null })),
+        map: gameState.map.map(row => row.map(tile => ({
+            key: tile.key,
+            x: tile.x,
+            y: tile.y,
+            backgroundKey: tile.backgroundKey,
+            buildings: tile.buildings,
+            groundItems: tile.groundItems,
+            woodActionsLeft: tile.woodActionsLeft,
+            harvests: tile.harvests,
+            huntActionsLeft: tile.huntActionsLeft,
+            searchActionsLeft: tile.searchActionsLeft,
+            isOpened: tile.isOpened,
+            hiddenItem: tile.hiddenItem,
+        }))),
+    };
+}
+
+/**
+ * Restaure l'état du monde depuis une sauvegarde (au démarrage du serveur).
+ * @returns {boolean} true si la restauration a réussi.
+ */
+export function restoreWorld(data) {
+    try {
+        if (!data || !Array.isArray(data.map) || data.map.length !== CONFIG.MAP_HEIGHT) return false;
+
+        gameState.day = data.day || 1;
+        gameState.time = data.time || 0;
+        gameState.victory = data.victory || null;
+        gameState.knownRecipes = data.knownRecipes || {};
+        gameState.globallyRevealedTiles = new Set(data.globallyRevealedTiles || []);
+        if (Array.isArray(data.npcs)) gameState.npcs = data.npcs;
+        if (Array.isArray(data.enemies)) gameState.enemies = data.enemies;
+
+        gameState.map = data.map.map(row => row.map(saved => {
+            const type = TILE_TYPES[saved.key] || TILE_TYPES.PLAINS;
+            return {
+                ...saved,
+                type: type,
+                buildings: saved.buildings || [],
+                groundItems: saved.groundItems || {},
+            };
+        }));
+
+        console.log(`World restored: day ${gameState.day}, ${gameState.npcs.length} NPCs, ${gameState.enemies.length} enemies.`);
+        return true;
+    } catch (e) {
+        console.error('Failed to restore world, generating a new one:', e);
+        return false;
+    }
 }
 
 /**
@@ -126,13 +234,14 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         animationState: null,
         knownRecipes: {},
         deaths: 0,
+        treasureOpened: false,
     };
 
     // Restaurer la progression sauvegardée (comptes uniquement)
     if (savedData && typeof savedData === 'object') {
         const restorable = ['x', 'y', 'color', 'health', 'maxHealth', 'thirst', 'maxThirst',
             'hunger', 'maxHunger', 'sleep', 'maxSleep', 'inventory', 'maxInventory',
-            'equipment', 'status', 'knownRecipes', 'deaths'];
+            'equipment', 'status', 'knownRecipes', 'deaths', 'treasureOpened'];
         for (const key of restorable) {
             if (savedData[key] !== undefined) newPlayer[key] = savedData[key];
         }
@@ -148,6 +257,11 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         }
         newPlayer.visitedTiles.add(`${newPlayer.x},${newPlayer.y}`);
         newPlayer.notifications.push({ type: 'chat', message: `Bon retour, ${newPlayer.name} ! Votre progression a été restaurée.`, style: 'gain' });
+    } else {
+        // Message d'accueil pour un nouveau survivant
+        newPlayer.notifications.push({ type: 'chat', message: `🏝️ Bienvenue sur l'île, ${newPlayer.name} ! Vous êtes naufragé depuis ${gameState.day} jour(s).`, style: 'system_event' });
+        newPlayer.notifications.push({ type: 'chat', message: "🎯 Votre mission : trouver la Clé du Trésor en fouillant les zones, ouvrir le Trésor Caché, puis tirer la fusée de détresse depuis une plage pour être secouru. Sinon... survivez 100 jours !", style: 'system_info' });
+        newPlayer.notifications.push({ type: 'chat', message: "💡 Conseil : mangez, buvez et dormez pour rester en vie. Parlez aux survivants (💬), ils récompensent les coups de main.", style: 'system_info' });
     }
 
     gameState.players[playerId] = newPlayer;
@@ -178,6 +292,7 @@ export function serializePlayer(player) {
         status: player.status,
         knownRecipes: player.knownRecipes,
         deaths: player.deaths || 0,
+        treasureOpened: player.treasureOpened || false,
         visitedTiles: Array.from(player.visitedTiles || []),
     };
 }
