@@ -31,6 +31,21 @@ function updateSquaresBar(containerElement, value, maxValue, type) {
     }
 }
 
+function updateMobileVital(type, value, maxValue) {
+    const vital = document.querySelector(`.mobile-vital[data-vital="${type}"]`);
+    if (!vital) return;
+    const safeMax = Math.max(1, Number(maxValue) || 1);
+    const safeValue = Math.max(0, Number(value) || 0);
+    const percentage = Math.min(100, (safeValue / safeMax) * 100);
+    const fill = vital.querySelector('.mobile-vital-track i');
+    const number = vital.querySelector('b');
+    if (fill) fill.style.width = `${percentage}%`;
+    if (number) number.textContent = String(Math.round(safeValue));
+    vital.classList.toggle('is-low', percentage <= (type === 'health' ? 30 : 20));
+    const labels = { health: 'Santé', thirst: 'Soif', hunger: 'Faim', sleep: 'Sommeil' };
+    vital.setAttribute('aria-label', `${labels[type] || type} : ${Math.round(safeValue)} sur ${Math.round(safeMax)}. Ouvrir le statut.`);
+}
+
 export function updateStatsPanel(player) {
     if (!player) return;
     const { healthSquaresContainerEl, thirstSquaresContainerEl, hungerSquaresContainerEl, sleepSquaresContainerEl, healthStatusEl } = DOM;
@@ -39,6 +54,10 @@ export function updateStatsPanel(player) {
     updateSquaresBar(thirstSquaresContainerEl, player.thirst, player.maxThirst, 'thirst');
     updateSquaresBar(hungerSquaresContainerEl, player.hunger, player.maxHunger, 'hunger');
     updateSquaresBar(sleepSquaresContainerEl, player.sleep, player.maxSleep, 'sleep');
+    updateMobileVital('health', player.health, player.maxHealth);
+    updateMobileVital('thirst', player.thirst, player.maxThirst);
+    updateMobileVital('hunger', player.hunger, player.maxHunger);
+    updateMobileVital('sleep', player.sleep, player.maxSleep);
 
     if (healthStatusEl) {
         // player.status peut être un objet {Nom: {duration}} ou un tableau (anciennes sauvegardes)
@@ -168,7 +187,8 @@ export function updateInventory(player) {
 }
 
 export function updateDayCounter(day) {
-    if (DOM.dayDisplay) DOM.dayDisplay.textContent = `Jour ${day} / ${CONFIG.VICTORY_DAY}`;
+    const counter = document.getElementById('day-counter-text') || DOM.dayDisplay;
+    if (counter) counter.textContent = `Jour ${day} / ${CONFIG.VICTORY_DAY}`;
 }
 
 export function updateTileInfoPanel(tile) {
@@ -299,11 +319,11 @@ export function updateBottomBarEquipmentPanel(player) {
 function actionGroup(action) {
     const id = String(action?.id || '').toLowerCase();
     const name = String(action?.name || '').toLowerCase();
-    if (id.includes('combat') || id.includes('attack') || name.includes('attaquer')) return ['Danger', '⚔️'];
-    if (id.includes('build') || id.includes('repair') || id.includes('dismantle') || id.includes('plant') || id.includes('regenerate')) return ['Aménager', '🛠️'];
-    if (id.includes('craft') || id.includes('workshop') || id.includes('etabli') || id.includes('forge') || name.includes('parchemin')) return ['Fabriquer', '🔧'];
-    if (id.includes('open_building') || id.includes('lock') || id.includes('chest') || id.includes('treasure')) return ['Découvrir', '✨'];
-    return ['Survie & exploration', '🌿'];
+    if (id.includes('combat') || id.includes('attack') || name.includes('attaquer')) return ['Danger', '/assets/icons/ironsword.png'];
+    if (id.includes('build') || id.includes('repair') || id.includes('dismantle') || id.includes('plant') || id.includes('regenerate')) return ['Aménager', '/assets/icons/tile_atelier.png'];
+    if (id.includes('craft') || id.includes('workshop') || id.includes('etabli') || id.includes('forge') || name.includes('parchemin')) return ['Fabriquer', '/assets/icons/repairkit.png'];
+    if (id.includes('open_building') || id.includes('lock') || id.includes('chest') || id.includes('treasure')) return ['Découvrir', '/assets/icons/magnifier.png'];
+    return ['Survie & exploration', '/assets/icons/island.png'];
 }
 
 function actionIsRecommended(action, player, tile) {
@@ -369,8 +389,10 @@ export function updateActionsPanel(gameState) {
             currentGroup = group;
             const groupLabel = document.createElement('div');
             groupLabel.className = 'action-group-label';
-            const groupIcon = document.createElement('span');
-            groupIcon.textContent = icon;
+            const groupIcon = document.createElement('img');
+            groupIcon.className = 'action-group-icon';
+            groupIcon.src = icon;
+            groupIcon.alt = '';
             const groupName = document.createElement('span');
             groupName.textContent = group;
             groupLabel.append(groupIcon, groupName);
