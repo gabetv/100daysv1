@@ -2,198 +2,94 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Île des 100 Jours - Bienvenue</title>
-    
-    <!-- Polices de caractères depuis Google Fonts -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0b2028">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Île des 100 Jours</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Lien vers la feuille de style (le chemin commence par /) -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
-    
-    <!-- Styles spécifiques pour cette page, pour un meilleur rendu visuel -->
     <style>
-        :root {
-            /* Ces variables doivent correspondre à celles dans style.css pour la cohérence */
-            --bg-panel: rgba(38, 70, 83, 0.85);
-            --border-radius: 12px;
-            --text-light: #f8f9fa;
-            --accent-color: #ff4d6d;
-        }
-
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: url('/assets/bg_forest_1.png') center/cover no-repeat fixed;
-            font-family: 'Poppins', sans-serif;
-            color: var(--text-light);
-            margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            display: flex;
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            max-width: 1200px;
-            gap: 40px;
-            background-color: rgba(26, 42, 58, 0.7);
-            backdrop-filter: blur(5px);
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 0 30px rgba(0,0,0,0.6);
-        }
-
-        .game-info {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            background-color: var(--bg-panel);
-            padding: 30px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .game-info h1 {
-            font-size: 2.5em;
-            font-weight: 700;
-            color: var(--accent-color);
-            margin-bottom: 20px;
-        }
-
-        .game-info p {
-            font-size: 1.1em;
-            line-height: 1.6;
-            margin-bottom: 25px;
-        }
-
-        .game-info img {
-            width: 100px;
-            height: auto;
-            margin-bottom: 20px;
-        }
-
-        .auth-container {
-            flex: 1;
-            background-color: var(--bg-panel);
-            padding: 40px;
-            border-radius: var(--border-radius);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .auth-container h2 {
-            margin-bottom: 25px;
-            font-weight: 700;
-        }
-
-        .auth-container form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .auth-container input[type="text"], 
-        .auth-container input[type="password"] {
-            padding: 12px 15px;
-            background-color: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            color: var(--text-light);
-            font-family: 'Poppins', sans-serif;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-
-        .auth-container input[type="text"]:focus, 
-        .auth-container input[type="password"]:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
-        
-        /* Garder le style du texte lors de l'autocomplétion du navigateur */
-        .auth-container input:-webkit-autofill {
-            -webkit-box-shadow: 0 0 0 30px rgba(0,0,0,0.3) inset !important;
-            -webkit-text-fill-color: var(--text-light) !important;
-        }
-
-        .auth-container button[type="submit"] {
-            padding: 12px 20px;
-            margin-top: 10px;
-        }
-
-        .auth-container p {
-            margin-top: 20px;
-            font-size: 0.9em;
-        }
-
-        .auth-container a {
-            color: var(--accent-color);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .auth-container a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 900px) {
-            .container {
-                flex-direction: column;
-                gap: 20px;
-            }
-            
-            .game-info, .auth-container {
-                width: 100%;
-                max-width: none;
-            }
-        }
+        :root { --ink:#0b2028; --ink-deep:#06171e; --sea:#25758a; --foam:#bfe9df; --sun:#ffd476; --coral:#ee826a; --leaf:#79a956; }
+        * { box-sizing:border-box; }
+        body.welcome-screen { min-height:100dvh; height:auto; padding:clamp(14px,3vw,36px); overflow-x:hidden; overflow-y:auto; color:#eef9f8; background:radial-gradient(circle at 12% 18%,rgba(67,151,163,.45),transparent 28rem), linear-gradient(145deg,#0c2934,#061920 62%,#0a2730); }
+        .welcome-screen::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.13; background-image:linear-gradient(90deg,rgba(255,255,255,.6) 1px,transparent 1px),linear-gradient(rgba(255,255,255,.6) 1px,transparent 1px); background-size:12px 12px; mask-image:linear-gradient(#000,transparent 78%); }
+        .landing-shell { width:min(1120px,100%); min-height:calc(100dvh - clamp(28px,6vw,72px)); margin:auto; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr); gap:clamp(18px,4vw,52px); align-items:center; }
+        .island-story { position:relative; padding:clamp(12px,2vw,26px); }
+        .eyebrow { display:flex; align-items:center; gap:9px; margin:0 0 18px; color:var(--sun); font-size:.66rem; font-weight:800; letter-spacing:1.8px; }
+        .eyebrow::before { content:""; width:24px; height:3px; background:var(--sun); box-shadow:5px 5px 0 rgba(255,212,118,.3); }
+        h1 { max-width:720px; margin:0; color:#fff5d2; font-family:"Press Start 2P",monospace; font-size:clamp(2rem,4.8vw,4.4rem); line-height:1.25; letter-spacing:-.09em; text-shadow:5px 5px 0 #164352, 9px 9px 0 rgba(0,0,0,.22); }
+        h1 span { color:var(--sun); }
+        .tagline { max-width:600px; margin:26px 0 22px; color:#bad9d8; font-size:clamp(.9rem,1.4vw,1.07rem); line-height:1.65; }
+        .promise-list { display:flex; flex-wrap:wrap; gap:8px; list-style:none; padding:0; margin:0; }
+        .promise-list li { padding:8px 10px; border:1px solid rgba(191,233,223,.19); border-radius:7px; background:rgba(3,18,24,.3); color:#d6efed; font-size:.73rem; }
+        .promise-list b { margin-right:4px; color:var(--sun); }
+        .pixel-diorama { position:relative; width:min(490px,90%); height:210px; margin:38px 0 0 5%; overflow:hidden; border:2px solid rgba(165,225,219,.53); border-radius:15px; background:linear-gradient(#2b7d91 0 48%,#45a1aa 48% 62%,#d5a657 62%); box-shadow:0 10px 0 rgba(3,14,18,.46),0 24px 60px rgba(0,0,0,.32),inset 0 0 0 2px rgba(255,255,255,.08); }
+        .pixel-diorama::before { content:""; position:absolute; left:0; right:0; bottom:0; height:55px; background:linear-gradient(110deg,transparent 0 11%,#bd843e 11% 17%,transparent 17% 31%,#e5bf69 31% 38%,transparent 38% 55%,#b77934 55% 63%,transparent 63%); opacity:.78; }
+        .campfire-art { position:absolute; z-index:2; width:155px; height:155px; object-fit:cover; object-position:left top; image-rendering:pixelated; left:50%; bottom:6px; transform:translateX(-50%); filter:drop-shadow(0 0 20px rgba(255,154,56,.72)); animation:campfire-pop 3.6s ease-in-out infinite; }
+        .palm { position:absolute; bottom:39px; width:9px; height:95px; background:#724528; box-shadow:4px 0 #9d6637; transform-origin:bottom; }.palm::before,.palm::after { content:""; position:absolute; top:-23px; width:58px; height:25px; border-radius:100% 10%; background:#356e41; }.palm::before { right:-50px; transform:rotate(25deg); box-shadow:10px 15px #4b8b4d; }.palm::after { left:-48px; transform:rotate(-28deg); box-shadow:-10px 15px #4b8b4d; }.palm-one { left:40px; transform:rotate(-7deg); }.palm-two { right:54px; transform:rotate(8deg) scale(.73); bottom:33px; }
+        .diorama-copy { position:absolute; z-index:3; left:13px; top:13px; padding:6px 8px; border:1px solid rgba(255,255,255,.22); border-radius:5px; background:rgba(5,25,31,.72); color:#e7f6f4; font-size:.57rem; letter-spacing:1px; }
+        @keyframes campfire-pop { 0%,100%{transform:translateX(-50%) translateY(0) scale(1)} 50%{transform:translateX(-50%) translateY(-3px) scale(1.025)} }
+        .auth-container { position:relative; padding:clamp(22px,3vw,34px); border:1px solid rgba(191,233,223,.26); border-radius:18px; background:linear-gradient(145deg,rgba(22,63,73,.96),rgba(8,31,40,.98)); box-shadow:0 12px 0 rgba(2,13,17,.5),0 25px 65px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.08); }
+        .auth-container::before { content:""; position:absolute; top:11px; left:14px; right:14px; height:2px; background:linear-gradient(90deg,transparent,var(--sun),transparent); opacity:.8; }
+        .auth-status { display:inline-flex; align-items:center; gap:7px; margin-bottom:17px; color:#9ed4b0; font-size:.68rem; font-weight:700; }.auth-status i { width:8px; height:8px; border-radius:50%; background:#7ed489; box-shadow:0 0 0 4px rgba(126,212,137,.12); }
+        .auth-container h2 { margin:0; color:#fff4cd; font-size:1.45rem; }.auth-container .intro { margin:7px 0 22px; color:#a9c9cc; font-size:.77rem; line-height:1.5; }
+        .auth-container form { display:grid; gap:12px; }.auth-container label { display:grid; gap:6px; color:#c4e0df; font-size:.68rem; font-weight:700; }.auth-container input { width:100%; min-height:50px; padding:12px 13px; border:1px solid rgba(191,233,223,.22); border-radius:8px; outline:none; background:#081f29; color:#f3fbfa; font-family:inherit; font-size:16px; transition:border-color .18s,box-shadow .18s; }.auth-container input::placeholder{color:#668b91}.auth-container input:focus{border-color:var(--sun);box-shadow:0 0 0 3px rgba(255,212,118,.13)}
+        .auth-container button[type=submit] { min-height:52px; margin-top:5px; border:1px solid #ffe29a; border-radius:8px; background:linear-gradient(#e3a646,#b76a2e); box-shadow:0 5px 0 #72401c,0 8px 15px rgba(0,0,0,.24); color:#fff7db; font-size:.8rem; }.auth-container button[type=submit]::after{display:none}.auth-container button[type=submit]:hover{filter:brightness(1.06)}
+        .form-switch { margin:19px 0 0; color:#a8c7ca; font-size:.74rem; text-align:center; }.form-switch a{color:#ffe09b;font-weight:800;text-decoration:none}.form-switch a:hover{text-decoration:underline}
+        .auth-footer { display:flex; gap:6px; justify-content:center; margin-top:19px; color:#73969a; font-size:.59rem; }.auth-footer span{color:#e3b85b}
+        @media (max-width:800px) { body.welcome-screen { padding:16px 14px; }.landing-shell{grid-template-columns:1fr;gap:22px;align-content:start}.island-story{padding:10px 2px 0}.eyebrow{margin-bottom:13px}h1{font-size:clamp(1.7rem,8vw,2.65rem)}.tagline{margin:18px 0}.pixel-diorama{width:100%;height:150px;margin:23px 0 0}.campfire-art{width:116px;height:116px}.palm{height:67px;bottom:29px}.auth-container{padding:23px 19px;border-radius:15px}.promise-list li{font-size:.66rem;padding:6px 8px} }
+        @media (prefers-reduced-motion:reduce){.campfire-art{animation:none}}
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="game-info">
-            <h1>Île des 100 Jours</h1>
-            <img src="/assets/campfire.png" alt="Campfire">
-            <p>Embarquez pour une aventure de survie dans 'Île des 100 Jours', où vous devez tenir bon pendant 100 jours sur une île mystérieuse remplie de défis et de secrets.</p>
-        </div>
-        <div class="auth-container">
+<body class="welcome-screen">
+    <main class="landing-shell">
+        <section class="island-story" aria-labelledby="game-title">
+            <p class="eyebrow">SURVIE COOPÉRATIVE · 1 À 100 JOURS</p>
+            <h1 id="game-title">ÎLE DES<br><span>100 JOURS</span></h1>
+            <p class="tagline">Une île vivante, un feu fragile, cent levers de soleil. Explore, récolte, construis ton camp et retrouve le chemin des secours.</p>
+            <ul class="promise-list" aria-label="Principes du jeu">
+                <li><b>✦</b> Monde persistant</li>
+                <li><b>✦</b> Pixel art vivant</li>
+                <li><b>✦</b> Mobile portrait</li>
+                <li><b>✦</b> Survivant personnalisable</li>
+            </ul>
+            <div class="pixel-diorama" aria-hidden="true">
+                <span class="diorama-copy">JOUR 01 · FEU ALLUMÉ</span>
+                <span class="palm palm-one"></span><span class="palm palm-two"></span>
+                <img class="campfire-art" src="/assets/spritesheet_campfire.png" alt="">
+            </div>
+        </section>
+
+        <section class="auth-container" aria-label="Accès à l'aventure">
             <div id="login-container">
-                <h2>Connexion</h2>
+                <div class="auth-status"><i></i> CAMP OUVERT</div>
+                <h2>Revenir au camp</h2>
+                <p class="intro">Entre ton pseudo pour retrouver ta progression et ton look de survivant.</p>
                 <form id="login-form">
-                    <input type="text" id="login-username" placeholder="Nom d'utilisateur" required>
-                    <input type="password" id="login-password" placeholder="Mot de passe" required>
-                    <button type="submit">Se connecter</button>
+                    <label>Pseudo<input type="text" id="login-username" name="login-username" autocomplete="username" placeholder="ex. Noa_Explorateur" required></label>
+                    <label>Mot de passe<input type="password" id="login-password" name="login-password" autocomplete="current-password" placeholder="••••••••" required></label>
+                    <button type="submit">Aller sur l'île →</button>
                 </form>
-                <p>Pas de compte ? <a href="#" id="show-register">Inscrivez-vous ici</a></p>
+                <p class="form-switch">Première expédition ? <a href="#" id="show-register">Créer mon survivant</a></p>
             </div>
 
-            <div id="register-container" style="display: none;">
-                <h2>Inscription</h2>
+            <div id="register-container" style="display:none;">
+                <div class="auth-status"><i></i> NOUVEAU FEU</div>
+                <h2>Créer un survivant</h2>
+                <p class="intro">Ton apparence se choisit ensuite dans le camp. Ton aventure, elle, commence maintenant.</p>
                 <form id="register-form">
-                    <input type="text" id="register-username" placeholder="Nom d'utilisateur" required>
-                    <input type="password" id="register-password" placeholder="Mot de passe" required>
-                    <button type="submit">S'inscrire</button>
+                    <label>Pseudo<input type="text" id="register-username" name="register-username" autocomplete="username" placeholder="3 à 20 caractères" minlength="3" maxlength="20" required></label>
+                    <label>Mot de passe<input type="password" id="register-password" name="register-password" autocomplete="new-password" placeholder="4 caractères minimum" minlength="4" required></label>
+                    <button type="submit">Démarrer l'expédition →</button>
                 </form>
-                <p>Déjà un compte ? <a href="#" id="show-login">Connectez-vous ici</a></p>
+                <p class="form-switch">Déjà au camp ? <a href="#" id="show-login">Me connecter</a></p>
             </div>
-        </div>
-    </div>
-
-    <!-- Ce script gère UNIQUEMENT la logique de cette page -->
+            <div class="auth-footer"><span>◆</span> Sauvegarde de la progression <span>◆</span></div>
+        </section>
+    </main>
     <script src="/js/login.js"></script>
 </body>
 </html>

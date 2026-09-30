@@ -1,9 +1,10 @@
-import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG } from '../config.js';
+import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG, CHARACTER_APPEARANCE, DEFAULT_CHARACTER_APPEARANCE } from '../config.js';
 import { notifyChatMessage } from './mobile.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
 import { showChestModal, showLockModal, hideLockModal } from './modals.js';
 import { itemIconHTML, tileIconHTML } from './icons.js';
+import { drawCharacterPreview } from './draw.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -282,6 +283,17 @@ export function updateBottomBarEquipmentPanel(player) {
         }
         slotsContainer.appendChild(slotEl);
     });
+
+    // Le même avatar pixel-art est présent dans le camp et dans l'équipement :
+    // on peut ainsi reconnaître son look sans ouvrir une modale.
+    drawCharacterPreview(DOM.loadoutAvatarCanvas, player, player.appearance);
+    drawCharacterPreview(DOM.equipmentAvatarCanvas, player, player.appearance);
+    const styleLabel = DOM.loadoutStyleLabel;
+    if (styleLabel) {
+        const outfitId = player.appearance?.outfit || DEFAULT_CHARACTER_APPEARANCE.outfit;
+        const outfit = CHARACTER_APPEARANCE.outfit[outfitId]?.label || 'Lagon';
+        styleLabel.textContent = `Tenue ${outfit} · Modifier`;
+    }
 }
 
 function actionGroup(action) {

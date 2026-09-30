@@ -1,6 +1,6 @@
 // server/player.js
 
-import { gameState, endCombat, triggerRescueVictory } from './state.js';
+import { gameState, endCombat, triggerRescueVictory, sanitizeAppearance } from './state.js';
 import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS, ACTION_COST_CONFIG } from '../public/js/config.js';
 
 // --- UTILITIES ---
@@ -121,6 +121,22 @@ export function movePlayer(player, direction) {
     player.visitedTiles.add(`${x},${y}`);
     console.log(`Player ${player.id} moved from (${oldX},${oldY}) to (${x},${y})`);
     return true;
+}
+
+/** Met à jour l'apparence cosmétique du joueur sans toucher à sa progression. */
+export function customizeAppearance(player, appearance) {
+    if (!player) return;
+    player.appearance = sanitizeAppearance(appearance);
+    player.notifications.push({
+        type: 'floatingText',
+        message: 'Nouveau look !',
+        style: 'gain',
+    });
+    player.notifications.push({
+        type: 'chat',
+        message: '✦ Votre tenue de survie est prête.',
+        style: 'gain',
+    });
 }
 
 export function equipItem(player, itemKey) {
