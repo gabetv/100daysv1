@@ -3,8 +3,7 @@ import DOM from './dom.js';
 
 const tutorialSteps = [
     {
-        elementId: null,
-        message: "Bienvenue sur l'Île des 100 Jours ! Votre objectif : survivre.<br><br>Utilisez les touches <b>ZQSD</b> ou les <b>flèches directionnelles</b> pour vous déplacer, ou cliquez sur les <b>flèches à l'écran</b>.<br><br>Cliquez sur 'Compris, je vais bouger !' puis essayez de bouger d'une case.",
+        message: "Bienvenue sur l'Île des 100 Jours ! Votre objectif est simple : <b>rester en vie et trouver votre voie de sortie</b>.<br><br>Utilisez <b>ZQSD</b>, les flèches ou le swipe mobile. Cliquez sur le bouton ci-dessous, puis déplacez-vous d'une case.",
         showNext: true,
         nextButtonText: "Compris, je vais bouger !",
         nextButtonAction: 'tutorial_hide_and_move',
@@ -12,96 +11,38 @@ const tutorialSteps = [
         highlightTarget: '#navigation-edge-panel',
     },
     {
-        elementId: null,
-        message: "Excellent ! Vous savez vous déplacer.<br><br>Vous pouvez maintenant passer le reste de ce tutoriel en cliquant sur <b>'Passer le Tutoriel'</b>, ou continuer avec <b>'Suivant'</b> pour découvrir l'interface.",
+        message: "Parfait. Observez maintenant le cartouche <b>VOUS ÊTES ICI</b>, puis ouvrez les actions de la case. Une fouille est souvent le meilleur premier choix : elle peut révéler une ressource, une recette ou un secret.",
         showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
+        nextButtonText: "Voir les actions",
+        nextButtonAction: 'tutorial_open_actions',
         showSkip: true,
-        highlightTarget: null,
+        highlightTarget: '#tile-info-hud',
     },
     {
-        elementId: 'left-panel',
+        message: "La survie est votre tempo : surveillez <b>santé, soif, faim et sommeil</b>. Les actions consomment de l'énergie ; mangez et buvez avant de partir trop loin.",
+        showNext: true,
+        nextButtonText: "J'ai compris",
+        nextButtonAction: 'tutorial_next',
+        showSkip: true,
         highlightTarget: '#player-stats',
-        message: "À gauche, ceci est votre panneau de <b>Statut</b>. Surveillez votre Santé ❤️, Soif 💧, Faim 🍗 et Sommeil 🌙.<br>Utilisez les boutons <b>'+'</b> pour consommer des objets de soin, boisson ou nourriture rapidement si vous en possédez.",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
     },
     {
-        elementId: 'left-panel',
-        highlightTarget: '#minimap-section',
-        message: "Juste en dessous, voici la <b>Mini-carte</b>. Elle se dévoilera au fur et à mesure de votre exploration.<br>Cliquez sur le bouton carré ⛶ pour l'agrandir.",
+        message: "Votre sac contient les outils et ressources nécessaires. Faites un clic droit, ou un appui long sur mobile, pour <b>utiliser, équiper, jeter ou déplacer</b> un objet.",
         showNext: true,
-        nextButtonText: "Suivant",
+        nextButtonText: "Ouvrir le sac",
         nextButtonAction: 'tutorial_next',
         showSkip: true,
+        highlightTarget: '#inventory-tab',
     },
     {
-        elementId: 'right-panel',
-        highlightTarget: '#tile-info',
-        message: "À droite, ce panneau affiche des informations sur la <b>case actuelle</b> : son nom, vos coordonnées (X,Y), le jour actuel et les ressources/actions restantes.",
+        message: "Deux chemins mènent à la victoire : <b>ouvrir le trésor puis appeler les secours</b>, ou tenir jusqu'au jour 100. Explorez, améliorez le camp et entraidez-vous. Bonne survie !",
         showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: 'right-panel',
-        highlightTarget: '#interaction-panel',
-        message: "Le panneau <b>'Actions Possibles'</b> liste ce que vous pouvez faire ici : récolter, construire, interagir...",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: 'right-panel',
-        highlightTarget: '#inventory-section',
-        message: "Votre <b>Inventaire principal</b> s'affiche ici, trié par catégories. Cliquez sur un titre de catégorie pour la déplier/replier. Vous pouvez cliquer sur certains objets pour les utiliser ou les équiper.",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: 'bottom-bar',
-        highlightTarget: '#bottom-bar-chat-panel',
-        message: "La <b>Barre Inférieure</b> contient :<br>Le <b>Journal / Chat</b> (entrez vos messages ou utilisez le menu rapide '+' pour des messages prédéfinis).",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: 'bottom-bar',
-        highlightTarget: '#bottom-bar-equipment-panel',
-        message: "...vos <b>Équipements</b> actuellement portés (cliquez sur un slot pour déséquiper, ou sur un objet compatible dans votre inventaire pour équiper)...",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: 'bottom-bar',
-        highlightTarget: '#bottom-bar-ground-items',
-        message: "...et les <b>Objets au sol</b> sur votre case (cliquez pour ramasser).<br><br>Vous pouvez <b>glisser-déposer</b> des objets entre votre inventaire, les coffres (si ouverts dans une modale), vos équipements et le sol.",
-        showNext: true,
-        nextButtonText: "Suivant",
-        nextButtonAction: 'tutorial_next',
-        showSkip: true,
-    },
-    {
-        elementId: null,
-        highlightTarget: null,
-        message: "C'est tout pour le tutoriel de base ! Explorez, construisez, et surtout, survivez !<br><br><b>Bonne chance, aventurier !</b>",
-        showNext: true,
-        nextButtonText: "Terminer le Tutoriel",
+        nextButtonText: "Commencer l'aventure",
         nextButtonAction: 'tutorial_next',
         showSkip: false,
+        highlightTarget: '#objectives-hud',
         isFinalStep: true,
-    }
+    },
 ];
 
 function highlightElement(elementId, remove = false) {
@@ -137,6 +78,22 @@ export function showTutorialStep(stepIndex) {
     DOM.tutorialMessage.innerHTML = step.message;
 
     if (step.highlightTarget) {
+        // Sur mobile, ouvrir la feuille concernée avant de la mettre en valeur :
+        // une étape de tutoriel ne doit jamais pointer vers un panneau invisible.
+        if (window.UI?.isMobileLayout?.() && window.UI?.openMobileTab) {
+            const mobileTabs = {
+                '#player-stats': 'status',
+                '#minimap-section': 'map',
+                '#actions-tab': 'actions',
+                '#inventory-tab': 'inventory',
+                '#objectives-hud': 'actions',
+                '#bottom-bar-chat-panel': 'chat',
+                '#bottom-bar-equipment-panel': 'map',
+                '#bottom-bar-ground-items': 'status',
+            };
+            const tab = mobileTabs[step.highlightTarget];
+            if (tab) window.UI.openMobileTab(tab);
+        }
         highlightElement(step.highlightTarget);
     } else {
         highlightElement(null, true);

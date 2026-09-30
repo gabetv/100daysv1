@@ -36,9 +36,18 @@
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
-                    <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
+                    <canvas id="main-view-canvas" aria-label="Paysage de l'île"></canvas><canvas id="depth-canvas" aria-hidden="true"></canvas><canvas id="characters-canvas" aria-label="Survivants et créatures"></canvas>
                     
                     <div id="main-view-overlay">
+                        <section id="tile-info-hud" aria-live="polite" aria-label="Lieu actuel">
+                            <span class="context-kicker">VOUS ÊTES ICI</span>
+                            <h3 id="scene-context-title"><span class="tile-name-icon">🏝️</span> Île inconnue</h3>
+                            <p id="tile-details-hud">Explorez la case pour découvrir ses ressources.</p>
+                            <div class="context-meta">
+                                <span id="biome-display">Biome : inconnu</span>
+                                <span id="position-display">(0, 0)</span>
+                            </div>
+                        </section>
                         <div id="navigation-edge-panel">
                             <div id="game-info-hud">
                                 <p id="day-display">Jour 1 / 100 <button id="sound-toggle" title="Couper le son">🔊</button></p>
@@ -48,6 +57,7 @@
                                 <div id="xp-bar-container"><div id="xp-bar"></div></div>
                                 <p id="time-display">👥 1 survivant</p>
                                 <p id="position-display-nav">Position: (0, 0)</p>
+                                <p id="controls-hint"><span>⌨</span> ZQSD / flèches <i>·</i> glisser sur mobile</p>
                             </div>
                             <button class="nav-button-overlay" id="nav-nw" title="Nord-Ouest">↖</button>
                             <button class="nav-button-overlay" id="nav-north" title="Nord">↑</button>
@@ -58,7 +68,7 @@
                             <button class="nav-button-overlay" id="nav-south" title="Sud">↓</button>
                             <button class="nav-button-overlay" id="nav-se" title="Sud-Est">↘</button>
                         </div>
-                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici">🤝 <span>Interagir ici</span></button>
+                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici"><span class="screen-action-icon">✦</span><span id="screen-action-label">Actions ici</span><span id="screen-action-count" class="action-count-badge">0</span></button>
                         <div id="central-actions-panel" class="hidden">
                             <button class="central-action-button" data-action="build" title="Construire">🛠️</button>
                             <button class="central-action-button" data-action="harvest" title="Récolter">🪓</button>
@@ -98,7 +108,7 @@
             <div id="bottom-bar-chat-panel" class="bottom-bar-section">
                 <div id="chat-header"><h3>Journal / Chat</h3><button id="toggle-chat-size-btn" title="Agrandir/Réduire le chat">⌃</button></div>
                 <div id="chat-messages"></div>
-                <div id="chat-input-area"><div id="quick-chat-menu"><div class="quick-chat-item">J'ai besoin de bois.</div><div class="quick-chat-item">J'ai besoin de nourriture.</div><div class="quick-chat-item">Suivez-moi !</div><div class="quick-chat-item">Danger par ici !</div><div class="quick-chat-item">Oui.</div><div class="quick-chat-item">Non.</div></div><button id="quick-chat-button">+</button><input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu..."></div>
+                <div id="chat-input-area"><div id="quick-chat-menu"><div class="quick-chat-item">J'ai besoin de bois.</div><div class="quick-chat-item">J'ai besoin de nourriture.</div><div class="quick-chat-item">J'ai trouvé quelque chose !</div><div class="quick-chat-item">Rendez-vous au camp !</div><div class="quick-chat-item">Suivez-moi !</div><div class="quick-chat-item">Danger par ici !</div><div class="quick-chat-item">Aidez-moi au combat !</div><div class="quick-chat-item">Oui.</div><div class="quick-chat-item">Non.</div></div><button id="quick-chat-button">+</button><input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu..."></div>
             </div>
 
             <div id="bottom-bar-equipment-panel" class="bottom-bar-section">
