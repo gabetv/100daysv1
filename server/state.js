@@ -59,12 +59,23 @@ export async function dailyUpdate() {
     // La nature reprend ses droits : les ressources se régénèrent lentement
     regenerateResources();
 
-    // Événement aléatoire du jour (40% de chance)
-    if (Math.random() < 0.4) {
-        applyRandomEvent();
+    // Événement du jour : la prévision d'hier se réalise (l'Observatoire peut la lire à l'avance)
+    let todaysEvent;
+    if (gameState.nextEvent === undefined) {
+        // Aucune prévision (premier jour / ancienne sauvegarde) : tirage direct
+        todaysEvent = Math.random() < 0.4 ? RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)] : null;
+    } else {
+        todaysEvent = gameState.nextEvent ? RANDOM_EVENTS.find(e => e.name === gameState.nextEvent.name) || null : null;
+    }
+    if (todaysEvent) {
+        applyRandomEvent(todaysEvent);
     } else {
         gameState.lastEvent = null;
     }
+
+    // Tirage de la météo de DEMAIN (visible via l'Observatoire 🔭 et la radio 📻)
+    const upcoming = Math.random() < 0.4 ? RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)] : null;
+    gameState.nextEvent = upcoming ? { icon: upcoming.icon, name: upcoming.name, description: upcoming.description } : null;
 
     // Tous les 3 jours : les PNJ ont de nouveaux besoins (quêtes réinitialisées)
     if (gameState.day % 3 === 0) {
@@ -181,8 +192,8 @@ const RANDOM_EVENTS = [
     },
 ];
 
-function applyRandomEvent() {
-    const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
+function applyRandomEvent(forcedEvent = null) {
+    const event = forcedEvent || RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
     gameState.lastEvent = { icon: event.icon, name: event.name, description: event.description, day: gameState.day };
     Object.values(gameState.players).forEach(p => {
         p.notifications.push({ type: 'chat', message: `${event.icon} ÉVÉNEMENT — ${event.name} : ${event.description}`, style: 'system_event' });
@@ -226,6 +237,7 @@ export function serializeWorld() {
         time: gameState.time,
         victory: gameState.victory,
         lastEvent: gameState.lastEvent || null,
+        nextEvent: gameState.nextEvent === undefined ? null : gameState.nextEvent,
         knownRecipes: gameState.knownRecipes,
         globallyRevealedTiles: Array.from(gameState.globallyRevealedTiles || []),
         npcs: gameState.npcs,
@@ -243,6 +255,7 @@ export function serializeWorld() {
             searchActionsLeft: tile.searchActionsLeft,
             isOpened: tile.isOpened,
             hiddenItem: tile.hiddenItem,
+            trap: tile.trap || null,
         }))),
     };
 }
@@ -259,6 +272,7 @@ export function restoreWorld(data) {
         gameState.time = data.time || 0;
         gameState.victory = data.victory || null;
         gameState.lastEvent = data.lastEvent || null;
+        gameState.nextEvent = data.nextEvent !== undefined ? data.nextEvent : undefined;
         gameState.knownRecipes = data.knownRecipes || {};
         gameState.globallyRevealedTiles = new Set(data.globallyRevealedTiles || []);
         if (Array.isArray(data.npcs)) gameState.npcs = data.npcs;

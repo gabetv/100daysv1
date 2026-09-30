@@ -1,7 +1,7 @@
 import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG } from '../config.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
-import { showChestModal } from './modals.js';
+import { showChestModal, showLockModal, hideLockModal } from './modals.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -253,7 +253,26 @@ export function updateActionsPanel(gameState) {
             if (action.id === ACTIONS.OPEN_BUILD_MODAL) {
                 window.UI.showBuildModal(gameState);
             } else if (action.id === ACTIONS.OPEN_BUILDING_INVENTORY) {
-                showChestModal(gameState);
+                // Coffre verrouillé par un cadenas ? Demander le code (sauf au propriétaire)
+                const tile = gameState.map?.[player.y]?.[player.x];
+                const lockedChest = tile?.buildings?.find(b => b.lockCode);
+                if (lockedChest && lockedChest.ownerId !== player.id) {
+                    showLockModal((code) => {
+                        if (String(code) === String(lockedChest.lockCode)) {
+                            hideLockModal();
+                            showChestModal(gameState);
+                        } else if (window.UI) {
+                            window.UI.addChatMessage('🔒 Mauvais code ! Le cadenas résiste.', 'system_error');
+                        }
+                    }, false);
+                } else {
+                    showChestModal(gameState);
+                }
+            } else if (action.id === ACTIONS.SET_LOCK) {
+                showLockModal((code) => {
+                    hideLockModal();
+                    sendAction(ACTIONS.SET_LOCK, { code: String(code) });
+                }, true);
             } else if (action.id === ACTIONS.USE_ETABLI || action.id === ACTIONS.USE_ATELIER || action.id === ACTIONS.USE_FORGE) {
                 window.UI.showWorkshopModal(gameState);
             } else {

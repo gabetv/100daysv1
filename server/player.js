@@ -1,6 +1,6 @@
 // server/player.js
 
-import { gameState, endCombat } from './state.js';
+import { gameState, endCombat, triggerRescueVictory } from './state.js';
 import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS, ACTION_COST_CONFIG } from '../public/js/config.js';
 
 // --- UTILITIES ---
@@ -208,6 +208,12 @@ export function consumeItem(player, itemKey) {
             player.notifications.push({ type: 'chat', message: "🗺️ La carte est illisible... le trésor a peut-être déjà été pillé.", style: 'system_info' });
         }
         return; // La carte n'est pas consommée
+    }
+
+    // Objets utilisables avec une action dédiée (piège, boussole, guitare, téléphone...)
+    if (itemDef && typeof itemDef.action === 'string' && USABLE_ITEM_HANDLERS[itemDef.action]) {
+        USABLE_ITEM_HANDLERS[itemDef.action](player, itemKey, itemName, itemDef);
+        return;
     }
 
     if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe)) {
@@ -564,6 +570,31 @@ export function useBuildingAction(player, actionId) {
 
         // Cas particuliers délégués
         if (actionId === 'sleep_by_campfire') { sleepByCampfire(player); return true; }
+
+        // ⚡ Panneau solaire fixe : recharge un appareil déchargé
+        if (actionId === 'charge_device_solar') {
+            const charged = chargeOneDevice(player);
+            if (!charged) {
+                player.notifications.push({ type: 'chat', message: "Aucun appareil déchargé à recharger (téléphone, radio, guitare, batterie).", style: 'system_info' });
+                return true;
+            }
+            player.notifications.push({ type: 'chat', message: `⚡ Le panneau solaire ronronne... ${charged} !`, style: 'gain' });
+            building.durability--;
+            if (building.durability <= 0) {
+                tile.buildings = tile.buildings.filter(b => b !== building);
+                player.notifications.push({ type: 'chat', message: `${def.name} est hors d'usage et s'effondre.`, style: 'damage' });
+            }
+            return true;
+        }
+
+        // Actions à intervalle (ex : Bibliothèque, 1 recherche par jour)
+        if (act.intervalHours) {
+            if (building.lastActionDay === gameState.day) {
+                player.notifications.push({ type: 'chat', message: `${def.name} : vous avez déjà fait cette recherche aujourd'hui. Revenez demain !`, style: 'system_warning' });
+                return true;
+            }
+            building.lastActionDay = gameState.day;
+        }
 
         // Vérifier les coûts
         const costs = {};
@@ -1017,26 +1048,46 @@ export function getAvailableActions(player) {
         if (building.ownerId === player.id) {
             availableActions.push({ id: ACTIONS.DISMANTLE_BUILDING, name: 'Démanteler' });
         }
-        if (TILE_TYPES[building.key]?.maxInventory) {
-            availableActions.push({ id: ACTIONS.OPEN_BUILDING_INVENTORY, name: 'Ouvrir le coffre' });
-        }
-        const buildingDef = TILE_TYPES[building.key];
-        // Ensure buildingDef exists before trying to access its properties
-        if (buildingDef) {
-            if (buildingDef.actions) {
-                if (Array.isArray(buildingDef.actions)) {
-                    buildingDef.actions.forEach(act => {
-                        if (act && act.id && act.name) {
-                            availableActions.push({ id: act.id, name: act.name });
-                        }
-                    });
-                } else if (typeof buildingDef.actions === 'object' && buildingDef.actions.id && buildingDef.actions.name) {
-                    availableActions.push({ id: buildingDef.actions.id, name: buildingDef.actions.name });
+
+        // Coffre + cadenas
+        const chest = tile.buildings.find(b => TILE_TYPES[b.key]?.maxInventory);
+        if (chest) {
+            availableActions.push({ id: ACTIONS.OPEN_BUILDING_INVENTORY, name: chest.lockCode ? '🔒 Ouvrir le coffre (verrouillé)' : 'Ouvrir le coffre' });
+            if (chest.ownerId === player.id) {
+                if (!chest.lockCode && (player.inventory['Cadenas'] || 0) >= 1) {
+                    availableActions.push({ id: ACTIONS.SET_LOCK, name: '🔒 Poser un cadenas' });
+                } else if (chest.lockCode) {
+                    availableActions.push({ id: ACTIONS.REMOVE_LOCK, name: '🔓 Retirer le cadenas' });
                 }
-            } else if (buildingDef.action && buildingDef.action.id && buildingDef.action.name) { // Fallback for single action
-                 availableActions.push({ id: buildingDef.action.id, name: buildingDef.action.name });
             }
         }
+
+        // Actions de TOUS les bâtiments de la case (sans doublon)
+        const seenActionIds = new Set(availableActions.map(a => a.id));
+        for (const b of tile.buildings) {
+            const buildingDef = TILE_TYPES[b.key];
+            if (!buildingDef) continue;
+            const list = Array.isArray(buildingDef.actions) ? buildingDef.actions
+                : (buildingDef.actions && buildingDef.actions.id ? [buildingDef.actions]
+                : (buildingDef.action && buildingDef.action.id ? [buildingDef.action] : []));
+            for (const act of list) {
+                if (act && act.id && act.name && !seenActionIds.has(act.id)) {
+                    seenActionIds.add(act.id);
+                    availableActions.push({ id: act.id, name: act.name });
+                }
+            }
+        }
+    }
+
+    // 📜 Lecture groupée des parchemins (2 ou plus dans le sac)
+    let parcheminCount = 0;
+    for (const key of Object.keys(player.inventory)) {
+        const it = player.inventory[key];
+        const name = typeof it === 'object' ? it.name : key;
+        if (ITEM_TYPES[name]?.teachesRecipe) parcheminCount += (typeof it === 'number' ? it : 1);
+    }
+    if (parcheminCount >= 2) {
+        availableActions.push({ id: ACTIONS.OPEN_ALL_PARCHEMINS, name: `📜 Lire tous les parchemins (${parcheminCount})` });
     }
 
     return availableActions;
@@ -1245,3 +1296,366 @@ export function applyActionCost(player) {
     player.thirst = Math.max(0, player.thirst - (ACTION_COST_CONFIG.costRange.thirst.min + Math.random() * (ACTION_COST_CONFIG.costRange.thirst.max - ACTION_COST_CONFIG.costRange.thirst.min)));
     player.sleep = Math.max(0, player.sleep - (ACTION_COST_CONFIG.costRange.sleep.min + Math.random() * (ACTION_COST_CONFIG.costRange.sleep.max - ACTION_COST_CONFIG.costRange.sleep.min)));
 }
+
+// ============================================================
+// === OBJETS UTILISABLES (pièges, boussole, guitare, etc.) ===
+// ============================================================
+
+/** Appareils rechargeables : déchargé → chargé */
+const CHARGE_MAP = {
+    'Téléphone déchargé': 'Téléphone chargé',
+    'Radio déchargée': 'Radio chargée',
+    'Guitare déchargé': 'Guitare',
+    'Batterie déchargée': 'Batterie chargée',
+};
+
+/**
+ * Consomme une "utilisation" d'un objet (empilable ou instance unique).
+ * @param {string|null} transformInto - objet de remplacement quand épuisé (ex: Guitare → Guitare déchargé)
+ */
+function consumeItemUse(player, itemKey, itemName, itemDef, transformInto = null) {
+    const item = player.inventory[itemKey];
+    if (item === undefined) return;
+    if (typeof item === 'number') {
+        removeItemFromInventory(player, itemKey, 1);
+        if (transformInto) addItemToInventory(player, transformInto, 1);
+        return;
+    }
+    item.usesLeft = (item.usesLeft ?? itemDef.uses ?? 1) - 1;
+    if (item.usesLeft <= 0) {
+        delete player.inventory[itemKey];
+        if (transformInto) {
+            addItemToInventory(player, transformInto, 1);
+        } else {
+            player.notifications.push({ type: 'chat', message: `${itemName} est épuisé.`, style: 'system_info' });
+        }
+    } else {
+        player.notifications.push({ type: 'chat', message: `${itemName} : ${item.usesLeft} utilisation(s) restante(s).`, style: 'system_info' });
+    }
+}
+
+/** 🪤 Pose un piège sur la case : le prochain ennemi qui y passe est blessé/tué. */
+export function placeTrap(player, itemKey, itemName, itemDef) {
+    const tile = gameState.map[player.y][player.x];
+    if (tile.trap) {
+        player.notifications.push({ type: 'chat', message: "Il y a déjà un piège sur cette case.", style: 'system_warning' });
+        return;
+    }
+    tile.trap = { owner: player.id, ownerName: player.name };
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: "🪤 Piège posé et armé ! Le prochain ennemi qui passera ici le regrettera...", style: 'gain' });
+}
+
+/** ☀️ Installe un panneau solaire fixe (devient un bâtiment de la case). */
+export function placeSolarPanelFixed(player, itemKey, itemName, itemDef) {
+    const tile = gameState.map[player.y][player.x];
+    if (!tile.type.accessible || tile.type.name === 'Eau') {
+        player.notifications.push({ type: 'chat', message: "Impossible d'installer un panneau solaire ici.", style: 'system_warning' });
+        return;
+    }
+    tile.buildings = tile.buildings || [];
+    if (tile.buildings.length >= (CONFIG.MAX_BUILDINGS_PER_TILE || 3)) {
+        player.notifications.push({ type: 'chat', message: "Cette case est déjà trop encombrée de constructions.", style: 'system_warning' });
+        return;
+    }
+    tile.buildings.push({ key: 'PANNEAU_SOLAIRE', durability: TILE_TYPES.PANNEAU_SOLAIRE.durability, ownerId: player.id, lockCode: null, inventory: {} });
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: "☀️ Panneau solaire installé ! Tout le monde peut y recharger ses appareils.", style: 'gain' });
+    addXp(player, 3);
+}
+
+/** Recharge le premier appareil déchargé trouvé (inventaire puis équipement). @returns {string|null} */
+function chargeOneDevice(player) {
+    for (const key in player.inventory) {
+        const it = player.inventory[key];
+        const name = typeof it === 'object' ? it.name : key;
+        if (CHARGE_MAP[name]) {
+            removeItemFromInventory(player, key, 1);
+            addItemToInventory(player, CHARGE_MAP[name], 1);
+            return `${name} → ${CHARGE_MAP[name]}`;
+        }
+    }
+    const w = player.equipment.weapon;
+    if (w && CHARGE_MAP[w.name]) {
+        const to = CHARGE_MAP[w.name];
+        player.equipment.weapon = { ...w, name: to };
+        return `${w.name} → ${to}`;
+    }
+    return null;
+}
+
+/** 🌞 Panneau solaire portable : recharge un appareil déchargé. */
+export function chargeBatteryPortableSolar(player, itemKey, itemName, itemDef) {
+    const charged = chargeOneDevice(player);
+    if (!charged) {
+        player.notifications.push({ type: 'chat', message: "Aucun appareil déchargé à recharger (téléphone, radio, guitare, batterie).", style: 'system_info' });
+        return;
+    }
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: `🌞 Le soleil fait son œuvre... ${charged} !`, style: 'gain' });
+}
+
+/** 🧭 Boussole : révèle la mine la plus proche. */
+export function findMineCompass(player, itemKey, itemName, itemDef) {
+    let best = null, bestDist = Infinity;
+    for (const row of gameState.map) {
+        for (const t of row) {
+            if (t.key === 'MINE_TERRAIN') {
+                const d = Math.abs(t.x - player.x) + Math.abs(t.y - player.y);
+                if (d < bestDist) { bestDist = d; best = t; }
+            }
+        }
+    }
+    if (!best) {
+        player.notifications.push({ type: 'chat', message: "🧭 L'aiguille tourne en rond... aucune mine détectée sur l'île.", style: 'system_info' });
+        return;
+    }
+    player.visitedTiles.add(`${best.x},${best.y}`);
+    const dirV = best.y < player.y ? 'nord' : (best.y > player.y ? 'sud' : '');
+    const dirH = best.x < player.x ? 'ouest' : (best.x > player.x ? 'est' : '');
+    const dir = (dirV && dirH) ? `${dirV}-${dirH}` : (dirV || dirH || 'ici même');
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: `🧭 L'aiguille s'affole vers le ${dir} : une mine se trouve en (${best.x}, ${best.y}) ! Position marquée sur votre carte.`, style: 'gain' });
+}
+
+/** 😗 Sifflet : attire le survivant (PNJ) le plus proche jusqu'à vous. */
+export function attractNpcAttention(player, itemKey, itemName, itemDef) {
+    let best = null, bestDist = Infinity;
+    for (const npc of gameState.npcs) {
+        const d = Math.abs(npc.x - player.x) + Math.abs(npc.y - player.y);
+        if (d < bestDist) { bestDist = d; best = npc; }
+    }
+    if (!best || bestDist === 0) {
+        player.notifications.push({ type: 'chat', message: best ? `${best.name} est déjà à vos côtés !` : "Personne ne répond à votre sifflet...", style: 'system_info' });
+        return;
+    }
+    if (bestDist > 6) {
+        consumeItemUse(player, itemKey, itemName, itemDef);
+        player.notifications.push({ type: 'chat', message: "😗 Vous sifflez de toutes vos forces... mais personne n'est assez proche pour entendre.", style: 'system_info' });
+        return;
+    }
+    best.x = player.x;
+    best.y = player.y;
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: `😗 Votre sifflet retentit... ${best.name} accourt vers vous !`, style: 'gain' });
+}
+
+/** 🛠️ Kit de réparation : restaure la solidité du bâtiment le plus abîmé de la case. */
+export function repairBuilding(player, itemKey, itemName, itemDef) {
+    const tile = gameState.map[player.y][player.x];
+    let target = null, def = null, missing = -1;
+    for (const b of (tile.buildings || [])) {
+        const d = TILE_TYPES[b.key];
+        if (!d || !d.durability) continue;
+        const m = d.durability - b.durability;
+        if (m > missing) { missing = m; target = b; def = d; }
+    }
+    if (!target || missing <= 0) {
+        player.notifications.push({ type: 'chat', message: "Aucun bâtiment à réparer ici.", style: 'system_info' });
+        return;
+    }
+    target.durability = def.durability;
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'chat', message: `🛠️ ${def.name} réparé comme neuf (+${missing} solidité) !`, style: 'gain' });
+    addXp(player, 2);
+}
+
+/** 🎸 Guitare électrique : un concert qui remonte le moral de toute la case ! */
+export function playElectricGuitar(player, itemKey, itemName, itemDef) {
+    const listeners = Object.values(gameState.players).filter(p => p.x === player.x && p.y === player.y && p.health > 0);
+    listeners.forEach(p => {
+        p.sleep = Math.min(p.maxSleep, p.sleep + 5);
+        p.health = Math.min(p.maxHealth, p.health + 2);
+        if (p.id === player.id) {
+            p.notifications.push({ type: 'chat', message: "🎸 Vous enchaînez un solo endiablé ! Tout le monde reprend courage (+5 Sommeil, +2 Santé).", style: 'gain' });
+        } else {
+            p.notifications.push({ type: 'chat', message: `🎸 ${player.name} joue un morceau électrisant ! Vous vous sentez revigoré (+5 Sommeil, +2 Santé).`, style: 'gain' });
+        }
+    });
+    consumeItemUse(player, itemKey, itemName, itemDef, 'Guitare déchargé');
+    addXp(player, 2);
+}
+
+/** 📱 Téléphone chargé : tenter d'appeler les secours (20% de chance par appel). */
+export function attemptCall(player, itemKey, itemName, itemDef) {
+    consumeItemUse(player, itemKey, itemName, itemDef, 'Téléphone déchargé');
+    if (gameState.victory) return;
+    if (Math.random() < 0.2) {
+        player.notifications.push({ type: 'chat', message: "📱 « Allô ?! Oui, nous sommes naufragés sur une île !! » — Les secours ont capté votre position !", style: 'gain' });
+        triggerRescueVictory(player);
+    } else {
+        player.notifications.push({ type: 'chat', message: "📱 Bip... bip... « Réseau indisponible ». Rapprochez-vous peut-être du ciel dégagé et réessayez.", style: 'system_info' });
+    }
+}
+
+/** 📻 Radio chargée : capte des bribes d'informations précieuses. */
+export function listenRadio(player, itemKey, itemName, itemDef) {
+    const hints = [];
+    if (gameState.nextEvent) {
+        hints.push(`« ...bulletin météo... demain, ${gameState.nextEvent.name} ${gameState.nextEvent.icon} prévu sur le secteur... »`);
+    } else {
+        hints.push("« ...bulletin météo... ciel dégagé prévu demain sur le secteur... »");
+    }
+    let treasureTile = null;
+    for (const row of gameState.map) for (const t of row) if (t.key === 'TREASURE_CHEST' && !t.isOpened) treasureTile = t;
+    if (treasureTile) hints.push(`« ...légende locale... un trésor dormirait aux coordonnées (${treasureTile.x}, ${treasureTile.y})... »`);
+    hints.push("« ...les gardes-côtes surveillent les plages... un signal de détresse y serait immédiatement repéré... »");
+    hints.push(`« ...jour ${gameState.day}... les secours ratissent la zone... tenez bon jusqu'au jour ${CONFIG.VICTORY_DAY}... »`);
+    const heard = hints[Math.floor(Math.random() * hints.length)];
+    consumeItemUse(player, itemKey, itemName, itemDef, 'Radio déchargée');
+    player.notifications.push({ type: 'chat', message: `📻 La radio grésille : ${heard}`, style: 'system_event' });
+}
+
+/** ⚗️ Filtre à eau : transforme 1 Eau salée en 1 Eau pure. */
+export function purifyWater(player, itemKey, itemName, itemDef) {
+    if ((player.inventory['Eau salée'] || 0) < 1) {
+        player.notifications.push({ type: 'chat', message: "Il vous faut de l'Eau salée à filtrer.", style: 'system_warning' });
+        return;
+    }
+    removeItemFromInventory(player, 'Eau salée', 1);
+    addItemToInventory(player, 'Eau pure', 1);
+    consumeItemUse(player, itemKey, itemName, itemDef);
+    player.notifications.push({ type: 'floatingText', message: '+1 Eau pure', style: 'gain' });
+    player.notifications.push({ type: 'chat', message: "⚗️ L'eau salée devient claire comme du cristal. +1 Eau pure !", style: 'gain' });
+}
+
+/** 📜 Lit tous les parchemins de l'inventaire d'un coup. */
+export function openAllParchemins(player) {
+    let learned = 0;
+    for (const key of Object.keys(player.inventory)) {
+        const it = player.inventory[key];
+        const name = typeof it === 'object' ? it.name : key;
+        const def = ITEM_TYPES[name];
+        if (def?.teachesRecipe) {
+            removeItemFromInventory(player, key, typeof it === 'number' ? it : 1);
+            player.knownRecipes[def.teachesRecipe] = true;
+            gameState.knownRecipes[def.teachesRecipe] = true;
+            learned++;
+        }
+    }
+    if (learned === 0) {
+        player.notifications.push({ type: 'chat', message: "Vous n'avez aucun parchemin à lire.", style: 'system_info' });
+    } else {
+        player.notifications.push({ type: 'chat', message: `📜 Vous dévorez ${learned} parchemin(s) : autant de nouvelles recettes apprises !`, style: 'gain' });
+        addXp(player, learned);
+    }
+}
+
+/** 🔭 Observatoire : révèle la météo (l'événement) de demain. */
+export function observeWeather(player) {
+    const tile = gameState.map[player.y][player.x];
+    const obs = (tile.buildings || []).find(b => b.key === 'OBSERVATOIRE');
+    if (!obs) {
+        player.notifications.push({ type: 'chat', message: "Il faut un Observatoire pour scruter le ciel.", style: 'system_warning' });
+        return;
+    }
+    if (gameState.nextEvent === undefined) {
+        player.notifications.push({ type: 'chat', message: "🔭 Les nuages sont encore illisibles... revenez demain.", style: 'system_info' });
+        return;
+    }
+    if (gameState.nextEvent === null) {
+        player.notifications.push({ type: 'chat', message: "🔭 Le ciel est limpide : demain sera une journée ordinaire.", style: 'system_event' });
+    } else {
+        player.notifications.push({ type: 'chat', message: `🔭 Les astres parlent : demain, ${gameState.nextEvent.icon} ${gameState.nextEvent.name} ! ${gameState.nextEvent.description}`, style: 'system_event' });
+    }
+    obs.durability--;
+    if (obs.durability <= 0) {
+        tile.buildings = tile.buildings.filter(b => b !== obs);
+        player.notifications.push({ type: 'chat', message: "L'Observatoire s'effondre, usé par les intempéries.", style: 'damage' });
+    }
+}
+
+/** 🔒 Pose un cadenas (code à 3 chiffres) sur le coffre de la case. */
+export function setLock(player, code) {
+    if (!/^\d{3}$/.test(String(code || ''))) {
+        player.notifications.push({ type: 'chat', message: "Le code doit être composé de 3 chiffres.", style: 'system_warning' });
+        return;
+    }
+    const tile = gameState.map[player.y][player.x];
+    const chest = (tile.buildings || []).find(b => TILE_TYPES[b.key]?.maxInventory);
+    if (!chest) {
+        player.notifications.push({ type: 'chat', message: "Aucun coffre à verrouiller ici.", style: 'system_warning' });
+        return;
+    }
+    if (chest.ownerId !== player.id) {
+        player.notifications.push({ type: 'chat', message: "Seul le propriétaire peut poser un cadenas.", style: 'system_warning' });
+        return;
+    }
+    if (chest.lockCode) {
+        player.notifications.push({ type: 'chat', message: "Ce coffre est déjà verrouillé.", style: 'system_warning' });
+        return;
+    }
+    if ((player.inventory['Cadenas'] || 0) < 1) {
+        player.notifications.push({ type: 'chat', message: "Il vous faut un Cadenas (à fabriquer à l'atelier).", style: 'system_warning' });
+        return;
+    }
+    removeItemFromInventory(player, 'Cadenas', 1);
+    chest.lockCode = String(code);
+    player.notifications.push({ type: 'chat', message: `🔒 Coffre verrouillé avec le code ${code}. Ne l'oubliez pas !`, style: 'gain' });
+}
+
+/** 🔓 Retire le cadenas du coffre (propriétaire uniquement) et le récupère. */
+export function removeLock(player) {
+    const tile = gameState.map[player.y][player.x];
+    const chest = (tile.buildings || []).find(b => b.lockCode);
+    if (!chest) {
+        player.notifications.push({ type: 'chat', message: "Aucun coffre verrouillé ici.", style: 'system_info' });
+        return;
+    }
+    if (chest.ownerId !== player.id) {
+        player.notifications.push({ type: 'chat', message: "Seul le propriétaire peut retirer le cadenas.", style: 'system_warning' });
+        return;
+    }
+    chest.lockCode = null;
+    addItemToInventory(player, 'Cadenas', 1);
+    player.notifications.push({ type: 'chat', message: "🔓 Cadenas retiré et récupéré.", style: 'gain' });
+}
+
+/** Route une action d'objet (envoyée directement) vers le bon objet de l'inventaire. */
+export function useItemByAction(player, actionId) {
+    for (const key of Object.keys(player.inventory)) {
+        const it = player.inventory[key];
+        const name = typeof it === 'object' ? it.name : key;
+        const def = ITEM_TYPES[name];
+        if (def && def.action === actionId && USABLE_ITEM_HANDLERS[actionId]) {
+            USABLE_ITEM_HANDLERS[actionId](player, key, name, def);
+            return true;
+        }
+    }
+    // Peut-être l'objet est équipé en arme (guitare, téléphone, panneau portable...)
+    const w = player.equipment.weapon;
+    if (w) {
+        const def = ITEM_TYPES[w.name];
+        if (def && def.action === actionId && USABLE_ITEM_HANDLERS[actionId]) {
+            // Déséquiper temporairement dans l'inventaire pour traitement uniforme
+            const tmpKey = `${w.name}_${Date.now()}_tmp`;
+            player.inventory[tmpKey] = { ...w };
+            player.equipment.weapon = null;
+            USABLE_ITEM_HANDLERS[actionId](player, tmpKey, w.name, def);
+            // Rééquiper si l'objet a survécu
+            if (player.inventory[tmpKey]) {
+                player.equipment.weapon = player.inventory[tmpKey];
+                delete player.inventory[tmpKey];
+            }
+            return true;
+        }
+    }
+    player.notifications.push({ type: 'chat', message: "Vous n'avez pas l'objet nécessaire pour cette action.", style: 'system_warning' });
+    return false;
+}
+
+/** Table de routage : action d'objet → gestionnaire. */
+const USABLE_ITEM_HANDLERS = {
+    place_trap: placeTrap,
+    place_solar_panel_fixed: placeSolarPanelFixed,
+    charge_battery_portable_solar: chargeBatteryPortableSolar,
+    find_mine_compass: findMineCompass,
+    attract_npc_attention: attractNpcAttention,
+    repair_building: repairBuilding,
+    play_electric_guitar: playElectricGuitar,
+    attempt_call_if_charged: attemptCall,
+    listen_radio_if_charged: listenRadio,
+    purify_water: purifyWater,
+    fire_distress_gun: (player) => fireDistressSignal(player, triggerRescueVictory),
+    fire_distress_flare: (player) => fireDistressSignal(player, triggerRescueVictory),
+};

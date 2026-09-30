@@ -19,6 +19,9 @@ const FREE_ACTIONS = new Set([
     ACTIONS.TALK_TO_NPC,
     ACTIONS.OPEN_LARGE_MAP,
     ACTIONS.OPEN_BUILDING_INVENTORY,
+    ACTIONS.SET_LOCK,
+    ACTIONS.REMOVE_LOCK,
+    ACTIONS.OPEN_ALL_PARCHEMINS,
 ]);
 
 export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
@@ -180,33 +183,43 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             Player.dismantleBuilding(player);
             break;
 
-        // --- ACTIONS GÉRÉES CÔTÉ CLIENT (modales) ---
+        // --- OBJETS UTILISABLES (piège, panneau solaire, boussole, sifflet, kit, guitare...) ---
+        case ACTIONS.PLACE_TRAP:
+        case ACTIONS.PLACE_SOLAR_PANEL_FIXED:
+        case ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR:
+        case ACTIONS.ATTRACT_NPC_ATTENTION:
+        case ACTIONS.FIND_MINE_COMPASS:
+        case ACTIONS.REPAIR_BUILDING:
+        case ACTIONS.PLAY_ELECTRIC_GUITAR:
+            Player.useItemByAction(player, actionId);
+            break;
+
+        case ACTIONS.OPEN_ALL_PARCHEMINS:
+            Player.openAllParchemins(player);
+            break;
+
+        case ACTIONS.OBSERVE_WEATHER:
+            Player.observeWeather(player);
+            break;
+
+        case ACTIONS.SET_LOCK:
+            Player.setLock(player, data?.code);
+            break;
+
+        case ACTIONS.REMOVE_LOCK:
+            Player.removeLock(player);
+            break;
+
+        // --- ACTIONS GÉRÉES CÔTÉ CLIENT (modales / tutoriel) ---
         case ACTIONS.OPEN_LARGE_MAP:
         case ACTIONS.OPEN_BUILDING_INVENTORY:
         case ACTIONS.USE_ATELIER:
         case ACTIONS.USE_ETABLI:
         case ACTIONS.USE_FORGE:
-        case ACTIONS.SET_LOCK:
-        case ACTIONS.REMOVE_LOCK:
-            break;
-
-        // --- ACTIONS PAS ENCORE IMPLÉMENTÉES ---
-        case ACTIONS.OPEN_ALL_PARCHEMINS:
-        case ACTIONS.PLACE_SOLAR_PANEL_FIXED:
-        case ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR:
-        case ACTIONS.PLACE_TRAP:
-        case ACTIONS.ATTRACT_NPC_ATTENTION:
-        case ACTIONS.FIND_MINE_COMPASS:
-        case ACTIONS.REPAIR_BUILDING:
-        case ACTIONS.PLAY_ELECTRIC_GUITAR:
-        case ACTIONS.OBSERVE_WEATHER:
-        case ACTIONS.GENERATE_PLAN:
         case ACTIONS.TUTORIAL_HIDE_AND_MOVE:
         case ACTIONS.TUTORIAL_NEXT:
         case ACTIONS.TUTORIAL_SKIP:
-             player.notifications.push({ type: 'chat', message: `L'action '${actionId}' n'est pas encore implémentée.`, style: 'system_warning' });
-             console.warn(`Action not yet implemented: ${actionId}`);
-             break;
+            break;
 
         default:
             // Peut-être une action de bâtiment (cuisiner, bouillir, puiser, récolter une plantation...)

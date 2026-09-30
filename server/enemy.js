@@ -128,6 +128,33 @@ export function updateEnemies(deltaTime, startCombatFn) {
             enemy.y = ny;
         }
 
+        // 🪤 Piège sur la case d'arrivée ?
+        const landed = map[enemy.y]?.[enemy.x];
+        if (landed?.trap) {
+            const trap = landed.trap;
+            delete landed.trap;
+            const dmg = 6;
+            enemy.currentHealth = (enemy.currentHealth ?? enemy.health) - dmg;
+            const owner = players[trap.owner];
+            if (enemy.currentHealth <= 0) {
+                // Le piège a tué : butin déposé au sol
+                landed.groundItems = landed.groundItems || {};
+                for (const item in (enemy.loot || {})) {
+                    landed.groundItems[item] = (landed.groundItems[item] || 0) + enemy.loot[item];
+                }
+                gameState.enemies = gameState.enemies.filter(e => e !== enemy);
+                if (owner) {
+                    owner.notifications.push({ type: 'chat', message: `🪤 Votre piège a tué ${enemy.name} en (${enemy.x}, ${enemy.y}) ! Son butin gît au sol.`, style: 'gain' });
+                }
+                console.log(`Trap killed ${enemy.name} at (${enemy.x}, ${enemy.y})`);
+                continue;
+            } else {
+                if (owner) {
+                    owner.notifications.push({ type: 'chat', message: `🪤 Votre piège a blessé ${enemy.name} (-${dmg} PV) en (${enemy.x}, ${enemy.y}) !`, style: 'gain' });
+                }
+            }
+        }
+
         // Attaque : un joueur libre est sur la même case ?
         const victim = Object.values(players).find(p => p.x === enemy.x && p.y === enemy.y && p.health > 0 && !p.combatState);
         if (victim && startCombatFn) {

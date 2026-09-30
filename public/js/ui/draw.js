@@ -301,6 +301,16 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.restore();
     }
 
+    // 🪤 Piège armé sur la case actuelle
+    if (map?.[player.y]?.[player.x]?.trap) {
+        charactersCtx.save();
+        charactersCtx.font = '36px sans-serif';
+        charactersCtx.textAlign = 'left';
+        charactersCtx.textBaseline = 'bottom';
+        charactersCtx.fillText('🪤', 14, canvasHeight - 14);
+        charactersCtx.restore();
+    }
+
     // Afficher les quantités de ressources restantes sur le côté droit de l'image
     if (map && map[player.y] && map[player.y][player.x]) {
         const currentTile = map[player.y][player.x];
