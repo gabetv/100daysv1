@@ -1730,3 +1730,20 @@ button::after {
 .chat-message.system_error { color: #f87171; font-weight: 600; }
 .chat-message.system_info { color: #93c5fd; }
 .chat-message.player strong { color: #7dd3fc; }
+
+/* --- Bandeau d'événement + bouton son --- */
+#event-display {
+    color: #fcd34d; font-weight: 700; font-size: 0.85rem;
+    animation: event-glow 1.6s ease-in-out infinite;
+    cursor: help;
+}
+@keyframes event-glow {
+    0%, 100% { text-shadow: 0 0 4px rgba(252, 211, 77, 0.4); }
+    50% { text-shadow: 0 0 12px rgba(252, 211, 77, 0.9); }
+}
+#sound-toggle {
+    background: none; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 6px;
+    cursor: pointer; font-size: 0.85rem; padding: 1px 5px; margin-left: 6px;
+    vertical-align: middle; transition: border-color 0.15s, transform 0.1s;
+}
+#sound-toggle:hover { border-color: #ffd700; transform: scale(1.1); }

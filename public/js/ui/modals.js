@@ -3,6 +3,7 @@ import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
 import { sendAction } from '../main.js';
+import { sfx } from '../audio.js';
 
 let quantityConfirmCallback = null;
 let currentWorkshopRecipes = [];
@@ -187,6 +188,7 @@ export function hideCombatModal() {
 }
 let lastCombatPlayerHealth = null;
 let lastCombatEnemyHealth = null;
+let lastCombatLogHead = null;
 
 function flashPortrait(id) {
     const el = document.getElementById(id);
@@ -232,6 +234,12 @@ export function updateCombatUI(combatState) {
     if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${Math.max(0, Math.ceil(player.health))} / ${player.maxHealth}`;
 
     if(combatLogEl) {
+        // Sons selon le dernier événement du journal
+        const head = (log || [])[0];
+        if (head && head !== lastCombatLogHead) {
+            lastCombatLogHead = head;
+            if (head.includes('CRITIQUE')) sfx('crit');
+        }
         combatLogEl.innerHTML = '';
         (log || []).slice(0, 15).forEach((msg, i) => {
             const p = document.createElement('p');

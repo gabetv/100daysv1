@@ -121,6 +121,10 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             Player.fireDistressSignal(player, triggerRescueVictory);
             break;
 
+        case 'pvp_attack':
+            Player.attackPlayer(player);
+            break;
+
         case ACTIONS.TALK_TO_NPC: {
             const npc = gameState.npcs.find(n => n.x === player.x && n.y === player.y);
             if (npc) handleNpcInteraction(player, npc);

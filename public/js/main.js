@@ -4,6 +4,7 @@ import * as Admin from './admin.js';
 import { ACTIONS, SPRITESHEET_PATHS } from './config.js';
 import DOM from './ui/dom.js';
 import { initInteractions } from './interactions.js';
+import { initAudio, sfx, toggleAudio, isEnabled as isAudioEnabled } from './audio.js';
 
 let gameState = null;
 let myPlayerId = null;
@@ -86,6 +87,7 @@ function handleServerMessage(event) {
                     } else if (notification.type === 'floatingText') {
                         UI.showFloatingText(notification.message, notification.style);
                     }
+                    playNotificationSound(notification);
                 });
                 gameState.players[myPlayerId].notifications = [];
             }
@@ -113,6 +115,16 @@ let combatModalVisible = false;
 let victoryShown = false;
 let lastKnownHealth = null;
 
+// Traduit les notifications du serveur en effets sonores
+function playNotificationSound(notification) {
+    const msg = notification.message || '';
+    if (msg.includes('NIVEAU')) return sfx('levelup');
+    if (msg.includes('succombé')) return sfx('death');
+    if (msg.includes('ÉVÉNEMENT')) return sfx('event');
+    if (notification.style === 'gain') return sfx('gain');
+    if (notification.style === 'damage') return sfx('hit');
+}
+
 function fullUIUpdate() {
     if (!gameState || !gameState.player) return;
     UI.updateAllUI(gameState);
@@ -130,6 +142,7 @@ function fullUIUpdate() {
         if (!combatModalVisible) {
             UI.showCombatModal(combatState);
             combatModalVisible = true;
+            sfx('combat');
         } else {
             UI.updateCombatUI(combatState);
         }
@@ -138,9 +151,23 @@ function fullUIUpdate() {
         combatModalVisible = false;
     }
 
+    // --- Bandeau d'événement du jour ---
+    const eventDisplay = document.getElementById('event-display');
+    if (eventDisplay) {
+        const ev = gameState.lastEvent;
+        if (ev && ev.day === gameState.day) {
+            eventDisplay.textContent = `${ev.icon} ${ev.name}`;
+            eventDisplay.title = ev.description || '';
+            eventDisplay.style.display = '';
+        } else {
+            eventDisplay.style.display = 'none';
+        }
+    }
+
     // --- Fin de partie : écran de victoire ---
     if (gameState.victory && !victoryShown) {
         victoryShown = true;
+        sfx('victory');
         showVictoryScreen(gameState.victory, gameState.player);
     }
 }
@@ -186,6 +213,25 @@ function setupEventListeners() {
         });
     });
     
+    // --- Audio : démarrage au premier geste + clics + bouton mute ---
+    document.addEventListener('pointerdown', () => initAudio(), { once: true });
+    document.addEventListener('keydown', () => initAudio(), { once: true });
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        if (btn.id === 'combat-attack-btn') sfx('attack');
+        else if (btn.id !== 'sound-toggle') sfx('click');
+    });
+    const soundToggle = document.getElementById('sound-toggle');
+    if (soundToggle) {
+        soundToggle.addEventListener('click', () => {
+            initAudio();
+            const on = toggleAudio();
+            soundToggle.textContent = on ? '🔊' : '🔇';
+            soundToggle.title = on ? 'Couper le son' : 'Activer le son';
+        });
+    }
+
     // Replier/déplier le panneau d'objectifs
     const objectivesTitle = document.getElementById('objectives-hud-title');
     if (objectivesTitle) {

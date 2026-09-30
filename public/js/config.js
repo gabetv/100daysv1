@@ -129,7 +129,9 @@ export const ACTION_DURATIONS = {
 export const ENEMY_TYPES = {
     WOLF: { name: 'Loup Agressif', icon: '🐺', health: 10, damage: 2, color: '#dc2626', aggroRadius: 4, loot: { 'Peau de bête': 1, 'Os': 2, 'Viande crue': 1 } },
     SNAKE: { name: 'Serpent Venimeux', icon: '🐍', health: 6, damage: 3, color: '#16a34a', aggroRadius: 3, loot: { 'Viande crue': 1, 'Venin': 1 } },
-    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {'Cadenas cassé': 1} }
+    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {'Cadenas cassé': 1} },
+    GUARDIAN: { name: 'Gardien du Trésor', icon: '🗿', health: 35, damage: 4, color: '#a16207', aggroRadius: 0, isBoss: true,
+        loot: { "Minerai d'or": 2, 'Kit de Secours': 2, 'Os': 5, 'Pierre': 10 } }
 };
 
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or', 'Souffre'];

@@ -642,6 +642,13 @@ export function openTreasure(player) {
     const tile = gameState.map[player.y][player.x];
     if (tile.type.name !== 'Trésor Caché' || tile.isOpened) return;
 
+    // Le Gardien doit être vaincu d'abord !
+    const guardian = gameState.enemies.find(e => e.isBoss && e.x === tile.x && e.y === tile.y);
+    if (guardian) {
+        player.notifications.push({ type: 'chat', message: `🗿 ${guardian.name} bloque le coffre de son corps de pierre ! Vainquez-le d'abord !`, style: 'system_warning' });
+        return;
+    }
+
     if (!player.inventory['Clé du Trésor']) {
         player.notifications.push({ type: 'chat', message: "Il vous faut la Clé du Trésor pour ouvrir ce coffre.", style: 'system_warning' });
         return;
@@ -922,6 +929,13 @@ export function getAvailableActions(player) {
         availableActions.push({ id: ACTIONS.TALK_TO_NPC, name: `💬 Parler à ${npcHere.name}` });
     }
 
+    // PvP : un autre joueur est sur la case
+    const rivalHere = Object.values(gameState.players).find(p =>
+        p.id !== player.id && p.x === player.x && p.y === player.y && p.health > 0 && !p.combatState);
+    if (rivalHere && !player.combatState) {
+        availableActions.push({ id: 'pvp_attack', name: `🗡️ Attaquer ${rivalHere.name}` });
+    }
+
     // Search Zone
     if (['Forêt', 'Plage', 'Plaine', 'Friche'].includes(tile.type.name) && (tile.searchActionsLeft === undefined || tile.searchActionsLeft > 0)) {
         availableActions.push({ id: ACTIONS.SEARCH_ZONE, name: 'Fouiller la zone' });
@@ -1029,6 +1043,71 @@ export function getAvailableActions(player) {
 }
 
 
+// --- PVP ---
+
+const PVP_COOLDOWN_MS = 5000;
+
+/**
+ * Attaque un autre survivant présent sur la même case (duel sauvage !).
+ * Cooldown de 5 s entre deux attaques.
+ */
+export function attackPlayer(attacker) {
+    if (attacker.combatState) return;
+
+    const now = Date.now();
+    if (attacker.lastPvpAttack && now - attacker.lastPvpAttack < PVP_COOLDOWN_MS) {
+        const wait = Math.ceil((PVP_COOLDOWN_MS - (now - attacker.lastPvpAttack)) / 1000);
+        attacker.notifications.push({ type: 'chat', message: `Vous reprenez votre souffle... (${wait}s)`, style: 'system_warning' });
+        return;
+    }
+
+    const target = Object.values(gameState.players).find(p =>
+        p.id !== attacker.id && p.x === attacker.x && p.y === attacker.y && p.health > 0 && !p.combatState);
+    if (!target) {
+        attacker.notifications.push({ type: 'chat', message: "Il n'y a personne à défier ici.", style: 'system_info' });
+        return;
+    }
+
+    attacker.lastPvpAttack = now;
+
+    // Dégâts = arme de l'attaquant - défense de la cible (minimum 1)
+    const weapon = attacker.equipment.weapon ? ITEM_TYPES[attacker.equipment.weapon.name] : null;
+    let damage = weapon?.stats?.damage || 1;
+    const defense = (target.equipment.body?.stats?.defense || 0) +
+                    (target.equipment.head?.stats?.defense || 0) +
+                    (target.equipment.feet?.stats?.defense || 0) +
+                    (target.equipment.shield?.stats?.defense || 0);
+    damage = Math.max(1, damage - defense);
+
+    // Coup critique PvP (10%)
+    const isCrit = Math.random() < 0.10;
+    if (isCrit) damage *= 2;
+
+    target.health = Math.max(0, target.health - damage);
+
+    attacker.notifications.push({ type: 'chat', message: `🗡️ Vous frappez ${target.name}${isCrit ? ' (CRITIQUE !)' : ''} : ${damage} dégâts !`, style: 'combat_start' });
+    attacker.notifications.push({ type: 'floatingText', message: `-${damage} PV à ${target.name}`, style: 'damage' });
+    target.notifications.push({ type: 'chat', message: `⚠️ ${attacker.name} vous attaque${isCrit ? ' (CRITIQUE !)' : ''} : -${damage} PV ! Ripostez ou fuyez !`, style: 'damage' });
+    target.notifications.push({ type: 'floatingText', message: `-${damage} PV (${attacker.name})`, style: 'damage' });
+
+    if (target.health <= 0) {
+        attacker.notifications.push({ type: 'chat', message: `☠️ Vous avez terrassé ${target.name} ! (+5 XP)`, style: 'gain' });
+        addXp(attacker, 5);
+
+        // Le vaincu lâche un objet empilable au sol
+        const stackables = Object.keys(target.inventory).filter(k => typeof target.inventory[k] === 'number' && target.inventory[k] > 0);
+        if (stackables.length > 0) {
+            const dropped = stackables[Math.floor(Math.random() * stackables.length)];
+            const tile = gameState.map[target.y][target.x];
+            if (!tile.groundItems) tile.groundItems = {};
+            tile.groundItems[dropped] = (tile.groundItems[dropped] || 0) + 1;
+            removeItemFromInventory(target, dropped, 1);
+            target.notifications.push({ type: 'chat', message: `Vous perdez 1 ${dropped} dans la chute...`, style: 'cost' });
+        }
+        // La mort/respawn est gérée par updatePlayerState
+    }
+}
+
 // --- OBJECTIFS (guident le joueur vers les deux fins possibles) ---
 
 /**
@@ -1052,7 +1131,9 @@ export function getObjectives(player) {
         },
         {
             icon: '💎',
-            text: 'Ouvrir le Trésor Caché',
+            text: gameState.enemies.some(e => e.isBoss)
+                ? 'Vaincre le Gardien 🗿 et ouvrir le Trésor Caché'
+                : 'Ouvrir le Trésor Caché',
             done: opened,
         },
         {

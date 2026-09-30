@@ -2,7 +2,7 @@
 
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from '../public/js/config.js';
 import { initNpcs } from './npc.js';
-import { initEnemies } from './enemy.js';
+import { initEnemies, spawnGuardian, spawnSingleEnemy } from './enemy.js';
 
 export let gameState = {};
 
@@ -35,7 +35,12 @@ export function initializeGameState(config) {
     // Peupler l'île : survivants PNJ et premiers dangers
     gameState.npcs = initNpcs(config, map);
     gameState.enemies = initEnemies(config, map);
-    console.log(`Spawned ${gameState.npcs.length} NPCs and ${gameState.enemies.length} enemies.`);
+
+    // Le Gardien veille sur le trésor...
+    const guardian = spawnGuardian(map);
+    if (guardian) gameState.enemies.push(guardian);
+
+    console.log(`Spawned ${gameState.npcs.length} NPCs and ${gameState.enemies.length} enemies (dont le Gardien du Trésor).`);
 }
 
 // --- Mise à jour quotidienne ---
@@ -53,6 +58,13 @@ export async function dailyUpdate() {
 
     // La nature reprend ses droits : les ressources se régénèrent lentement
     regenerateResources();
+
+    // Événement aléatoire du jour (40% de chance)
+    if (Math.random() < 0.4) {
+        applyRandomEvent();
+    } else {
+        gameState.lastEvent = null;
+    }
 
     // Tous les 3 jours : les PNJ ont de nouveaux besoins (quêtes réinitialisées)
     if (gameState.day % 3 === 0) {
@@ -99,6 +111,86 @@ export async function dailyUpdate() {
     // Autres logiques quotidiennes (ex: météo) peuvent être ajoutées ici
 }
 
+// --- ÉVÉNEMENTS ALÉATOIRES ---
+
+const RANDOM_EVENTS = [
+    {
+        icon: '🌩️', name: 'Tempête tropicale',
+        description: "Une tempête s'abat sur l'île ! Les survivants sans abri sont blessés (-3 PV).",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                const tile = gameState.map[p.y]?.[p.x];
+                const sheltered = tile?.buildings?.some(b => TILE_TYPES[b.key]?.isShelter || TILE_TYPES[b.key]?.sleepEffect);
+                if (sheltered) {
+                    p.notifications.push({ type: 'chat', message: "🌩️ La tempête gronde... mais votre abri tient bon !", style: 'system_info' });
+                } else {
+                    p.health = Math.max(1, p.health - 3);
+                    p.notifications.push({ type: 'chat', message: "🌩️ La tempête vous fouette de plein fouet ! (-3 PV) Construisez un abri !", style: 'damage' });
+                }
+            });
+        }
+    },
+    {
+        icon: '🌧️', name: 'Pluie bienfaisante',
+        description: "Une pluie douce arrose l'île : soif étanchée et +1 Eau pure pour tous.",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                p.thirst = Math.min(p.maxThirst, p.thirst + 6);
+                p.inventory['Eau pure'] = (p.inventory['Eau pure'] || 0) + 1;
+                p.notifications.push({ type: 'chat', message: "🌧️ La pluie vous désaltère. (+6 Soif, +1 Eau pure)", style: 'gain' });
+            });
+        }
+    },
+    {
+        icon: '🐺', name: 'Meute affamée',
+        description: "Des hurlements résonnent... deux bêtes supplémentaires rôdent sur l'île !",
+        apply() {
+            for (let i = 0; i < 2; i++) {
+                const e = spawnSingleEnemy(gameState.map);
+                if (e) gameState.enemies.push(e);
+            }
+            Object.values(gameState.players).forEach(p => {
+                p.notifications.push({ type: 'chat', message: "🐺 Des hurlements résonnent au loin... restez sur vos gardes !", style: 'system_warning' });
+            });
+        }
+    },
+    {
+        icon: '☀️', name: 'Journée radieuse',
+        description: "Le soleil revigore les survivants : +3 PV pour tous.",
+        apply() {
+            Object.values(gameState.players).forEach(p => {
+                p.health = Math.min(p.maxHealth, p.health + 3);
+                p.notifications.push({ type: 'chat', message: "☀️ Le soleil vous revigore. (+3 PV)", style: 'gain' });
+            });
+        }
+    },
+    {
+        icon: '🍀', name: 'Abondance',
+        description: "La nature déborde de vie : les zones de fouille et les forêts regorgent de ressources.",
+        apply() {
+            for (const row of gameState.map) {
+                for (const tile of row) {
+                    if (tile.searchActionsLeft !== undefined) tile.searchActionsLeft += 3;
+                    if (tile.woodActionsLeft !== undefined) tile.woodActionsLeft += 3;
+                }
+            }
+            Object.values(gameState.players).forEach(p => {
+                p.notifications.push({ type: 'chat', message: "🍀 La nature déborde de vie : les ressources abondent aujourd'hui !", style: 'gain' });
+            });
+        }
+    },
+];
+
+function applyRandomEvent() {
+    const event = RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)];
+    gameState.lastEvent = { icon: event.icon, name: event.name, description: event.description, day: gameState.day };
+    Object.values(gameState.players).forEach(p => {
+        p.notifications.push({ type: 'chat', message: `${event.icon} ÉVÉNEMENT — ${event.name} : ${event.description}`, style: 'system_event' });
+    });
+    event.apply();
+    console.log(`Random event on day ${gameState.day}: ${event.name}`);
+}
+
 /**
  * Régénère progressivement les ressources des tuiles (bois, gibier, fouilles, pierre).
  */
@@ -133,6 +225,7 @@ export function serializeWorld() {
         day: gameState.day,
         time: gameState.time,
         victory: gameState.victory,
+        lastEvent: gameState.lastEvent || null,
         knownRecipes: gameState.knownRecipes,
         globallyRevealedTiles: Array.from(gameState.globallyRevealedTiles || []),
         npcs: gameState.npcs,
@@ -165,6 +258,7 @@ export function restoreWorld(data) {
         gameState.day = data.day || 1;
         gameState.time = data.time || 0;
         gameState.victory = data.victory || null;
+        gameState.lastEvent = data.lastEvent || null;
         gameState.knownRecipes = data.knownRecipes || {};
         gameState.globallyRevealedTiles = new Set(data.globallyRevealedTiles || []);
         if (Array.isArray(data.npcs)) gameState.npcs = data.npcs;
@@ -179,6 +273,14 @@ export function restoreWorld(data) {
                 groundItems: saved.groundItems || {},
             };
         }));
+
+        // S'assurer que le Gardien veille toujours sur un trésor non ouvert
+        const treasureTile = gameState.map.flat().find(t => t.key === 'TREASURE_CHEST');
+        const hasBoss = gameState.enemies.some(e => e.isBoss);
+        if (treasureTile && !treasureTile.isOpened && !hasBoss) {
+            const guardian = spawnGuardian(gameState.map);
+            if (guardian) gameState.enemies.push(guardian);
+        }
 
         console.log(`World restored: day ${gameState.day}, ${gameState.npcs.length} NPCs, ${gameState.enemies.length} enemies.`);
         return true;

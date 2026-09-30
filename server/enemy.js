@@ -14,7 +14,8 @@ export function initEnemies(config, map) {
 }
 
 export function spawnSingleEnemy(map) {
-    const typeKeys = Object.keys(ENEMY_TYPES);
+    // Les boss ne font pas partie du bestiaire aléatoire
+    const typeKeys = Object.keys(ENEMY_TYPES).filter(k => !ENEMY_TYPES[k].isBoss);
     const typeKey = typeKeys[Math.floor(Math.random() * typeKeys.length)];
     const type = ENEMY_TYPES[typeKey];
     
@@ -52,6 +53,26 @@ export function findEnemyOnTile(x, y, enemies) {
     return enemies.find(enemy => enemy.x === x && enemy.y === y);
 }
 
+/**
+ * Fait apparaître le Gardien du Trésor sur la case du coffre.
+ * Il ne bouge jamais : il faut le vaincre pour ouvrir le trésor.
+ */
+export function spawnGuardian(map) {
+    let treasureTile = null;
+    for (const row of map) for (const t of row) if (t.key === 'TREASURE_CHEST') treasureTile = t;
+    if (!treasureTile || treasureTile.isOpened) return null;
+
+    const type = ENEMY_TYPES.GUARDIAN;
+    return {
+        id: `boss_guardian_${Date.now()}`,
+        ...JSON.parse(JSON.stringify(type)),
+        x: treasureTile.x,
+        y: treasureTile.y,
+        currentHealth: type.health,
+        timeSinceLastMove: 0,
+    };
+}
+
 const ENEMY_MOVE_INTERVAL_MS = 4000;
 
 /**
@@ -64,6 +85,13 @@ export function updateEnemies(deltaTime, startCombatFn) {
 
     for (const enemy of enemies) {
         if (enemy.inCombatWith) continue; // Occupé à combattre
+
+        // Le boss ne bouge jamais : il monte la garde et attaque quiconque approche
+        if (enemy.isBoss) {
+            const intruder = Object.values(players).find(p => p.x === enemy.x && p.y === enemy.y && p.health > 0 && !p.combatState);
+            if (intruder && startCombatFn) startCombatFn(intruder, enemy);
+            continue;
+        }
 
         enemy.timeSinceLastMove = (enemy.timeSinceLastMove || 0) + deltaTime;
         if (enemy.timeSinceLastMove < ENEMY_MOVE_INTERVAL_MS) continue;
