@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                showNotification('Connexion réussie ! Redirection vers le jeu...');
+                sessionStorage.setItem('username', username); // Lier le compte à la session de jeu
                 window.location.href = '/game.html'; // Rediriger vers la page du jeu
             } else {
                 showNotification(data.message || 'Erreur de connexion.', true);

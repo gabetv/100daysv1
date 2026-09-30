@@ -35,9 +35,25 @@ export function initializeGameState(config) {
 // --- Mise à jour quotidienne ---
 export async function dailyUpdate() {
     if (!gameState) return;
+    if (gameState.victory) return; // La partie est gagnée, on fige le compteur
 
     gameState.day++;
     console.log(`A new day has begun: Day ${gameState.day}`);
+
+    // Annonce du nouveau jour à tous les joueurs
+    Object.values(gameState.players).forEach(player => {
+        player.notifications.push({ type: 'chat', message: `☀️ Jour ${gameState.day} / ${CONFIG.VICTORY_DAY} — un nouveau jour se lève.`, style: 'system_event' });
+    });
+
+    // Condition de victoire : survivre 100 jours
+    if (gameState.day >= CONFIG.VICTORY_DAY) {
+        gameState.victory = true;
+        Object.values(gameState.players).forEach(player => {
+            player.notifications.push({ type: 'chat', message: `🏆 VICTOIRE ! Vous avez survécu ${CONFIG.VICTORY_DAY} jours ! Les secours arrivent enfin...`, style: 'gain' });
+        });
+        console.log('VICTORY! Players survived to day', gameState.day);
+        return;
+    }
 
     // Apparition des ennemis
     if (gameState.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
@@ -59,14 +75,18 @@ export async function dailyUpdate() {
 }
 
 /**
- * Ajoute un nouveau joueur à l'état du jeu avec des valeurs par défaut.
+ * Ajoute un nouveau joueur à l'état du jeu avec des valeurs par défaut,
+ * ou restaure sa progression sauvegardée si elle existe.
  * @param {string} playerId - L'ID unique du nouveau joueur.
+ * @param {string|null} username - Le pseudo du compte (null = invité).
+ * @param {object|null} savedData - Progression sauvegardée à restaurer.
  */
-export function addNewPlayer(playerId) {
+export function addNewPlayer(playerId, username = null, savedData = null) {
     // Crée le joueur directement ici, sans appeler une fonction externe
     const newPlayer = {
         id: playerId,
-        name: `Joueur_${Math.floor(Math.random() * 1000)}`,
+        username: username,
+        name: username || `Invité_${Math.floor(Math.random() * 1000)}`,
         x: 10,
         y: 10,
         color: `hsl(${Math.random() * 360}, 100%, 70%)`,
@@ -98,10 +118,61 @@ export function addNewPlayer(playerId) {
         isBusy: false,
         animationState: null,
         knownRecipes: {},
+        deaths: 0,
     };
+
+    // Restaurer la progression sauvegardée (comptes uniquement)
+    if (savedData && typeof savedData === 'object') {
+        const restorable = ['x', 'y', 'color', 'health', 'maxHealth', 'thirst', 'maxThirst',
+            'hunger', 'maxHunger', 'sleep', 'maxSleep', 'inventory', 'maxInventory',
+            'equipment', 'status', 'knownRecipes', 'deaths'];
+        for (const key of restorable) {
+            if (savedData[key] !== undefined) newPlayer[key] = savedData[key];
+        }
+        if (Array.isArray(savedData.visitedTiles)) {
+            newPlayer.visitedTiles = new Set(savedData.visitedTiles);
+        }
+        // Sécurité : position valide sur la carte actuelle (elle est régénérée au redémarrage)
+        const { MAP_WIDTH, MAP_HEIGHT } = gameState.config;
+        if (newPlayer.x < 0 || newPlayer.x >= MAP_WIDTH || newPlayer.y < 0 || newPlayer.y >= MAP_HEIGHT ||
+            !gameState.map[newPlayer.y]?.[newPlayer.x]?.type?.accessible) {
+            newPlayer.x = 10;
+            newPlayer.y = 10;
+        }
+        newPlayer.visitedTiles.add(`${newPlayer.x},${newPlayer.y}`);
+        newPlayer.notifications.push({ type: 'chat', message: `Bon retour, ${newPlayer.name} ! Votre progression a été restaurée.`, style: 'gain' });
+    }
 
     gameState.players[playerId] = newPlayer;
     console.log(`Player ${playerId} added to the game.`);
+}
+
+/**
+ * Extrait les données persistables d'un joueur pour la sauvegarde.
+ * @param {object} player - Le joueur à sérialiser.
+ * @returns {object} Un objet JSON-compatible.
+ */
+export function serializePlayer(player) {
+    return {
+        x: player.x,
+        y: player.y,
+        color: player.color,
+        health: player.health,
+        maxHealth: player.maxHealth,
+        thirst: player.thirst,
+        maxThirst: player.maxThirst,
+        hunger: player.hunger,
+        maxHunger: player.maxHunger,
+        sleep: player.sleep,
+        maxSleep: player.maxSleep,
+        inventory: player.inventory,
+        maxInventory: player.maxInventory,
+        equipment: player.equipment,
+        status: player.status,
+        knownRecipes: player.knownRecipes,
+        deaths: player.deaths || 0,
+        visitedTiles: Array.from(player.visitedTiles || []),
+    };
 }
 
 /**

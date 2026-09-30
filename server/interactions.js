@@ -7,11 +7,26 @@ import { handleCombatAction } from './combat.js'; // Importer la logique de comb
 import { findEnemyOnTile } from './enemy.js';
 import { applyActionCost } from './player.js';
 
+// Actions "gratuites" qui ne doivent pas consommer faim/soif/sommeil
+const FREE_ACTIONS = new Set([
+    ACTIONS.SEND_CHAT_MESSAGE,
+    'combat_action',
+    'join',
+    ACTIONS.TUTORIAL_NEXT,
+    ACTIONS.TUTORIAL_SKIP,
+    ACTIONS.TUTORIAL_HIDE_AND_MOVE,
+    ACTIONS.TALK_TO_NPC,
+    ACTIONS.OPEN_LARGE_MAP,
+    ACTIONS.OPEN_BUILDING_INVENTORY,
+]);
+
 export function handlePlayerAction(actionId, data, playerId, broadcastToClients) {
     const player = gameState.players[playerId];
     if (!player) return;
 
-    applyActionCost(player);
+    if (!FREE_ACTIONS.has(actionId)) {
+        applyActionCost(player);
+    }
 
     // Basic busy check
     // if (player.isBusy) {

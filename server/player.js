@@ -682,17 +682,28 @@ export function getAvailableActions(player) {
 
 // --- PLAYER STATE UPDATE ---
 
+// Évite de spammer la même notification à chaque tick (500 ms)
+const DAMAGE_NOTIF_COOLDOWN_MS = 5000;
+function notifyThrottled(player, cause, notification) {
+    const now = Date.now();
+    if (!player._notifCooldowns) player._notifCooldowns = {};
+    if (!player._notifCooldowns[cause] || now - player._notifCooldowns[cause] >= DAMAGE_NOTIF_COOLDOWN_MS) {
+        player._notifCooldowns[cause] = now;
+        player.notifications.push(notification);
+    }
+}
+
 export function updatePlayerState(player, deltaTime) {
     const secondsPassed = deltaTime / 1000;
 
     // Conséquences des stats à zéro
     if (player.hunger === 0) {
         player.health = Math.max(0, player.health - 0.1 * secondsPassed); // Dégâts de faim
-        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Faim)', style: 'damage' });
+        notifyThrottled(player, 'hunger', { type: 'floatingText', message: '-1 Santé (Faim)', style: 'damage' });
     }
     if (player.thirst === 0) {
         player.health = Math.max(0, player.health - 0.15 * secondsPassed); // Dégâts de soif
-        player.notifications.push({ type: 'floatingText', message: '-1 Santé (Soif)', style: 'damage' });
+        notifyThrottled(player, 'thirst', { type: 'floatingText', message: '-1 Santé (Soif)', style: 'damage' });
     }
 
     // Gérer les effets et la durée des statuts
@@ -703,11 +714,11 @@ export function updatePlayerState(player, deltaTime) {
         switch (statusName) {
             case 'Malade':
                 player.health = Math.max(0, player.health - 0.05 * secondsPassed);
-                player.notifications.push({ type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
+                notifyThrottled(player, 'malade', { type: 'floatingText', message: '-1 Santé (Malade)', style: 'damage' });
                 break;
             case 'Empoisonné':
                 player.health = Math.max(0, player.health - 0.2 * secondsPassed);
-                player.notifications.push({ type: 'floatingText', message: '-2 Santé (Poison)', style: 'damage' });
+                notifyThrottled(player, 'poison', { type: 'floatingText', message: '-2 Santé (Poison)', style: 'damage' });
                 break;
             case 'Alcoolisé':
                 // Effet potentiellement amusant, comme une chance de se déplacer dans la mauvaise direction (géré dans movePlayer)
@@ -721,6 +732,29 @@ export function updatePlayerState(player, deltaTime) {
             player.notifications.push({ type: 'chat', message: `Vous ne vous sentez plus : ${statusName}.`, style: 'gain' });
         }
     }
+
+    // Mort et réapparition au camp de départ
+    if (player.health <= 0) {
+        respawnPlayer(player);
+    }
+}
+
+/**
+ * Fait réapparaître un joueur mort au point de départ avec des stats réduites.
+ * @param {object} player - Le joueur à faire réapparaître.
+ */
+function respawnPlayer(player) {
+    player.deaths = (player.deaths || 0) + 1;
+    player.x = 10;
+    player.y = 10;
+    player.health = Math.ceil(player.maxHealth / 2);
+    player.hunger = Math.ceil(player.maxHunger / 2);
+    player.thirst = Math.ceil(player.maxThirst / 2);
+    player.sleep = Math.ceil(player.maxSleep / 2);
+    player.status = [];
+    player.isBusy = false;
+    if (player.visitedTiles instanceof Set) player.visitedTiles.add('10,10');
+    player.notifications.push({ type: 'chat', message: `💀 Vous avez succombé... Vous vous réveillez au camp, affaibli (mort n°${player.deaths}).`, style: 'damage' });
 }
 
 export function applyActionCost(player) {

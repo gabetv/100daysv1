@@ -1,4 +1,4 @@
-import { ITEM_TYPES, TILE_TYPES, ACTIONS } from '../config.js';
+import { ITEM_TYPES, TILE_TYPES, ACTIONS, CONFIG } from '../config.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
 import { showChestModal } from './modals.js';
@@ -127,7 +127,7 @@ export function updateInventory(player) {
 }
 
 export function updateDayCounter(day) {
-    if (DOM.dayDisplay) DOM.dayDisplay.textContent = `Jour: ${day}`;
+    if (DOM.dayDisplay) DOM.dayDisplay.textContent = `Jour ${day} / ${CONFIG.VICTORY_DAY}`;
 }
 
 export function updateTileInfoPanel(tile) {
@@ -167,7 +167,12 @@ export function addChatMessage(message, type, author) {
     if (!chatMessagesEl) return;
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('chat-message', type || 'system');
-    msgDiv.innerHTML = author ? `<strong>${author}: </strong>` : '';
+    if (author) {
+        // textContent (et non innerHTML) pour empêcher toute injection HTML via le pseudo
+        const strongAuthor = document.createElement('strong');
+        strongAuthor.textContent = `${author}: `;
+        msgDiv.appendChild(strongAuthor);
+    }
     const spanMessage = document.createElement('span');
     spanMessage.textContent = message;
     msgDiv.appendChild(spanMessage);

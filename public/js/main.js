@@ -8,13 +8,26 @@ import { initInteractions } from './interactions.js';
 let gameState = null;
 let myPlayerId = null;
 let ws;
+let wasKicked = false;
 window.gameState = {};
+
+// Le pseudo du compte connecté (défini par la page de login)
+const myUsername = sessionStorage.getItem('username');
+if (!myUsername) {
+    // Pas connecté : retour à l'écran de connexion
+    window.location.href = '/';
+}
 
 function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${protocol}://${window.location.host}`);
-    ws.onopen = () => console.log('Connected to server.');
+    ws.onopen = () => {
+        console.log('Connected to server.');
+        // Rejoindre la partie avec le pseudo du compte (charge la sauvegarde côté serveur)
+        ws.send(JSON.stringify({ id: 'join', data: { username: myUsername } }));
+    };
     ws.onclose = () => {
+        if (wasKicked) return; // Pas de reconnexion automatique si on a été déconnecté volontairement
         console.log('Disconnected. Retrying in 3 seconds...');
         UI.addChatMessage("Déconnecté du serveur. Tentative de reconnexion...", "system_error");
         setTimeout(connect, 3000);
@@ -34,6 +47,13 @@ function handleServerMessage(event) {
         }
         if (data.type === 'chat') {
             UI.addChatMessage(data.payload.message, 'player', data.payload.sender);
+            return;
+        }
+        if (data.type === 'kicked') {
+            wasKicked = true;
+            UI.addChatMessage(data.payload || 'Vous avez été déconnecté.', 'system_error');
+            alert(data.payload || 'Vous avez été déconnecté.');
+            window.location.href = '/';
             return;
         }
         if (data.type === 'gameState') {
