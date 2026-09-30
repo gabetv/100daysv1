@@ -1,6 +1,6 @@
 // js/ui/draw.js
 import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
-import { getItemImage } from './icons.js';
+import { getItemImage, getTileImage, tileIconHTML } from './icons.js';
 import DOM from './dom.js';
 
 const loadedAssets = {};
@@ -172,10 +172,16 @@ function drawTileProps(ctx, w, h, tile) {
             ctx.strokeStyle = 'rgba(255, 212, 121, 0.5)';
             ctx.lineWidth = 2;
             ctx.stroke();
-            ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+            const tileImg = getTileImage(def.name);
+            if (tileImg) {
+                const imgSize = size * 0.94;
+                ctx.drawImage(tileImg, cx - imgSize / 2, cy - imgSize / 2, imgSize, imgSize);
+            } else {
+                ctx.font = `${Math.round(size * 0.62)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(def.icon || '🏗️', cx, cy + size * 0.03);
+            }
             ctx.restore();
         }
     });
@@ -1027,17 +1033,23 @@ export function drawLargeMap(gameState, config) {
             largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
             largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
 
-            // Utiliser tile.type.icon si disponible, sinon TILE_ICONS comme fallback
-            const icon = tile.type.icon || TILE_ICONS[tile.type.name] || TILE_ICONS.default;
-            largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Ombre pour l'icône
-            largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
-            largeMapCtx.textAlign = 'center';
-            largeMapCtx.textBaseline = 'middle';
-            let iconOffsetY = 0; // Ajustement vertical pour certains emojis
-            if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳' || icon === '⛏️🏭') { // Added Mine Building
-                iconOffsetY = cellSize * 0.05;
+            // Icône : image générée si chargée, sinon emoji en fallback
+            const tileImg = getTileImage(tile.type.name);
+            if (tileImg) {
+                const pad = cellSize * 0.1;
+                largeMapCtx.drawImage(tileImg, drawX + pad, drawY + pad, cellSize - pad * 2, cellSize - pad * 2);
+            } else {
+                const icon = tile.type.icon || TILE_ICONS[tile.type.name] || TILE_ICONS.default;
+                largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Ombre pour l'icône
+                largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
+                largeMapCtx.textAlign = 'center';
+                largeMapCtx.textBaseline = 'middle';
+                let iconOffsetY = 0; // Ajustement vertical pour certains emojis
+                if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳' || icon === '⛏️🏭') { // Added Mine Building
+                    iconOffsetY = cellSize * 0.05;
+                }
+                largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
             }
-            largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
             
             // Ajouter un indicateur pour le nombre total d'actions restantes
             let totalActions = 0;
@@ -1158,9 +1170,9 @@ export function populateLargeMapLegend() {
         if (!addedTypes.has(tileType.name)) { // Si le nom du type n'a pas encore été ajouté
             const item = document.createElement('div');
             item.className = 'legend-item';
-            // Utiliser tile.type.icon si disponible, sinon TILE_ICONS comme fallback
-            const icon = tileType.icon || TILE_ICONS[tileType.name] || TILE_ICONS.default;
-            item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${icon} ${tileType.name}</span>`;
+            // Image générée si disponible, sinon emoji en fallback
+            const iconHtml = tileIconHTML(tileType.name, tileType.icon || TILE_ICONS[tileType.name] || TILE_ICONS.default, 'legend-tile-icon');
+            item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${iconHtml} ${tileType.name}</span>`;
             largeMapLegendEl.appendChild(item);
             addedTypes.add(tileType.name); // Marquer ce nom de type comme ajouté
         }

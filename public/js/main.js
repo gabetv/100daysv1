@@ -214,7 +214,7 @@ function showVictoryScreen(victory, player) {
         if (title) title.textContent = '🚁 SAUVÉS !';
         if (message) message.textContent = `${victory.by} a tiré un signal de détresse depuis la plage. Un hélicoptère vous ramène à la civilisation !`;
     } else {
-        if (title) title.textContent = '🏆 VICTOIRE !';
+        if (title) title.innerHTML = '<img class="icon-img victory-trophy" src="assets/icons/trophy.png" alt="🏆" draggable="false"> VICTOIRE !';
         if (message) message.textContent = `Vous avez survécu ${victory.day} jours sur l'île. Les secours vous ont enfin repérés !`;
     }
     if (stats) {

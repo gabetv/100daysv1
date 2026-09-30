@@ -113,6 +113,54 @@ export const ITEM_IMAGES = {
     'Piège': 'assets/icons/trap.png',
     'Recette médicinale': 'assets/icons/scroll.png',
     'Plan d\'ingénieur': 'assets/icons/scroll.png',
+    // Électronique et appareils (même image chargé/déchargé, l'état est dans le nom)
+    'Radio déchargée': 'assets/icons/radio.png',
+    'Radio chargée': 'assets/icons/radio.png',
+    'Téléphone déchargé': 'assets/icons/phone.png',
+    'Téléphone chargé': 'assets/icons/phone.png',
+    'Guitare déchargé': 'assets/icons/guitar.png',
+    'Guitare': 'assets/icons/guitar.png',
+    'Lunette': 'assets/icons/glasses.png',
+    'Panneau solaire fixe': 'assets/icons/tile_solar.png',
+    'Panneau solaire portable': 'assets/icons/solarportable.png',
+};
+
+// Tuiles et bâtiments (grande carte, légende, modale de construction, scène)
+export const TILE_IMAGES = {
+    'Lagon': 'assets/icons/tile_lagoon.png',
+    'Plage': 'assets/icons/tile_beach.png',
+    'Forêt': 'assets/icons/tile_forest.png',
+    'Friche': 'assets/icons/tile_wasteland.png',
+    'Plaine': 'assets/icons/tile_plains.png',
+    'Mine (Terrain)': 'assets/icons/tile_mineterrain.png',
+    'Trésor Caché': 'assets/icons/tile_treasure.png',
+    'Feu de Camp': 'assets/icons/tile_campfire.png',
+    'Abri Individuel': 'assets/icons/tile_tent.png',
+    'Abri Collectif': 'assets/icons/tile_cabin.png',
+    'Mine (Bâtiment)': 'assets/icons/tile_mine.png',
+    'Atelier': 'assets/icons/tile_atelier.png',
+    'Établi': 'assets/icons/tile_etabli.png',
+    'Petit Puit': 'assets/icons/tile_well.png',
+    'Puit Profond': 'assets/icons/tile_deepwell.png',
+    'Bibliothèque': 'assets/icons/tile_library.png',
+    'Forteresse': 'assets/icons/tile_fortress.png',
+    'Laboratoire': 'assets/icons/tile_lab.png',
+    'Forge': 'assets/icons/tile_forge.png',
+    'Bananeraie': 'assets/icons/tile_banana.png',
+    'Sucrerie': 'assets/icons/tile_sugar.png',
+    'Cocoteraie': 'assets/icons/tile_coconut.png',
+    'Poulailler': 'assets/icons/tile_chicken.png',
+    'Enclos à Cochons': 'assets/icons/tile_pig.png',
+    'Observatoire': 'assets/icons/tile_observatory.png',
+    'Panneau solaire': 'assets/icons/tile_solar.png',
+};
+
+// Icônes d'objectifs (emoji serveur -> image)
+export const OBJECTIVE_IMAGES = {
+    '🔑': 'assets/icons/treasurekey.png',
+    '💎': 'assets/icons/tile_treasure.png',
+    '🎆': 'assets/icons/flare.png',
+    '🏆': 'assets/icons/trophy.png',
 };
 
 /**
@@ -179,4 +227,34 @@ export function getItemImage(itemName) {
     return (img.complete && img.naturalWidth) ? img : null;
 }
 
-export default { ITEM_IMAGES, ENEMY_IMAGES, STAT_IMAGES, PLAYER_PORTRAIT, itemIconHTML, getItemImage, resolveItemImage };
+// --- Tuiles : préchargement immédiat (la grande carte dessine dès l'ouverture) ---
+const tileImageCache = {};
+if (typeof Image !== 'undefined') {
+    for (const [name, src] of Object.entries(TILE_IMAGES)) {
+        const img = new Image();
+        img.src = src;
+        tileImageCache[name] = img;
+    }
+}
+
+/**
+ * Retourne l'élément Image chargé pour une tuile/un bâtiment, ou null.
+ * @param {string} tileName Nom de la tuile (ex: 'Forêt', 'Forge').
+ */
+export function getTileImage(tileName) {
+    const img = tileImageCache[tileName];
+    return (img && img.complete && img.naturalWidth) ? img : null;
+}
+
+/**
+ * Retourne le HTML de l'icône d'une tuile : image si disponible, sinon emoji.
+ */
+export function tileIconHTML(tileName, fallbackEmoji = '❓', cls = 'tile-icon') {
+    const src = TILE_IMAGES[tileName];
+    if (src) {
+        return `<span class="${cls}"><img class="icon-img" src="${src}" alt="" draggable="false"></span>`;
+    }
+    return `<span class="${cls}">${fallbackEmoji}</span>`;
+}
+
+export default { ITEM_IMAGES, ENEMY_IMAGES, STAT_IMAGES, TILE_IMAGES, OBJECTIVE_IMAGES, PLAYER_PORTRAIT, itemIconHTML, getItemImage, resolveItemImage, getTileImage, tileIconHTML };

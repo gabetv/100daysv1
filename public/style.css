@@ -2307,3 +2307,12 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
 }
 #bottom-bar-chat-panel.chat-expanded #chat-messages { flex: 1 1 auto; max-height: none; }
+
+/* Icônes de tuiles/bâtiments en images générées */
+.legend-tile-icon { display: inline-flex; align-items: center; vertical-align: middle; }
+.legend-tile-icon .icon-img { width: 1.5em; height: 1.5em; }
+.tile-name-icon { display: inline-flex; align-items: center; vertical-align: middle; }
+.tile-name-icon .icon-img { width: 1.4em; height: 1.4em; }
+.build-item-icon .icon-img { width: 34px; height: 34px; }
+#objectives-list .icon-img { width: 1.25em; height: 1.25em; }
+.victory-trophy { width: 1.25em; height: 1.25em; vertical-align: -0.2em; }

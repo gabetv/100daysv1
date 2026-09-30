@@ -4,7 +4,7 @@ import DOM from './dom.js';
 import * as Draw from './draw.js';
 import { sendAction } from '../main.js';
 import { sfx } from '../audio.js';
-import { itemIconHTML, ENEMY_IMAGES } from './icons.js';
+import { itemIconHTML, tileIconHTML, ENEMY_IMAGES } from './icons.js';
 
 /** Vérifie un statut quel que soit son format (objet {Nom:{...}} ou tableau). */
 function hasStatus(player, statusName) {
@@ -192,7 +192,7 @@ export function updateEquipmentModal(gameState) {
                 itemDiv.dataset.itemKey = `${equippedItem.name}_equipped`;
                 itemDiv.dataset.owner = 'equipment';
                 itemDiv.dataset.slotType = slotType;
-                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span>`;
+                itemDiv.innerHTML = `${itemIconHTML(equippedItem.name, itemDef.icon)}<span class="inventory-name">${displayName}</span>`;
                 slotEl.appendChild(itemDiv);
             }
         });
@@ -407,7 +407,7 @@ export function populateBuildModal(gameState) {
 
         const header = document.createElement('div');
         header.className = 'build-item-header';
-        header.innerHTML = `<span class="build-item-icon">${buildingType.icon || '🏛️'}</span><span class="build-item-name">${buildingType.name}</span>`;
+        header.innerHTML = `${tileIconHTML(buildingType.name, buildingType.icon || '🏛️', 'build-item-icon')}<span class="build-item-name">${buildingType.name}</span>`;
 
         const description = document.createElement('p');
         description.className = 'build-item-description';

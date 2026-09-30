@@ -3,7 +3,7 @@ import { notifyChatMessage } from './mobile.js';
 import DOM from './dom.js';
 import { sendAction } from '../main.js';
 import { showChestModal, showLockModal, hideLockModal } from './modals.js';
-import { itemIconHTML } from './icons.js';
+import { itemIconHTML, tileIconHTML } from './icons.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -173,7 +173,7 @@ export function updateDayCounter(day) {
 export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
     
-    DOM.tileNameEl.textContent = tile.type.name;
+    DOM.tileNameEl.innerHTML = `${tileIconHTML(tile.type.name, tile.type.icon || '', 'tile-name-icon')} ${tile.type.name}`;
 
     let infoText = tile.type.description || "";
     if(tile.buildings && tile.buildings.length > 0){
