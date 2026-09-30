@@ -54,6 +54,11 @@ export const showLockModal = ModalsModule.showLockModal;
 export const hideLockModal = ModalsModule.hideLockModal;
 export const setupLockModalListeners = ModalsModule.setupLockModalListeners;
 export const setupBuildModalListeners = ModalsModule.setupBuildModalListeners;
+export const setupChestModalListeners = ModalsModule.setupChestModalListeners;
+export const setupMiscModalListeners = ModalsModule.setupMiscModalListeners;
+export const closeTopModal = ModalsModule.closeTopModal;
+export const hideChestModal = ModalsModule.hideChestModal;
+export const showChestModal = ModalsModule.showChestModal;
 
 
 // Depuis ./ui/panels.js

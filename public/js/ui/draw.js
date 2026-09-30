@@ -1,5 +1,5 @@
 // js/ui/draw.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG } from '../config.js';
+import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES } from '../config.js';
 import DOM from './dom.js';
 
 const loadedAssets = {};
@@ -713,11 +713,24 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.arc(enemyX, enemyY + bob, size * 0.85, 0, Math.PI * 2);
         charactersCtx.fill();
 
-        // Créature
-        charactersCtx.font = `${Math.round(size)}px sans-serif`;
-        charactersCtx.textAlign = 'center';
-        charactersCtx.textBaseline = 'middle';
-        charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+        // Créature : sprite généré si disponible, sinon emoji
+        const spriteKey = ENEMY_SPRITES[enemy.name];
+        const sprite = spriteKey ? loadedAssets[spriteKey] : null;
+        if (sprite && sprite.complete && sprite.naturalWidth) {
+            const ratio = sprite.naturalWidth / sprite.naturalHeight;
+            const sh = size * 1.35;
+            const sw = sh * ratio;
+            charactersCtx.save();
+            charactersCtx.shadowColor = 'rgba(0,0,0,0.45)';
+            charactersCtx.shadowBlur = 8 * scale;
+            charactersCtx.drawImage(sprite, enemyX - sw / 2, enemyY + bob - sh / 2, sw, sh);
+            charactersCtx.restore();
+        } else {
+            charactersCtx.font = `${Math.round(size)}px sans-serif`;
+            charactersCtx.textAlign = 'center';
+            charactersCtx.textBaseline = 'middle';
+            charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY + bob);
+        }
 
         // Nom + barre de vie
         const label = enemy.name || 'Créature hostile';
@@ -734,6 +747,8 @@ export function drawSceneCharacters(gameState) {
 
         charactersCtx.font = `600 ${Math.max(10, 11 * scale)}px Poppins, sans-serif`;
         charactersCtx.fillStyle = '#ffd7d7';
+        charactersCtx.textAlign = 'center';
+        charactersCtx.textBaseline = 'middle';
         charactersCtx.fillText(label, enemyX, barY - 9 * scale);
 
         charactersCtx.restore();

@@ -19,10 +19,10 @@
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut</h3>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container"><div id="health-squares-container" class="stat-squares-container"></div></div></div>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container"><div id="thirst-squares-container" class="stat-squares-container"></div></div></div>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-squares-container" class="stat-squares-container"></div></div></div> 
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon"><img class="icon-img" src="assets/icons/heart.png" alt="Santé"></span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container"><div id="health-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon"><img class="icon-img" src="assets/icons/waterdrop.png" alt="Soif"></span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container"><div id="thirst-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon"><img class="icon-img" src="assets/icons/drumstick.png" alt="Faim"></span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-squares-container" class="stat-squares-container"></div></div></div> 
+                    <div class="stat"><div class="stat-header"><span class="stat-icon"><img class="icon-img" src="assets/icons/moon.png" alt="Sommeil"></span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
                 </section>
                 <section id="bottom-bar-ground-items" class="droppable" data-owner="ground">
                     <h3>Objets au sol</h3>
@@ -119,10 +119,10 @@
 
         <!-- ### BARRE D'ONGLETS MOBILE ### -->
         <nav id="mobile-tabbar" aria-label="Navigation mobile">
-            <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon">🌍</span><span class="mt-label">Scène</span></button>
+            <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon"><img class="icon-img" src="assets/icons/island.png" alt=""></span><span class="mt-label">Scène</span></button>
             <button class="mobile-tab" data-mtab="actions"><span class="mt-icon">⚡</span><span class="mt-label">Actions</span></button>
             <button class="mobile-tab" data-mtab="inventory"><span class="mt-icon">🎒</span><span class="mt-label">Sac</span></button>
-            <button class="mobile-tab" data-mtab="status"><span class="mt-icon">❤️</span><span class="mt-label">Statut</span></button>
+            <button class="mobile-tab" data-mtab="status"><span class="mt-icon"><img class="icon-img" src="assets/icons/heart.png" alt=""></span><span class="mt-label">Statut</span></button>
             <button class="mobile-tab" data-mtab="chat"><span class="mt-icon">💬</span><span class="mt-label">Chat</span></button>
             <button class="mobile-tab" data-mtab="map"><span class="mt-icon">🗺️</span><span class="mt-label">Carte</span></button>
         </nav>
@@ -206,7 +206,7 @@
             <h2>⚔️ COMBAT ⚔️</h2>
             <div id="combat-participants">
                 <div class="combatant-info" id="combat-player-info">
-                    <div class="combat-portrait" id="combat-player-portrait">🧑‍🦱</div>
+                    <div class="combat-portrait" id="combat-player-portrait"><img class="portrait-img" src="assets/icons/survivor.png" alt="Vous"></div>
                     <h3 id="combat-player-name">Vous</h3>
                     <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>
                     <span id="combat-player-health-text">10 / 10</span>

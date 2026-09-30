@@ -343,7 +343,9 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
             shield: null,
             bag: null,
         },
-        status: [],
+        // Statuts actifs : { 'Malade': { duration: 180 }, ... }
+        // (objet et non tableau : les clés d'un tableau seraient perdues au JSON.stringify)
+        status: {},
         visitedTiles: new Set(['10,10']), // Le joueur a visité sa case de départ
         notifications: [],
         isBusy: false,
@@ -363,6 +365,8 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         for (const key of restorable) {
             if (savedData[key] !== undefined) newPlayer[key] = savedData[key];
         }
+        // Migration des anciennes sauvegardes où status était un tableau
+        if (Array.isArray(newPlayer.status)) newPlayer.status = {};
         if (Array.isArray(savedData.visitedTiles)) {
             newPlayer.visitedTiles = new Set(savedData.visitedTiles);
         }

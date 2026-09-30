@@ -219,11 +219,11 @@ export const SEARCH_ZONE_CONFIG = {
 
 export const ITEM_TYPES = {
     // === RESSOURCES ===
-    'Bois': { type: 'resource', icon: '🌳' }, 'Pierre': { type: 'resource', icon: '🪨🪨' },
+    'Bois': { type: 'resource', icon: '🌳' }, 'Pierre': { type: 'resource', icon: '🪨' },
     'Feuilles': { type: 'resource', icon: '🍃' }, 'Liane': { type: 'resource', icon: '🌿' },
     'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' },
-    'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: 'ቆዳ' },
-    'Cadenas': { type: 'resource', icon: '🔒' }, 'Cadenas cassé': { type: 'resource', icon: '🔓💥' },
+    'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: '🟤' },
+    'Cadenas': { type: 'resource', icon: '🔒' }, 'Cadenas cassé': { type: 'resource', icon: '🔓' },
     'Os': { type: 'resource', icon: '🦴' },
     'Sel': { type: 'consumable', icon: '🧂', effects: { hunger: 2, thirst: -2 } },
     'Composants électroniques': {type: 'resource', icon: '⚙️'},
@@ -239,30 +239,30 @@ export const ITEM_TYPES = {
     'Minerai d\'argent': { type: 'resource', icon: '🥈' },
     'Minerai de cuivre': { type: 'resource', icon: '🥉' },
     'Souffre': { type: 'resource', icon: '💨' },
-    'Fer': { type: 'resource', icon: '쇠' },
+    'Fer': { type: 'resource', icon: '⛓️' },
     'Or': { type: 'resource', icon: '🥇' },
     'Argent': { type: 'resource', icon: '💍' },
-    'Cuivre': { type: 'resource', icon: '🥉🔩' },
+    'Cuivre': { type: 'resource', icon: '🟠' },
     'Explosif': { type: 'resource', icon: '💥' },
-    'Huile de coco': { type: 'consumable', icon: '🥥🧴', effects: { health: 1 } },
+    'Huile de coco': { type: 'consumable', icon: '🧴', effects: { health: 1 } },
     'Savon': { type: 'consumable', icon: '🧼', effects: { health: 3 } },
     'Eau croupie': { type: 'consumable', icon: '🚱', effects: { thirst: 2, custom: 'eauCroupieEffect' } },
     'Hameçon': { type: 'resource', icon: '🪝' },
     'Plan d\'ingénieur': { type: 'resource', icon: '📐', rarity: 'veryRare' },
-    'Recette médicinale': { type: 'resource', icon: '℞', rarity: 'veryRare' },
+    'Recette médicinale': { type: 'resource', icon: '🧾', rarity: 'veryRare' },
     'Graine d\'arbre': { type: 'resource', icon: '🌱' },
-    'Cuir': { type: 'resource', icon: '🟫皮革' },
-    'Batterie chargée': { type: 'consumable', icon: '🔋⚡', effects: { custom: 'chargeDevice'} },
+    'Cuir': { type: 'resource', icon: '🟫' },
+    'Batterie chargée': { type: 'consumable', icon: '🔋', effects: { custom: 'chargeDevice'} },
     'Écran électronique': { type: 'resource', icon: '🖥️' },
 
     // === CONSOMMABLES ===
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
-    'Eau salée': { type: 'consumable', icon: '🌊💧', effects: { thirst: 3, health: -1, custom: 'eauSaleeEffect' } },
+    'Eau salée': { type: 'consumable', icon: '🌊', effects: { thirst: 3, health: -1, custom: 'eauSaleeEffect' } },
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
     'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: [{ name: 'Malade', chance: 0.3, duration: 180 }] } },
     'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
     'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: [{ name: 'Malade', chance: 0.8, duration: 180 }] } },
-    'Poisson cuit': { type: 'consumable', icon: '🐠🔥', effects: { hunger: 2 } },
+    'Poisson cuit': { type: 'consumable', icon: '🍤', effects: { hunger: 2 } },
     'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: [{ name: 'Malade', chance: 0.6, duration: 180 }] } },
     'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 3 } },
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
@@ -273,16 +273,16 @@ export const ITEM_TYPES = {
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: ['Malade', 'Drogué'], status: 'normale', health: 4 } },
     'Antiseptique': { type: 'consumable', icon: '🧴', effects: { ifStatus: ['Blessé', 'Malade'], status: 'normale', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { health: 2 } },
-    'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Malade'], status: 'normale', health: 3 } },
-    'Batterie déchargée': {type: 'resource', icon: '🔋❌'},
+    'Kit de Secours': { type: 'consumable', icon: '⛑️', effects: { ifStatus: ['Malade'], status: 'normale', health: 3 } },
+    'Batterie déchargée': {type: 'resource', icon: '🪫'},
     'Venin': { type: 'consumable', icon: '🧪', effects: { status: [{ name: 'Empoisonné', chance: 1.0, duration: 300 }] } },
     'Fiole empoisonnée': { type: 'consumable', icon: '☠️', effects: { health: -1000 } },
-    'Fiole anti-poison': { type: 'consumable', icon: '🧪✨', effects: { ifStatus: 'Empoisonné', status: 'normale', health: 10 } },
-    'Drogue': { type: 'consumable', icon: '😵‍💫', effects: { sleep: 5, hunger: 5, custom: 'drogueEffect' } },
+    'Fiole anti-poison': { type: 'consumable', icon: '⚗️', effects: { ifStatus: 'Empoisonné', status: 'normale', health: 10 } },
+    'Drogue': { type: 'consumable', icon: '🍄', effects: { sleep: 5, hunger: 5, custom: 'drogueEffect' } },
     'Porte bonheur': { type: 'consumable', icon: '🍀', effects: { custom: 'porteBonheur' } },
     'Carte': {type: 'usable', icon: '🗺️', uses: 30, action: 'open_large_map' },
     'Alcool': { type: 'consumable', icon: '🍺', effects: { thirst: 10, health: -2, status: [{ name: 'Alcoolisé', chance: 1.0, duration: 120 }] } },
-    'Breuvage étrange': { type: 'consumable', icon: '🧪❓', effects: { custom: 'breuvageEtrangeEffect' } },
+    'Breuvage étrange': { type: 'consumable', icon: '🍶', effects: { custom: 'breuvageEtrangeEffect' } },
 
     // Parchemins
     'Parchemin Atelier Bois_PelleBois': { type: 'consumable', icon: '📜', teachesRecipe: 'Pelle en bois', rarity: 'common', description: "Transformer 10 bois = 1 pelle en bois", unique: true },
@@ -413,6 +413,19 @@ export const SPRITESHEET_PATHS = {
     prop_workbench: 'assets/etabli.png',
     prop_chest: 'assets/coffre.webp',
     prop_tree: 'assets/arbre.png',
+    // Sprites générés (créatures) dessinés dans la scène
+    sprite_wolf: 'assets/icons/wolf.png',
+    sprite_snake: 'assets/icons/snake.png',
+    sprite_rat: 'assets/icons/rat.png',
+    sprite_guardian: 'assets/icons/guardian.png',
+};
+
+// Correspondance nom d'ennemi -> sprite préchargé (dessin dans la scène)
+export const ENEMY_SPRITES = {
+    'Loup Agressif': 'sprite_wolf',
+    'Serpent Venimeux': 'sprite_snake',
+    'Rat Furtif': 'sprite_rat',
+    'Gardien du Trésor': 'sprite_guardian',
 };
 
 export const TILE_TYPES = {
@@ -461,7 +474,7 @@ export const TILE_TYPES = {
         description: "Un grand abri pour plusieurs survivants."
     },
     MINE: { // Bâtiment
-        name: 'Mine (Bâtiment)', accessible: true, color: '#5e503f', background: ['bg_mine'], icon: '⛏️🏭',
+        name: 'Mine (Bâtiment)', accessible: true, color: '#5e503f', background: ['bg_mine'], icon: '⛏️',
         isBuilding: true, durability: 20,
         cost: { 'Bois': 20, 'toolRequired': ['Pelle en fer', 'Pelle en bois', 'Pioche'] },
         action: { id: 'search_ore_building', name: 'Chercher du Minerai (Bât.)', results: [
@@ -495,12 +508,12 @@ export const TILE_TYPES = {
                         { id: 'use_laboratoire_breuvage_etrange', name: 'Fabriquer Breuvage Étrange', costItems: {'Recette médicinale': 3, 'Plan d\'ingénieur': 3}, result: {'Breuvage étrange': 1}},
                    ],
                    description: "Permet de créer des composés chimiques." },
-    FORGE: { name: 'Forge', accessible: true, color: '#d2691e', background: ['bg_plains_3'], icon: '🔥🏭', isBuilding: true, durability: 200, cost: { 'Pierre': 50, 'Charbon': 20, 'toolRequired': ['Pelle en fer'] }, action: { id: 'use_forge', name: 'Utiliser Forge' }, description: "Permet de travailler les métaux. (Ouvre l'atelier avec des recettes spécifiques)." },
-    BANANERAIE: { name: 'Bananeraie', accessible: true, color: '#ffffe0', background: ['bg_plains_4'], icon: '🍌🌳', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_bananeraie', name: 'Récolter Bananes', result: { 'Banane': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive des bananes." },
-    SUCRERIE: { name: 'Sucrerie', accessible: true, color: '#fafad2', background: ['bg_plains_1'], icon: '🍬🏭', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_sucrerie', name: 'Récolter Cannes', result: { 'Canne à sucre': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive de la canne à sucre." },
-    COCOTERAIE: { name: 'Cocoteraie', accessible: true, color: '#fff8dc', background: ['bg_plains_2'], icon: '🥥🌴', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_cocoteraie', name: 'Récolter Noix de Coco', result: { 'Noix de coco': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive des noix de coco." },
-    POULAILLER: { name: 'Poulailler', accessible: true, color: '#fffacd', background: ['bg_plains_3'], icon: '🐔🏡', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_poulailler', name: 'Récolter Oeufs', result: { 'Oeuf cru': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des poules." },
-    ENCLOS_COCHONS: { name: 'Enclos à Cochons', accessible: true, color: '#ffebcd', background: ['bg_plains_4'], icon: '🐖🏞️', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_enclos_cochons', name: 'Récolter Viande', result: { 'Viande crue': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des cochons." },
+    FORGE: { name: 'Forge', accessible: true, color: '#d2691e', background: ['bg_plains_3'], icon: '⚒️', isBuilding: true, durability: 200, cost: { 'Pierre': 50, 'Charbon': 20, 'toolRequired': ['Pelle en fer'] }, action: { id: 'use_forge', name: 'Utiliser Forge' }, description: "Permet de travailler les métaux. (Ouvre l'atelier avec des recettes spécifiques)." },
+    BANANERAIE: { name: 'Bananeraie', accessible: true, color: '#ffffe0', background: ['bg_plains_4'], icon: '🍌', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_bananeraie', name: 'Récolter Bananes', result: { 'Banane': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive des bananes." },
+    SUCRERIE: { name: 'Sucrerie', accessible: true, color: '#fafad2', background: ['bg_plains_1'], icon: '🍬', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_sucrerie', name: 'Récolter Cannes', result: { 'Canne à sucre': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive de la canne à sucre." },
+    COCOTERAIE: { name: 'Cocoteraie', accessible: true, color: '#fff8dc', background: ['bg_plains_2'], icon: '🥥', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_plantation', name: 'Arroser plantation', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_cocoteraie', name: 'Récolter Noix de Coco', result: { 'Noix de coco': 3 } } ], maxHarvestsPerCycle: 10, description: "Cultive des noix de coco." },
+    POULAILLER: { name: 'Poulailler', accessible: true, color: '#fffacd', background: ['bg_plains_3'], icon: '🐔', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_poulailler', name: 'Récolter Oeufs', result: { 'Oeuf cru': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des poules." },
+    ENCLOS_COCHONS: { name: 'Enclos à Cochons', accessible: true, color: '#ffebcd', background: ['bg_plains_4'], icon: '🐖', isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'abreuver_animaux', name: 'Abreuver les animaux', costItem: 'Eau pure', costAmount: 1 }, { id: 'harvest_enclos_cochons', name: 'Récolter Viande', result: { 'Viande crue': 3 } } ], maxHarvestsPerCycle: 10, description: "Élève des cochons." },
     OBSERVATOIRE: { name: 'Observatoire', accessible: true, color: '#f5f5dc', background: ['bg_plains_1'], icon: '🔭', isBuilding: true, durability: 20, cost: { 'Planche': 50, 'Porte en bois': 1, 'toolRequired': ['Pelle en fer'] }, action: { id: 'observe_weather', name: '🔭 Observer le ciel (météo de demain)' }, description: "Permet d'observer le ciel." },
     PANNEAU_SOLAIRE: { name: 'Panneau solaire', accessible: true, color: '#1e3a8a', background: ['bg_plains_1'], icon: '☀️', isBuilding: true, durability: 10, action: { id: 'charge_device_solar', name: '⚡ Recharger un appareil (Panneau)' }, description: "Recharge les appareils électroniques déchargés." },
     ETABLI: { name: 'Établi', accessible: true, color: '#D2B48C', background: ['bg_plains_2'], icon: '🪚', isBuilding: true, durability: 50, cost: { 'Bois': 25 }, action: {id: 'use_etabli', name: 'Utiliser Établi'}, description: "Un plan de travail simple pour l'artisanat." },

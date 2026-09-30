@@ -4,7 +4,8 @@
 let ctx = null;
 let masterGain = null;
 let ambientGain = null;
-let enabled = true;
+// Préférence sonore mémorisée entre les sessions
+let enabled = (() => { try { return localStorage.getItem('sound-enabled') !== '0'; } catch { return true; } })();
 let started = false;
 
 function ensureContext() {
@@ -13,7 +14,7 @@ function ensureContext() {
     if (!AC) return false;
     ctx = new AC();
     masterGain = ctx.createGain();
-    masterGain.gain.value = 0.55;
+    masterGain.gain.value = enabled ? 0.55 : 0;
     masterGain.connect(ctx.destination);
     return true;
 }
@@ -34,6 +35,7 @@ export function isEnabled() { return enabled; }
 export function toggleAudio() {
     enabled = !enabled;
     if (masterGain) masterGain.gain.value = enabled ? 0.55 : 0;
+    try { localStorage.setItem('sound-enabled', enabled ? '1' : '0'); } catch {}
     return enabled;
 }
 
