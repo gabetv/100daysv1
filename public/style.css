@@ -2316,3 +2316,137 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
 .build-item-icon .icon-img { width: 34px; height: 34px; }
 #objectives-list .icon-img { width: 1.25em; height: 1.25em; }
 .victory-trophy { width: 1.25em; height: 1.25em; vertical-align: -0.2em; }
+
+/* =======================================================================
+   INTERFACE NETTE — menus lisibles sur mobile et desktop
+   =======================================================================
+   Les effets backdrop-filter au-dessus des canvas animés pouvaient rendre les
+   feuilles et les modales floues sur certains GPU mobiles. Les menus restent
+   maintenant opaques et sans filtre : le décor garde sa profondeur, le texte
+   reste net dès l'ouverture. */
+
+/* Panneaux et menus contextuels : fond plein, sans composition floue. */
+.ui-panel,
+#bottom-bar,
+#large-map-legend,
+#item-context-menu,
+#actions-dropdown,
+#central-actions-panel,
+#bottom-bar-chat-panel.chat-expanded {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+.ui-panel {
+    background-color: #183441;
+    background-image: linear-gradient(180deg, #244554 0%, #183441 58%, #132d39 100%);
+}
+#bottom-bar { background-color: #17313e; }
+.bottom-bar-section { background-color: #132a35; }
+#actions-dropdown { background-color: #1a3441; }
+#central-actions-panel { background-color: #1b3b4c; }
+#bottom-bar-chat-panel.chat-expanded { background-color: #102631; }
+#large-map-legend, #item-context-menu { background-color: #183441; }
+
+/* Voiles de modales : assombrissement net, sans flouter le contenu. */
+#large-map-modal,
+#inventory-modal,
+#quantity-modal,
+#combat-modal,
+#equipment-modal,
+#build-modal,
+#workshop-modal,
+#lock-modal,
+#chest-modal,
+#admin-modal,
+#tutorial-overlay,
+#end-game-modal,
+#victory-overlay {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+#large-map-modal,
+#inventory-modal,
+#equipment-modal,
+#build-modal,
+#workshop-modal,
+#lock-modal,
+#chest-modal,
+#quantity-modal,
+#combat-modal {
+    background-color: rgba(3, 12, 18, 0.88);
+}
+
+/* Aucun calque de scène ne traverse le texte ou les icônes des modales. */
+#inventory-modal-content,
+#equipment-modal-content,
+#build-modal-content,
+#workshop-modal-content,
+#chest-modal-content,
+#lock-modal-content,
+#quantity-modal-content,
+#admin-modal-content,
+#tutorial-box,
+#large-map-legend {
+    background-color: #183441;
+    background-image: linear-gradient(165deg, #244b5b 0%, #183441 45%, #102b37 100%);
+}
+#combat-modal-content { background-color: #172f3a; }
+#inventory-modal .inventory-list,
+#equipment-modal #equipment-player-inventory,
+#combat-log,
+#equipment-player-view,
+.workshop-recipe-card,
+.build-item-card {
+    background-color: #102934;
+}
+
+/* Cibles actives : effet clair sans filtre appliqué au texte. */
+.tab-button,
+#actions-tab-content button,
+#context-menu-actions button,
+.action-dropdown-item {
+    filter: none;
+}
+.tab-button:focus-visible,
+#actions-tab-content button:focus-visible,
+#context-menu-actions button:focus-visible,
+.action-dropdown-item:focus-visible {
+    outline: 2px solid #ffd479;
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    /* Les feuilles mobiles étaient la source principale du flou au clic. */
+    #left-panel,
+    #right-panel,
+    #bottom-bar-chat-panel,
+    #minimap-section,
+    #bottom-bar-equipment-panel,
+    #mobile-sheet-backdrop,
+    #mobile-tabbar {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    #left-panel,
+    #right-panel,
+    #bottom-bar-chat-panel,
+    #minimap-section,
+    #bottom-bar-equipment-panel {
+        background: linear-gradient(180deg, #173442 0%, #102833 100%) !important;
+    }
+    #mobile-sheet-backdrop { background: rgba(0, 0, 0, 0.64); }
+    #mobile-tabbar { background: #0b1d26; }
+
+    /* Ne pas faire varier l'opacité de la feuille active : le contenu est net
+       dès la première image de l'animation. */
+    body.sheet-open #left-panel.sheet-active,
+    body.sheet-open #right-panel.sheet-active,
+    body.sheet-open #bottom-bar-chat-panel.sheet-active,
+    body.sheet-open #minimap-section.sheet-active,
+    body.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        opacity: 1;
+    }
+}
