@@ -471,6 +471,41 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen .bottom-bar-section { padding-top: 2px; }
 }
 
+/* --- Ordinateur : lecture agrandie et scène moins comprimée. --- */
+@media (min-width: 901px) {
+    body.game-screen .ui-panel h3,
+    body.game-screen .bottom-bar-section h3,
+    body.game-screen .bottom-bar-section h4,
+    body.game-screen .panel-identity > span { font-size: .66rem; }
+    body.game-screen .panel-identity small { font-size: .72rem; }
+    body.game-screen .stat-header > span:not(.stat-icon) { font-size: .80rem; }
+    body.game-screen .stat-bar-container { height: 21px; padding: 4px; }
+    body.game-screen .consume-btn { width: 25px; height: 25px; }
+    body.game-screen .tab-button { min-height: 48px; font-size: .56rem; }
+    body.game-screen #actions-tab-content .action-button { min-height: 50px; font-size: .78rem; }
+    body.game-screen #actions-tab-content .actions-summary p { font-size: .74rem; }
+    body.game-screen .inventory-item { font-size: .72rem; }
+    body.game-screen #chat-messages { font-size: .78rem; }
+    body.game-screen #game-info-hud { font-size: .74rem; }
+    body.game-screen #day-display { font-size: .60rem; }
+}
+
+@media (min-width: 1280px) {
+    body.game-screen #main-area {
+        grid-template-columns: clamp(200px, 13vw, 232px) minmax(520px, 1fr) clamp(270px, 20vw, 320px);
+        gap: 10px;
+    }
+    body.game-screen #main-view-container {
+        max-width: none;
+        max-height: none;
+        border-width: 4px;
+    }
+}
+
+@media (min-width: 1280px) and (min-height: 820px) {
+    body.game-screen #bottom-bar { flex-basis: clamp(150px, 15vh, 170px); }
+}
+
 /* =====================================================================
    MOBILE VERTICAL — scène plein écran, commandes au pouce et tiroirs
    pixel art. Aucun écran de rotation ni verrouillage d'orientation.
