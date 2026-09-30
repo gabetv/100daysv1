@@ -38,12 +38,6 @@
                     <div id="loading-overlay" class="hidden"><div class="loader"></div><p>Chargement...</p></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
                     
-                    <!-- HUD Quêtes / Objectifs (positionné en haut à droite, dégagé des boutons de navigation) -->
-                    <div id="objectives-hud">
-                        <h4 id="objectives-hud-title"><span>🎯 Quêtes</span> <span id="objectives-toggle">▾</span></h4>
-                        <ul id="objectives-list"></ul>
-                    </div>
-
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
                             <div id="game-info-hud">
@@ -64,6 +58,7 @@
                             <button class="nav-button-overlay" id="nav-south" title="Sud">↓</button>
                             <button class="nav-button-overlay" id="nav-se" title="Sud-Est">↘</button>
                         </div>
+                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici">🤝 <span>Interagir ici</span></button>
                         <div id="central-actions-panel" class="hidden">
                             <button class="central-action-button" data-action="build" title="Construire">🛠️</button>
                             <button class="central-action-button" data-action="harvest" title="Récolter">🪓</button>
@@ -76,6 +71,11 @@
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
+                <!-- Les objectifs restent dans le panneau latéral : ils ne recouvrent plus la scène. -->
+                <section id="objectives-hud" aria-label="Objectifs">
+                    <h4 id="objectives-hud-title"><span>🎯 Quêtes</span> <span id="objectives-toggle">▾</span></h4>
+                    <ul id="objectives-list"></ul>
+                </section>
                 <div id="right-panel-tabs">
                     <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
                     <button class="tab-button active" data-tab="actions-tab">Actions</button>

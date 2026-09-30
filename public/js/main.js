@@ -373,6 +373,29 @@ function setupEventListeners() {
         }
     }
 
+    // Interaction directe depuis la scène : ouvre toujours le menu d'actions sans
+    // demander de viser un petit bouton dans le panneau latéral.
+    const screenInteractionButton = document.getElementById('screen-interaction-button');
+    if (screenInteractionButton) {
+        screenInteractionButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const rightPanel = document.getElementById('right-panel');
+            if (UI.isMobileLayout && UI.isMobileLayout()) {
+                UI.openMobileTab('actions');
+            } else if (rightPanel) {
+                rightPanel.scrollTo({ top: 0, behavior: 'smooth' });
+                rightPanel.classList.add('interaction-focus');
+                setTimeout(() => rightPanel.classList.remove('interaction-focus'), 900);
+            }
+            document.querySelectorAll('#right-panel-tabs .tab-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === 'actions-tab');
+            });
+            document.querySelectorAll('#right-panel .tab-content').forEach(tab => {
+                tab.classList.toggle('active-tab', tab.id === 'actions-tab');
+            });
+        });
+    }
+
     // Replier/déplier le panneau d'objectifs
     const objectivesTitle = document.getElementById('objectives-hud-title');
     if (objectivesTitle) {
