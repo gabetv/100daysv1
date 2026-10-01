@@ -7,6 +7,10 @@ import * as ModalsModule from './ui/modals.js';
 import * as TutorialModule from './ui/tutorial.js';
 import * as MobileModule from './ui/mobile.js';
 import * as RenderModule from './ui/render.js';
+import * as SheetsModule from './ui/sheets.js';
+import * as DayTimerModule from './ui/daytimer.js';
+import * as ViewportModule from './ui/viewport.js';
+import * as HotspotsModule from './ui/hotspots.js';
 import { OBJECTIVE_IMAGES } from './ui/icons.js';
 
 // --- Ré-exporter explicitement les fonctions ---
@@ -103,6 +107,28 @@ export const notifyChatMessage = MobileModule.notifyChatMessage;
 export const startRenderLoop = RenderModule.startRenderLoop;
 export const stopRenderLoop = RenderModule.stopRenderLoop; 
 
+// Depuis ./ui/sheets.js — planches pixel art d'interface
+export const loadUISheets = SheetsModule.loadUISheets;
+export const hydrateHudIcons = SheetsModule.hydrateHudIcons;
+export const applyHudIcon = SheetsModule.applyHudIcon;
+export const applySpriteFrame = SheetsModule.applySpriteFrame;
+
+// Depuis ./ui/daytimer.js — décompte de la journée
+export const initDayTimer = DayTimerModule.initDayTimer;
+export const updateDayTimer = DayTimerModule.updateDayTimer;
+export const syncDayTimer = DayTimerModule.syncDayTimer;
+export const setDayTimerScale = DayTimerModule.setDayTimerScale;
+
+// Depuis ./ui/viewport.js — adaptation à la résolution
+export const initViewport = ViewportModule.initViewport;
+export const applyViewport = ViewportModule.applyViewport;
+export const toggleFocusMode = ViewportModule.toggleFocus;
+export const ensurePanelsVisible = ViewportModule.ensurePanelsVisible;
+
+// Depuis ./ui/hotspots.js — interactions à l'écran
+export const initHotspots = HotspotsModule.initHotspots;
+export const getHotspots = HotspotsModule.getHotspots;
+
 /**
  * Met à jour tous les éléments statiques de l'interface utilisateur.
  * @param {object} gameState L'état actuel du jeu.
@@ -123,6 +149,8 @@ export function updateAllUI(gameState) {
     PanelsModule.updateBottomBarEquipmentPanel(player);
     PanelsModule.updateActionsPanel(gameState);
     PanelsModule.updateAllButtonsState(gameState); // S'assurer que les boutons sont cliquables
+    // Décompte de la journée : resynchronisé sur l'horloge serveur.
+    DayTimerModule.syncDayTimer(gameState);
 
     if (gameState.config) {
        DrawModule.drawMinimap(gameState, gameState.config);

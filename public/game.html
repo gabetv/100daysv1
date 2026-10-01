@@ -13,10 +13,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="game-shell.css">
+    <!-- Dernière couche : adaptation à la résolution, minuteurs et interactions. -->
+    <link rel="stylesheet" href="responsive.css">
 </head>
 <body class="game-screen">
     <div id="game-container">
         <div id="main-area">
+            <!-- Voile du tiroir « Statut » en disposition compacte. -->
+            <div id="left-drawer-backdrop" aria-hidden="true"></div>
+
             <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
@@ -86,15 +91,38 @@
                         </div>
                         <div id="navigation-edge-panel">
                             <div id="game-info-hud">
-                                <p id="day-display"><span id="day-counter-text">Jour 1 / 100</span><button id="sound-toggle" title="Couper le son" aria-label="Couper ou réactiver le son">🔊</button></p>
+                                <!-- DÉCOMPTE DE LA JOURNÉE : minuteur du jour suivant,
+                                     minuteur de la phase en cours et barre de progression. -->
+                                <section id="day-timer" class="day-timer" aria-label="Décompte de la journée">
+                                    <p id="day-display"><span id="day-counter-text">Jour 1 / 100</span><button id="sound-toggle" title="Couper le son" aria-label="Couper ou réactiver le son">🔊</button></p>
+                                    <div class="day-timer-main">
+                                        <i id="day-timer-sprite" class="day-timer-sprite" aria-hidden="true"></i>
+                                        <span class="day-timer-values">
+                                            <strong id="day-timer-countdown">02:00</strong>
+                                            <small class="day-timer-caption">avant le jour suivant</small>
+                                        </span>
+                                    </div>
+                                    <div class="day-timer-track"><span id="day-timer-fill"></span><i id="day-timer-cursor"></i></div>
+                                    <div class="day-timer-phase">
+                                        <i id="day-timer-phase-sprite" class="day-timer-phase-sprite" aria-hidden="true"></i>
+                                        <p id="daytime-display" data-phase="jour">☀️ Jour</p>
+                                        <span id="day-timer-eta">Nuit dans 1:12</span>
+                                    </div>
+                                </section>
                                 <p id="event-display" style="display:none;">🌩️ Événement</p>
-                                <p id="daytime-display" data-phase="jour">☀️ Jour</p>
                                 <p id="level-display">⭐ Niveau 1</p>
                                 <div id="xp-bar-container"><div id="xp-bar"></div></div>
                                 <button id="admin-open-btn" type="button" aria-expanded="false" title="Ouvrir les outils de test">🛠 MODE TEST</button>
                                 <p id="time-display">👥 1 survivant</p>
                                 <p id="position-display-nav">Position: (0, 0)</p>
                                 <p id="controls-hint"><span>⌨</span> ZQSD / flèches <i>·</i> glisser sur mobile</p>
+                                <!-- Disposition de l'écran : tiroir Statut, dock bas, focus scène.
+                                     Logé dans le HUD pour ne jamais recouvrir les flèches. -->
+                                <div id="shell-controls" aria-label="Disposition de l'écran">
+                                    <button id="toggle-status-btn" class="shell-control" type="button" aria-pressed="false" title="Afficher le panneau Statut" hidden><i class="sheet-icon" data-hud-icon="heart"></i><span>Statut</span></button>
+                                    <button id="toggle-dock-btn" class="shell-control" type="button" aria-pressed="true" title="Afficher le dock bas" hidden><i class="sheet-icon" data-hud-icon="chat"></i><span>Dock</span></button>
+                                    <button id="toggle-focus-btn" class="shell-control" type="button" aria-pressed="false" title="Focus sur la scène (touche F)"><i class="sheet-icon" data-hud-icon="layout"></i><span>Focus</span></button>
+                                </div>
                             </div>
                             <button class="nav-button-overlay" id="nav-nw" title="Nord-Ouest">↖</button>
                             <button class="nav-button-overlay" id="nav-north" title="Nord">↑</button>

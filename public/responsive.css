@@ -1,0 +1,547 @@
+/* =====================================================================
+   RESPONSIVE + MINUTEURS + INTERACTIONS DE SCÈNE
+   Chargé après style.css et game-shell.css : cette couche corrige les
+   résolutions problématiques et ajoute les nouveaux composants.
+
+   Sommaire
+   1. Échelle d'interface pilotée par la résolution
+   2. Coquille « full »   : grand écran, grille fluide
+   3. Coquille « compact »: tiroir Statut (data-narrow) + dock (data-short)
+   4. Mode Focus scène
+   5. Commandes de disposition (dans le HUD)
+   6. Décompte de la journée (timers)
+   7. Interactions à l'écran (réticule, étiquette, ping)
+   8. Mobile
+   9. Accessibilité / mouvement réduit
+   ===================================================================== */
+
+/* ------------------------------------------------------------------
+   1. Échelle d'interface
+   ------------------------------------------------------------------
+   `--ui-scale` est calculé en JS (viewport.js) entre 0.88 et 1.10.
+   En pilotant la taille de base du document, toutes les valeurs `rem`
+   de l'interface suivent la résolution : plus de HUD trop grand sur un
+   1366×768 ni de texte minuscule sur un grand écran. Les bornes restent
+   volontairement serrées — la place se gagne par la mise en page. */
+html[data-shell='full'],
+html[data-shell='compact'] {
+    /* Plancher à 14 px : la police pixel reste lisible sur un 1024×768. */
+    font-size: max(14px, calc(16px * var(--ui-scale, 1)));
+}
+
+/* Les panneaux ne doivent jamais pousser la grille au-delà de l'écran. */
+body.game-screen #main-area > * { min-width: 0; min-height: 0; }
+body.game-screen #bottom-bar > * { min-width: 0; }
+
+/* ------------------------------------------------------------------
+   2. Coquille « full » — grand écran
+   ------------------------------------------------------------------ */
+html[data-shell='full'] body.game-screen #main-area {
+    position: relative;
+    grid-template-columns:
+        clamp(186px, 13.5vw, 238px)
+        minmax(0, 1fr)
+        clamp(258px, 20.5vw, 326px);
+    gap: 8px;
+}
+html[data-shell='full'] body.game-screen #bottom-bar {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, .74fr);
+}
+
+/* ------------------------------------------------------------------
+   3. Coquille « compact » — 901→1180 px de large, ou moins de 760 px
+      de haut. Avant cette passe, la grille à trois colonnes débordait
+      et la scène tombait sous 400 px : injouable.
+   ------------------------------------------------------------------ */
+html[data-shell='compact'] body.game-screen #game-container { padding: 6px; gap: 6px; }
+
+/* Largeur contrainte : deux colonnes, le Statut passe en tiroir. */
+html[data-narrow='on'] body.game-screen #main-area {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) clamp(228px, 25vw, 296px);
+    gap: 6px;
+}
+/* Hauteur contrainte seule : on garde les trois colonnes, simplement plus fines. */
+html[data-narrow='off'][data-short='on'] body.game-screen #main-area {
+    position: relative;
+    grid-template-columns: clamp(180px, 13vw, 226px) minmax(0, 1fr) clamp(250px, 20vw, 310px);
+    gap: 7px;
+}
+
+/* --- Le Statut devient un tiroir au-dessus de la scène. --- */
+html[data-narrow='on'] body.game-screen #left-panel {
+    position: absolute;
+    z-index: 2200;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(274px, 72%);
+    max-width: none;
+    margin: 0;
+    overflow: hidden auto;
+    transform: translateX(calc(-100% - 20px));
+    transition: transform .18s steps(3, end);
+    box-shadow: 9px 0 0 rgba(3, 12, 16, .45), 0 10px 30px rgba(0, 0, 0, .5);
+}
+html[data-narrow='on'] body.game-screen.left-drawer-open #left-panel { transform: translateX(0); }
+
+body.game-screen #left-drawer-backdrop {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 2100;
+    background: rgba(2, 10, 14, .58);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease;
+}
+html[data-narrow='on'] body.game-screen #left-drawer-backdrop { display: block; }
+html[data-narrow='on'] body.game-screen.left-drawer-open #left-drawer-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* --- La barre basse devient un dock à onglets : une seule section à
+       la fois, donc une scène nettement plus grande. --- */
+body.game-screen .dock-tabs { display: none; }
+html[data-short='on'] body.game-screen #bottom-bar {
+    flex: 0 0 auto;
+    height: clamp(116px, 17vh, 164px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 5px;
+}
+html[data-short='on'] body.game-screen .dock-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 32px;
+    gap: 4px;
+    padding: 0;
+}
+body.game-screen .dock-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 30px;
+    padding: 2px 6px;
+    border: 1px solid rgba(248, 204, 105, .34);
+    border-radius: 2px;
+    background: #0b2831;
+    color: #8db7b8;
+    font-family: var(--pixel-font, monospace);
+    font-size: .46rem;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background .12s steps(2, end), color .12s steps(2, end);
+}
+body.game-screen .dock-tab:hover { background: #14424d; color: #d9f0e4; }
+body.game-screen .dock-tab.active {
+    border-color: var(--shell-gold, #f8cc69);
+    background: linear-gradient(#24535a, #14353e);
+    color: #fff0bc;
+}
+body.game-screen .dock-tab .sheet-icon { width: 16px; height: 16px; }
+body.game-screen .dock-collapse { font-family: inherit; font-size: .8rem; gap: 0; }
+html[data-short='on'] body.game-screen .bottom-bar-section.dock-hidden { display: none; }
+html[data-short='on'] body.game-screen.dock-collapsed #bottom-bar {
+    height: auto;
+    grid-template-rows: auto;
+}
+html[data-short='on'] body.game-screen.dock-collapsed .bottom-bar-section { display: none; }
+
+/* Panneaux plus denses : on gagne de la place sans rien masquer. */
+html[data-shell='compact'] body.game-screen .ui-panel { padding: 4px; gap: 7px; }
+html[data-shell='compact'] body.game-screen .ui-panel section { padding: 8px; }
+html[data-shell='compact'] body.game-screen .bottom-bar-section { padding: 3px 5px 4px; }
+html[data-shell='compact'] body.game-screen #chat-messages { font-size: .7rem; }
+html[data-shell='compact'] body.game-screen #actions-tab-content .action-button {
+    min-height: 40px;
+    padding: 7px 9px;
+    font-size: .7rem;
+}
+html[data-shell='compact'] body.game-screen .tab-button { min-height: 38px; }
+
+/* Très peu de hauteur : on retire le superflu du HUD, jamais le jeu. */
+html[data-short='on'] body.game-screen #controls-hint,
+html[data-vheight='tiny'] body.game-screen #position-display-nav,
+html[data-vheight='tiny'] body.game-screen #time-display { display: none; }
+html[data-vheight='tiny'] body.game-screen #tile-info-hud p { display: none; }
+
+/* ------------------------------------------------------------------
+   4. Mode Focus scène
+   ------------------------------------------------------------------ */
+body.game-screen.focus-scene #left-panel,
+body.game-screen.focus-scene #left-drawer-backdrop,
+body.game-screen.focus-scene #bottom-bar { display: none !important; }
+html[data-shell='full'] body.game-screen.focus-scene #main-area,
+html[data-shell='compact'] body.game-screen.focus-scene #main-area {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) clamp(228px, 23vw, 304px);
+}
+
+/* Les jauges de survie remontent sur la scène dès que le panneau Statut
+   n'est plus affiché en permanence. On ne perd jamais l'information. */
+html[data-shell='full'] body.game-screen.show-scene-vitals #mobile-vitals,
+html[data-shell='compact'] body.game-screen.show-scene-vitals #mobile-vitals {
+    position: absolute;
+    z-index: 10006;
+    /* Sous la flèche Nord et à droite du HUD : aucune zone cliquable couverte. */
+    top: 74px;
+    left: 50%;
+    display: grid;
+    /* Bornées à 46 % de la scène : elles n'atteignent jamais le dock
+       d'actions rapides calé à droite. */
+    width: min(360px, 46%);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    transform: translateX(-50%);
+    pointer-events: auto;
+}
+html[data-shell='full'] body.game-screen.show-scene-vitals .mobile-vital,
+html[data-shell='compact'] body.game-screen.show-scene-vitals .mobile-vital {
+    min-width: 0;
+    height: 30px;
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 5px;
+    padding: 3px 5px;
+    border: 1px solid rgba(248, 204, 105, .5);
+    border-radius: 2px;
+    background: rgba(9, 38, 48, .94);
+    box-shadow: 2px 2px 0 rgba(3, 12, 16, .7);
+    cursor: pointer;
+}
+html[data-shell='full'] body.game-screen.show-scene-vitals .mobile-vital img,
+html[data-shell='compact'] body.game-screen.show-scene-vitals .mobile-vital img {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+body.game-screen.show-scene-vitals .mobile-vital b { display: none; }
+body.game-screen.show-scene-vitals .mobile-vital.is-low { border-color: var(--shell-coral, #e25e49); }
+
+/* ------------------------------------------------------------------
+   5. Commandes de disposition
+   ------------------------------------------------------------------ */
+/* Logées dans le HUD : aucune superposition possible avec les flèches de
+   déplacement ni avec les raccourcis d'action. */
+body.game-screen #shell-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(248, 204, 105, .22);
+    pointer-events: auto;
+}
+body.game-screen .shell-control {
+    display: inline-flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 28px;
+    padding: 3px 6px;
+    border: 1px solid rgba(248, 204, 105, .5);
+    border-radius: 2px;
+    background: rgba(6, 30, 37, .9);
+    box-shadow: 2px 2px 0 rgba(3, 12, 16, .66);
+    color: #fff0bc;
+    font-family: var(--pixel-font, monospace);
+    font-size: .4rem;
+    line-height: 1.4;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background .12s steps(2, end), transform .1s steps(2, end);
+}
+body.game-screen .shell-control:hover { background: #16454f; }
+body.game-screen .shell-control:active { transform: translate(1px, 1px); }
+body.game-screen .shell-control.is-active {
+    border-color: #9cf0ae;
+    background: linear-gradient(#2f6b4c, #1d4a38);
+    color: #e3ffe8;
+}
+body.game-screen .shell-control[hidden] { display: none; }
+body.game-screen .shell-control .sheet-icon { width: 15px; height: 15px; }
+
+/* Petite icône issue de la planche pixel art `sheet-hud-icons.png`. */
+.sheet-icon {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------
+   6. Décompte de la journée
+   ------------------------------------------------------------------ */
+body.game-screen .day-timer {
+    display: grid;
+    gap: 5px;
+    padding: 0 0 5px;
+    border-bottom: 1px solid rgba(248, 204, 105, .22);
+}
+body.game-screen .day-timer #day-display { margin: 0 0 1px; }
+
+body.game-screen .day-timer-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+body.game-screen .day-timer-sprite {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    image-rendering: pixelated;
+    filter: drop-shadow(2px 2px 0 rgba(3, 12, 16, .6));
+}
+body.game-screen .day-timer-values {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+body.game-screen #day-timer-countdown {
+    color: #fff3c6;
+    font-family: var(--pixel-font, monospace);
+    font-size: .92rem;
+    line-height: 1.2;
+    letter-spacing: .04em;
+    text-shadow: 2px 2px 0 #06171e;
+    font-variant-numeric: tabular-nums;
+}
+body.game-screen .day-timer-caption {
+    color: #8fb6b4;
+    font-size: .58rem;
+    line-height: 1.3;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+body.game-screen .day-timer-track {
+    position: relative;
+    height: 9px;
+    /* Pas d'`overflow: hidden` : le curseur déborde volontairement de 2 px
+       en haut et en bas pour rester lisible sur une barre de 9 px. */
+    border: 1px solid rgba(3, 12, 16, .85);
+    background-color: #071d25;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
+}
+/* Voile sombre sur la part de journée déjà écoulée. */
+body.game-screen #day-timer-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    background: rgba(4, 16, 21, .62);
+    box-shadow: inset -1px 0 0 rgba(255, 240, 188, .35);
+    transition: width .25s linear;
+}
+body.game-screen #day-timer-cursor {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: 0;
+    width: 3px;
+    margin-left: -1px;
+    background: #fff3c6;
+    box-shadow: 0 0 0 1px rgba(3, 12, 16, .9);
+    transition: left .25s linear;
+}
+body.game-screen .day-timer-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(5, 18, 24, .75);
+}
+
+body.game-screen .day-timer-phase {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+body.game-screen .day-timer-phase-sprite {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(248, 204, 105, .35);
+    image-rendering: pixelated;
+}
+body.game-screen .day-timer-phase #daytime-display {
+    margin: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    color: #d6ecdf;
+    font-size: .62rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+body.game-screen #day-timer-eta {
+    margin-left: auto;
+    flex: 0 0 auto;
+    color: #9ad0d8;
+    font-size: .58rem;
+    font-variant-numeric: tabular-nums;
+}
+body.game-screen #day-timer-eta.is-soon { color: #ffd479; font-weight: 700; }
+
+/* Dernières secondes : le minuteur se signale sans couvrir l'écran. */
+body.game-screen .day-timer.is-urgent #day-timer-countdown {
+    color: #ffb4a2;
+    animation: day-timer-blink .9s steps(2, end) infinite;
+}
+body.game-screen .day-timer.is-urgent .day-timer-track { box-shadow: 0 0 0 1px rgba(226, 94, 73, .9); }
+body.game-screen .day-timer.day-pulse { animation: day-timer-pop .5s steps(4, end) 1; }
+body.game-screen .day-timer.phase-nuit #day-timer-countdown { color: #bcd2ff; }
+
+@keyframes day-timer-blink { 50% { opacity: .35; } }
+@keyframes day-timer-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+
+/* ------------------------------------------------------------------
+   7. Interactions à l'écran
+   ------------------------------------------------------------------ */
+body.game-screen #main-view-container.has-hotspot { cursor: pointer; }
+
+body.game-screen #hotspot-tooltip {
+    position: absolute;
+    z-index: 10008;
+    display: grid;
+    gap: 1px;
+    max-width: min(240px, 60%);
+    padding: 5px 8px;
+    border: 1px solid var(--shell-gold, #f8cc69);
+    background: rgba(5, 23, 29, .95);
+    box-shadow: 3px 3px 0 rgba(1, 8, 11, .72);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -100%);
+    transition: opacity .1s steps(2, end);
+}
+body.game-screen #hotspot-tooltip.is-visible { opacity: 1; }
+body.game-screen #hotspot-tooltip strong {
+    color: #fff3c6;
+    font-family: var(--pixel-font, monospace);
+    font-size: .5rem;
+    line-height: 1.45;
+}
+body.game-screen #hotspot-tooltip small {
+    color: #9ad0d8;
+    font-size: .6rem;
+    line-height: 1.3;
+}
+body.game-screen #hotspot-tooltip[data-type='enemy'] { border-color: var(--shell-coral, #e25e49); }
+body.game-screen #hotspot-tooltip[data-type='enemy'] strong { color: #ffc3b6; }
+body.game-screen #hotspot-tooltip[data-type='loot'] { border-color: #ffe08a; }
+
+body.game-screen .hotspot-ping {
+    position: absolute;
+    z-index: 10007;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid var(--shell-gold, #f8cc69);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: hotspot-ping .5s steps(5, end) forwards;
+}
+@keyframes hotspot-ping {
+    0% { opacity: .95; transform: scale(.4); }
+    100% { opacity: 0; transform: scale(3.4); }
+}
+
+/* ------------------------------------------------------------------
+   8. Mobile
+   ------------------------------------------------------------------ */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    /* Les commandes de disposition n'ont pas de sens : la barre d'onglets
+       tactile remplit déjà ce rôle. */
+    body.game-screen #shell-controls,
+    body.game-screen .dock-tabs,
+    body.game-screen #left-drawer-backdrop { display: none !important; }
+
+    /* Le HUD d'information se recentre autour du minuteur. Le conteneur
+       reste un flex à retour à la ligne : le minuteur occupe sa propre
+       ligne pleine largeur, les autres infos se répartissent dessous. */
+    body.game-screen #game-info-hud {
+        width: min(50vw, 176px);
+        max-width: min(50vw, 176px);
+        padding: 5px 6px;
+        gap: 3px;
+    }
+    body.game-screen .day-timer {
+        flex: 1 1 100%;
+        width: 100%;
+        gap: 3px;
+        padding-bottom: 3px;
+    }
+    body.game-screen .day-timer-main { gap: 6px; }
+    body.game-screen .day-timer-sprite { width: 26px; height: 26px; }
+    body.game-screen #day-timer-countdown { font-size: .74rem; }
+    body.game-screen .day-timer-caption { display: none; }
+    body.game-screen .day-timer-track { height: 7px; }
+    body.game-screen .day-timer-phase-sprite { width: 18px; height: 18px; }
+    body.game-screen .day-timer-phase #daytime-display { font-size: .52rem; }
+    body.game-screen #day-timer-eta { font-size: .5rem; }
+
+    /* L'étiquette d'interaction reste lisible au pouce. */
+    body.game-screen #hotspot-tooltip { max-width: 70vw; padding: 6px 9px; }
+    body.game-screen #hotspot-tooltip strong { font-size: .46rem; }
+    body.game-screen #hotspot-tooltip small { font-size: .62rem; }
+
+    /* Barre d'onglets : 8 cibles, toujours au moins 44 px de haut, et un
+       repli propre sur les écrans les plus étroits. */
+    body.game-screen #mobile-tabbar { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    body.game-screen .mobile-tab { min-height: 46px; }
+}
+
+/* Écrans très étroits : on garde les icônes, on sacrifie les libellés
+   secondaires plutôt que la taille de la cible tactile. */
+@media (max-width: 340px) {
+    body.game-screen .mobile-tab .mt-label { display: none; }
+    body.game-screen .mobile-tab .mt-icon .icon-img { width: 23px; height: 23px; }
+    body.game-screen #game-info-hud { width: 132px; }
+}
+
+/* Paysage très bas (téléphone à l'horizontale) : la scène doit rester
+   majoritaire, les tiroirs deviennent plus courts. */
+@media (max-height: 460px) and (orientation: landscape) and (pointer: coarse) {
+    body.game-screen #left-panel,
+    body.game-screen #right-panel,
+    body.game-screen #bottom-bar-chat-panel,
+    body.game-screen #minimap-section,
+    body.game-screen #bottom-bar-equipment-panel { height: min(82dvh, 420px); }
+    body.game-screen #mobile-vitals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    body.game-screen #game-info-hud {
+        top: calc(43px + var(--safe-t, 0px));
+        width: min(38vw, 158px);
+        max-width: min(38vw, 158px);
+    }
+    /* En paysage la hauteur est la ressource rare : on ne garde que le
+       décompte, le niveau et l'événement en cours. */
+    body.game-screen #time-display,
+    body.game-screen #position-display-nav,
+    body.game-screen #controls-hint,
+    body.game-screen #tile-info-hud { display: none; }
+}
+
+/* ------------------------------------------------------------------
+   9. Mouvement réduit
+   ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+    body.game-screen .day-timer.is-urgent #day-timer-countdown,
+    body.game-screen .day-timer.day-pulse,
+    body.game-screen .hotspot-ping { animation: none !important; }
+    body.game-screen #day-timer-fill,
+    body.game-screen #day-timer-cursor,
+    html[data-narrow='on'] body.game-screen #left-panel { transition: none !important; }
+}

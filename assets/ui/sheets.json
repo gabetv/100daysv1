@@ -1,0 +1,56 @@
+{
+  "generatedBy": "scripts/generate_ui_sheets.js",
+  "sheets": {
+    "timer": {
+      "file": "assets/ui/sheet-timer.png",
+      "frameW": 32,
+      "frameH": 32,
+      "columns": 8,
+      "rows": {
+        "hourglass": 0,
+        "phase": 1,
+        "dial": 2,
+        "urgent": 3
+      },
+      "notes": "phase : 2 frames par moment de la journée (aube, jour, crépuscule, nuit)."
+    },
+    "interactions": {
+      "file": "assets/ui/sheet-interactions.png",
+      "frameW": 32,
+      "frameH": 32,
+      "columns": 6,
+      "rows": {
+        "focus": 0,
+        "alert": 1,
+        "loot": 2,
+        "danger": 3,
+        "talk": 4,
+        "build": 5
+      }
+    },
+    "hudIcons": {
+      "file": "assets/ui/sheet-hud-icons.png",
+      "frameW": 24,
+      "frameH": 24,
+      "columns": 8,
+      "icons": [
+        "sun",
+        "moon",
+        "hourglass",
+        "clock",
+        "heart",
+        "drop",
+        "meat",
+        "sleep",
+        "compass",
+        "map",
+        "bag",
+        "sword",
+        "hammer",
+        "chat",
+        "star",
+        "layout"
+      ]
+    }
+  }
+}
