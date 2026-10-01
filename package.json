@@ -11,7 +11,8 @@
     "generate:sheets": "node scripts/generate_ui_sheets.js",
     "generate:mobile-hud": "node scripts/generate_mobile_hud_sheet.js",
     "generate:sprites": "node scripts/generate_spritesheets.js",
-    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:mobile-hud && npm run generate:sprites"
+    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:mobile-hud && npm run generate:sprites",
+    "test:resolution": "node scripts/test-resolution.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

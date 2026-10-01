@@ -4,6 +4,7 @@ import { drawMainBackground, drawSceneCharacters, drawMinimap } from './draw.js'
 import { drawAtmosphere, getLighting } from './atmosphere.js';
 import DOM from './dom.js';
 import { initScene3D, resizeScene3D, drawScene3D, refreshScene3D } from './scene3d.js';
+import { reportFrameCost } from './resolution.js';
 
 let running = false;
 let rafId = null;
@@ -34,6 +35,11 @@ function frame(ts) {
     if (shouldSkip()) return;
 
     try {
+        const drawStart = performance.now();
+        // Filet de sécurité : si le canvas n'a jamais pu être mesuré (layout
+        // pas encore stable, onglet restauré), on retente — l'appel est sans
+        // effet tant que la zone de scène n'est pas mesurable.
+        if (DOM.mainViewCanvas && DOM.mainViewCanvas.width < 10) resizeGameView();
         drawMainBackground(gs);
         const canvas = DOM.mainViewCanvas;
         if (canvas && DOM.mainViewCtx) {
@@ -62,6 +68,10 @@ function frame(ts) {
             const mm = DOM.minimapCanvas;
             if (mm && mm.offsetParent !== null) drawMinimap(gs, gs.config);
         }
+
+        // Qualité adaptative : le coût réel de l'image décide de l'échelle
+        // de rendu (voir resolution.js). Mesuré après le dessin effectif.
+        reportFrameCost(performance.now() - drawStart);
     } catch (e) {
         console.error('Erreur de rendu :', e);
     }

@@ -17,6 +17,7 @@ import {
     commitHotspotFrame,
     drawHotspotMarkers,
 } from './hotspots.js';
+import { getSceneRenderScale, isMobileShell, characterScaleFor } from './resolution.js';
 
 export { triggerPixelEffect };
 
@@ -97,12 +98,9 @@ function clamp01(value) {
 
 // Ligne de sol approximative par décor. Elle sert d'ancre commune aux objets,
 // constructions, ennemis et personnages pour éviter l'effet « flottant ».
-function sceneGroundY(tile, w, h, xNorm = 0.5, role = 'default') {
-    const key = getSceneBackgroundKey(tile) || '';
-    const biome = tile?.type?.name || '';
-    const x = clamp01(Number(xNorm));
-    const centered = x - 0.5;
-    const abs = Math.abs(centered);
+// Le profil (base / slope / curve) est partagé avec le cadrage des fonds
+// (`sceneFraming`) pour que la ligne peinte et les ancres restent alignées.
+function sceneGroundProfile(key, biome = '', role = 'default') {
     let base = 0.78;
     let slope = 0;
     let curve = 0.02;
@@ -152,8 +150,74 @@ function sceneGroundY(tile, w, h, xNorm = 0.5, role = 'default') {
     if (role === 'loot') base += 0.006;
     if (role === 'foreground') base += 0.06;
 
+    return { base, slope, curve };
+}
+
+function sceneGroundY(tile, w, h, xNorm = 0.5, role = 'default') {
+    const key = getSceneBackgroundKey(tile) || '';
+    const biome = tile?.type?.name || '';
+    const x = clamp01(Number(xNorm));
+    const centered = x - 0.5;
+    const abs = Math.abs(centered);
+    const { base, slope, curve } = sceneGroundProfile(key, biome, role);
     const yNorm = base + slope * centered + curve * (abs * 2 - 0.55);
     return Math.round(h * Math.max(0.52, Math.min(0.92, yNorm)));
+}
+
+/* -------------------------------------------------------------------------
+ * Cadrage des fonds : le sol reste visible sur toutes les largeurs d'écran
+ * -------------------------------------------------------------------------
+ * La scène s'affiche désormais au format de l'écran (plein cadre sur PC,
+ * résolution verrouillée sur mobile). Un fond carré (mine, feu de camp,
+ * abris, trésor, carrières) recadré « cover » centrerait son horizon et
+ * perdrait sa ligne de sol sous le cadre. On mémorise donc où se trouve le
+ * sol dans chaque illustration, et le recadrage le garde à la même hauteur
+ * que les ancres `sceneGroundProfile` : personnages, butin et constructions
+ * restent posés sur le sol peint, du 16:9 à l'ultra-large.
+ *
+ * Les valeurs ci-dessous reproduisent exactement l'ancien cadrage (16:9
+ * centré) : sur ce format, le rendu est identique au pixel près.
+ */
+const SCENE_GROUND_LINE = {
+    // Fonds mobiles verticaux (768×1376) : toute la hauteur est visible.
+    bg_sand_mobile: 0.67,
+    bg_forest_mobile: 0.68,
+    bg_plains_mobile: 0.66,
+    bg_wasteland_mobile: 0.67,
+    bg_stone_mobile: 0.68,
+    bg_campfire_mobile: 0.70,
+    // Fonds carrés (1024×1024) : sol peint vers 65-68 % de l'image.
+    bg_campfire: 0.650,
+    bg_mine: 0.677,
+    bg_treasure_chest: 0.664,
+    bg_shelter_individual: 0.666,
+    bg_shelter_collective: 0.666,
+};
+const SCENE_GROUND_LINE_PREFIXES = [
+    // Fonds paysages 1408×768 : sol au niveau de l'ancre elle-même.
+    ['bg_forest_', 0.765],
+    ['bg_plains_', 0.775],
+    ['bg_sand_', 0.83],
+    ['bg_wasteland_', 0.795],
+    // Carrières : fonds carrés, sol plus haut dans l'image.
+    ['bg_stone_', 0.6555],
+];
+
+function sceneGroundLineForImage(imageKey) {
+    if (!imageKey) return null;
+    if (Object.prototype.hasOwnProperty.call(SCENE_GROUND_LINE, imageKey)) {
+        return SCENE_GROUND_LINE[imageKey];
+    }
+    const hit = SCENE_GROUND_LINE_PREFIXES.find(([prefix]) => imageKey.startsWith(prefix));
+    return hit ? hit[1] : null;
+}
+
+/** Cadrage d'un fond : position du sol dans l'image + hauteur cible à l'écran. */
+function sceneFraming(imageKey, biome = '') {
+    const ground = sceneGroundLineForImage(imageKey);
+    if (ground == null) return null;
+    const { base } = sceneGroundProfile(imageKey, biome, 'default');
+    return { ground, target: base };
 }
 
 function characterAnchorForGround(groundY, scale) {
@@ -167,7 +231,7 @@ function scenePerspectiveScale(tile, xNorm = 0.5) {
     return 1 - Math.abs(clamp01(xNorm) - 0.5) * 0.10;
 }
 
-function paintBackgroundImage(ctx, img, w, h, alpha, zoom) {
+function paintBackgroundImage(ctx, img, w, h, alpha, zoom, framing = null) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     const canvasAspect = w / h;
     const imageAspect = img.naturalWidth / img.naturalHeight;
@@ -188,12 +252,32 @@ function paintBackgroundImage(ctx, img, w, h, alpha, zoom) {
     // Zoom d'entrée lors d'un changement de case
     sWidth /= zoom; sHeight /= zoom;
     sx = (img.naturalWidth - sWidth) / 2 + swayX;
-    sy = (img.naturalHeight - sHeight) / 2 + swayY;
+
+    // Cadrage vertical « sol verrouillé » : la ligne de sol peinte reste à la
+    // même hauteur à l'écran, quelle que soit la largeur de la scène. Sur le
+    // format historique 16:9 centré, le calcul retombe exactement sur
+    // l'ancien cadrage ; sur un écran plus large ou plus haut, le sol peint
+    // et les ancres de personnages restent alignés.
+    if (sHeight >= img.naturalHeight - 0.5) {
+        sy = 0;
+    } else if (framing) {
+        const visibleFrac = sHeight / img.naturalHeight;
+        sy = (framing.ground - framing.target * visibleFrac) * img.naturalHeight;
+    } else {
+        sy = (img.naturalHeight - sHeight) / 2;
+    }
+
     sx = Math.max(0, Math.min(img.naturalWidth - sWidth, sx));
-    sy = Math.max(0, Math.min(img.naturalHeight - sHeight, sy));
+    sy = Math.max(0, Math.min(img.naturalHeight - sHeight, sy + swayY));
 
     ctx.save();
     ctx.globalAlpha = alpha;
+    // Les fonds sont des illustrations peintes. Agrandies (écran dense,
+    // résolution mobile verrouillée), elles restent propres avec un lissage
+    // de haute qualité ; réduites, des pixels francs préservent le grain.
+    const drawScale = sWidth / w;
+    ctx.imageSmoothingEnabled = drawScale > 0.96;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, w, h);
     ctx.restore();
     return true;
@@ -244,9 +328,11 @@ export function drawMainBackground(gameState) {
 
     // Ancienne image en fondu sortant + zoom léger
     if (bgState.prevImageKey && fade < 1) {
-        paintBackgroundImage(mainViewCtx, loadedAssets[bgState.prevImageKey], w, h, 1 - ease, 1 + 0.05 * ease);
+        paintBackgroundImage(mainViewCtx, loadedAssets[bgState.prevImageKey], w, h, 1 - ease, 1 + 0.05 * ease,
+            sceneFraming(bgState.prevImageKey, playerTile?.type?.name));
     }
-    const drawn = paintBackgroundImage(mainViewCtx, loadedAssets[bgState.imageKey], w, h, ease, 1.05 - 0.05 * ease);
+    const drawn = paintBackgroundImage(mainViewCtx, loadedAssets[bgState.imageKey], w, h, ease, 1.05 - 0.05 * ease,
+        sceneFraming(bgState.imageKey, playerTile?.type?.name));
     if (!drawn && fade >= 1) {
         mainViewCtx.fillStyle = playerTile.type.color || '#222';
         mainViewCtx.fillRect(0, 0, w, h);
@@ -1555,8 +1641,11 @@ export function drawSceneCharacters(gameState) {
     const canvasHeight = charactersCanvas.height;
     const currentTile = map?.[player.y]?.[player.x];
 
-    // Échelle des personnages : lisible aussi bien sur mobile que sur grand écran
-    const scale = Math.max(0.75, Math.min(1.6, canvasHeight / 620));
+    // Échelle des personnages : lisible aussi bien sur mobile que sur grand
+    // écran. Le calcul (voir characterScaleFor dans resolution.js) reproduit
+    // la taille affichée calibrée avant le plein écran PC et la résolution
+    // mobile verrouillée, sur toutes les densités d'écran.
+    const scale = characterScaleFor(canvasHeight, getSceneRenderScale(), isMobileShell());
 
     // Les objets déposés deviennent visibles directement dans la scène.
     drawGroundLoot(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);

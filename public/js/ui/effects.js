@@ -1,6 +1,7 @@
 // js/ui/effects.js
 
 import { resizeScene3D } from './scene3d.js';
+import { computeSceneResolution, getSceneQuality, isMobileShell, onQualityChange, setLastResolution } from './resolution.js';
 
 export function showFloatingText(text, type) {
     const mainView = document.getElementById('main-view-container');
@@ -100,51 +101,55 @@ export function resizeGameView() {
     const mainViewCanvas = document.getElementById('main-view-canvas');
     const depthCanvas = document.getElementById('depth-canvas');
     const charactersCanvas = document.getElementById('characters-canvas');
-    const isMobile = window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)').matches;
+    const mobile = isMobileShell();
 
-    let newWidth, newHeight;
+    // Le conteneur remplit toujours la zone disponible : sur PC la scène
+    // s'étire au maximum de l'écran (plus de format 1408×768 ni de bandes),
+    // sur mobile elle occupe tout l'écran comme avant.
+    container.style.width = '100%';
+    container.style.height = '100%';
+    [mainViewCanvas, charactersCanvas].forEach(c => {
+        if (!c) return;
+        c.style.width = '100%';
+        c.style.height = '100%';
+    });
 
-    if (isMobile) {
-        // Mobile : la scène remplit tout l'espace disponible (pas de bandes noires),
-        // le fond est recadré en "cover" par drawMainBackground.
-        container.style.width = '';
-        container.style.height = '';
-        const rect = wrapper.getBoundingClientRect();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        newWidth = Math.max(10, Math.round(rect.width * dpr));
-        newHeight = Math.max(10, Math.round(rect.height * dpr));
+    // clientWidth/clientHeight excluent le cadre : le canvas couvre exactement
+    // la zone utile du conteneur.
+    const cssWidth = container.clientWidth;
+    const cssHeight = container.clientHeight;
+    if (cssWidth < 10 || cssHeight < 10) return; // pas encore affichable
 
-        [mainViewCanvas, depthCanvas, charactersCanvas].forEach(c => {
-            if (!c) return;
-            c.style.width = '100%';
-            c.style.height = '100%';
-        });
-    } else {
-        const aspectRatio = 1408 / 768;
-        const wrapperWidth = wrapper.clientWidth - 10;
-        const wrapperHeight = wrapper.clientHeight - 10;
+    const dpr = window.devicePixelRatio || 1;
+    const res = computeSceneResolution({ cssWidth, cssHeight, dpr, mobile, quality: getSceneQuality() });
+    setLastResolution(res);
 
-        newWidth = wrapperWidth;
-        newHeight = wrapperWidth / aspectRatio;
-        if (newHeight > wrapperHeight) {
-            newHeight = wrapperHeight;
-            newWidth = wrapperHeight * aspectRatio;
-        }
-        newWidth = Math.max(10, newWidth);
-        newHeight = Math.max(10, newHeight);
-
-        container.style.width = `${newWidth}px`;
-        container.style.height = `${newHeight}px`;
-        [mainViewCanvas, depthCanvas, charactersCanvas].forEach(c => {
-            if (!c) return;
-            c.style.width = '';
-            c.style.height = '';
-        });
+    // Canvas agrandi ou réduit ? On ne réaffecte les dimensions que si
+    // nécessaire : setter canvas.width — même à l'identique — efface le
+    // bitmap et force un re-upload GPU.
+    const resized = [mainViewCanvas, charactersCanvas, depthCanvas].some(c =>
+        c && (c.width !== res.width || c.height !== res.height));
+    if (resized) {
+        if (mainViewCanvas) { mainViewCanvas.width = res.width; mainViewCanvas.height = res.height; }
+        if (charactersCanvas) { charactersCanvas.width = res.width; charactersCanvas.height = res.height; }
+        if (depthCanvas) { depthCanvas.width = res.width; depthCanvas.height = res.height; }
     }
 
-    if (mainViewCanvas) { mainViewCanvas.width = newWidth; mainViewCanvas.height = newHeight; }
-    if (depthCanvas) { depthCanvas.width = newWidth; depthCanvas.height = newHeight; }
-    if (charactersCanvas) { charactersCanvas.width = newWidth; charactersCanvas.height = newHeight; }
+    // Rendu net dans toutes les situations : si le canvas contient moins de
+    // pixels que l'écran physique (agrandissement net, typiquement quand la
+    // qualité adaptative a baissé d'un cran), on garde des pixels francs ;
+    // sinon le navigateur lisse légèrement le mapping — indispensable pour un
+    // canvas verrouillé affiché sur des tailles d'écran variées.
+    const deviceWidth = cssWidth * dpr;
+    const upscaleFactor = deviceWidth / res.width;
+    const rendering = upscaleFactor > 1.2 ? 'pixelated' : 'auto';
+    [mainViewCanvas, charactersCanvas].forEach(c => {
+        if (c) c.style.imageRendering = rendering;
+    });
+
+    document.documentElement.dataset.sceneScale = String(res.renderScale);
+    document.documentElement.dataset.sceneLocked = mobile ? 'on' : 'off';
+    if (resized) console.log(`[scene] ${res.width}×${res.height} (échelle ${res.renderScale}${mobile ? ', résolution mobile verrouillée' : ', plein écran'})`);
 
     // WebGL utilise la taille CSS et choisit son propre DPR pour éviter le flou.
     if (depthCanvas) resizeScene3D(depthCanvas);
@@ -156,3 +161,15 @@ export function resizeGameView() {
         } catch (_) {}
     }
 }
+
+// Un cran de qualité adaptative (voir resolution.js) change la résolution du
+// canvas : on re-mesure, au prochain frame pour laisser le layout respirer.
+let qualityResizeQueued = false;
+onQualityChange(() => {
+    if (qualityResizeQueued) return;
+    qualityResizeQueued = true;
+    requestAnimationFrame(() => {
+        qualityResizeQueued = false;
+        resizeGameView();
+    });
+});
