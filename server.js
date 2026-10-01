@@ -27,8 +27,20 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 // --- CONFIGURATION EXPRESS ROBUSTE ---
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
+// Le code de l'interface (HTML/CSS/JS) doit être revalidé à chaque chargement :
+// sans cela un navigateur garde l'ancien module ES ou l'ancienne feuille de
+// style après un déploiement et affiche un mélange des deux versions — un
+// panneau neuf avec un habillage périmé, impossible à diagnostiquer de loin.
+// Les images, elles, gardent un cache long : elles changent rarement et pèsent.
+const noCacheForCode = (res, filePath) => {
+    if (/\.(html|css|js|mjs|json|webmanifest)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache');
+    } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+};
+app.use(express.static(path.join(__dirname, 'public'), { setHeaders: noCacheForCode }));
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { setHeaders: noCacheForCode }));
 app.use(express.json());
 
 await initDb();

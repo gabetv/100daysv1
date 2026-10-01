@@ -5,29 +5,12 @@
    Chargé en dernier afin de rester une peau visuelle sans toucher au jeu.
    ===================================================================== */
 
-:root {
-    --shell-ink: #2b1b18;
-    --shell-deep: #3b2924;
-    --shell-panel: #5b392d;
-    --shell-panel-2: #714936;
-    --shell-line: #b37a4f;
-    --shell-foam: #f1ddba;
-    --shell-gold: #e0b76f;
-    --shell-orange: #bd6d3e;
-    --shell-coral: #d44743;
-    --shell-green: #78a95b;
-    --shell-blue: #55b8db;
-    --survival-wood: #5b392d;
-    --survival-wood-dark: #2b1b18;
-    --survival-leather: #8c5237;
-    --survival-parchment: #e3c89c;
-    --survival-parchment-light: #f4dfb5;
-    --survival-stone: #827868;
-}
+/* La palette vit désormais dans game-shell.css (`:root`), une seule fois.
+   Ce fichier ne fait plus que poser la peau par-dessus. */
 
 body.game-screen {
-    background-color: #1e1716;
-    color: #f7e8ca;
+    background-color: var(--shell-ink);
+    color: var(--shell-text);
 }
 
 /* La planche 8 × 2 remplace seize requêtes d'icônes. */
@@ -357,20 +340,6 @@ body.game-screen .quick-actions-kicker { color: #ffe0a0; }
     body.game-screen.compact-dpad #nav-ne,
     body.game-screen.compact-dpad #nav-sw,
     body.game-screen.compact-dpad #nav-se { display: flex !important; }
-
-    /* Gros bouton d'action orange à portée du pouce gauche. */
-    body.game-screen #screen-interaction-button {
-        left: max(12px, var(--safe-l));
-        bottom: calc(14px + var(--safe-b));
-        width: 64px;
-        min-width: 64px;
-        height: 64px;
-        min-height: 64px;
-        border-width: 10px;
-        box-shadow: 3px 5px 0 rgba(37, 22, 19, .72);
-    }
-    body.game-screen #screen-interaction-button .screen-action-icon { width: 34px; height: 34px; }
-
     /* Barre de navigation façon tablette en bois. */
     body.game-screen #mobile-tabbar {
         grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -462,4 +431,504 @@ body.game-screen .quick-actions-kicker { color: #ffe0a0; }
     body.game-screen .central-action-button,
     body.game-screen .central-action-button.is-available { height: 49px; }
     body.game-screen #tile-info-hud { min-height: 62px; padding-top: 7px; padding-bottom: 7px; }
+}
+
+/* =====================================================================
+   PAVÉ DIRECTIONNEL PIXEL ART (assets/ui/sheet-dpad.png)
+   ---------------------------------------------------------------------
+   Une seule planche 8 x 3 remplace huit boutons CSS :
+     colonne = direction (N, NE, E, SE, S, SO, O, NO), posée en HTML
+               dans `data-nav-column` ;
+     ligne   = état, posé par js/ui/navigation.js dans `data-nav-state` :
+               0 libre · 1 bloqué · 2 enfoncé.
+
+   « Bloqué » veut dire exactement ce que le serveur refuse : hors carte,
+   ou case non `accessible`. La touche devient pierre éteinte, la flèche
+   grise, le curseur interdit — on voit où l'on peut aller sans essayer.
+   ===================================================================== */
+body.game-screen .nav-button-overlay {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: url('/assets/ui/sheet-dpad.png');
+    background-repeat: no-repeat;
+    background-size: 800% 300%;
+    background-position: var(--nav-x, 0%) 0%;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    transition: filter .12s linear, background-position 0s;
+}
+/* Le glyphe reste dans le DOM pour les lecteurs d'écran et comme repli
+   si la planche ne se charge pas, mais la flèche dessinée prend le relais. */
+body.game-screen .nav-button-overlay .nav-glyph {
+    font-size: 0;
+    line-height: 0;
+    color: transparent;
+}
+
+body.game-screen .nav-button-overlay[data-nav-column="0"] { --nav-x: 0%; }
+body.game-screen .nav-button-overlay[data-nav-column="1"] { --nav-x: 14.2857%; }
+body.game-screen .nav-button-overlay[data-nav-column="2"] { --nav-x: 28.5714%; }
+body.game-screen .nav-button-overlay[data-nav-column="3"] { --nav-x: 42.8571%; }
+body.game-screen .nav-button-overlay[data-nav-column="4"] { --nav-x: 57.1429%; }
+body.game-screen .nav-button-overlay[data-nav-column="5"] { --nav-x: 71.4286%; }
+body.game-screen .nav-button-overlay[data-nav-column="6"] { --nav-x: 85.7143%; }
+body.game-screen .nav-button-overlay[data-nav-column="7"] { --nav-x: 100%; }
+
+/* Libre : léger éclat au survol, enfoncement au clic. */
+body.game-screen .nav-button-overlay[data-nav-state="free"] { cursor: pointer; }
+body.game-screen .nav-button-overlay[data-nav-state="free"]:hover {
+    filter: brightness(1.14) saturate(1.05);
+}
+body.game-screen .nav-button-overlay[data-nav-state="free"]:active,
+body.game-screen .nav-button-overlay[data-nav-state="free"].is-pressed {
+    background-position: var(--nav-x, 0%) 100%;
+    filter: none;
+}
+
+/* Bloqué : la planche fournit déjà la pierre éteinte et la flèche grise —
+   inutile de la désaturer en plus. On change seulement le curseur, et le
+   survol reste quasi muet pour ne pas suggérer un clic utile. */
+body.game-screen .nav-button-overlay[data-nav-state="blocked"] {
+    background-position: var(--nav-x, 0%) 50%;
+    cursor: not-allowed;
+}
+body.game-screen .nav-button-overlay[data-nav-state="blocked"]:hover { filter: brightness(1.1); }
+
+/* Occupé (action en cours) : même planche éteinte, mais estompée —
+   l'indisponibilité est temporaire, pas géographique. */
+body.game-screen .nav-button-overlay[data-nav-state="busy"],
+body.game-screen .nav-button-overlay:disabled {
+    background-position: var(--nav-x, 0%) 50%;
+    cursor: progress;
+    opacity: .55;
+}
+
+/* Refus : la touche clignote en rouge sans bouger, pour ne pas écraser
+   les `transform` de centrage des flèches cardinales sur ordinateur. */
+body.game-screen .nav-button-overlay.nav-reject {
+    animation: nav-reject-flash .4s steps(2, end) 2;
+}
+@keyframes nav-reject-flash {
+    0%, 100% { filter: none; }
+    50% { filter: brightness(1.45) drop-shadow(0 0 5px rgba(212, 71, 67, .95)); }
+}
+
+/* Repère quand toutes les directions sont fermées (îlot isolé). */
+body.game-screen.nav-all-blocked #navigation-edge-panel::after {
+    filter: grayscale(.7) brightness(.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.game-screen .nav-button-overlay.nav-reject { animation: none; }
+}
+
+/* =====================================================================
+   COMPTEUR D'ACTIONS SUR L'ONGLET
+   Remplace la pastille du bouton flottant retiré : le nombre d'actions
+   possibles s'affiche là où l'on va cliquer pour les lire.
+   ===================================================================== */
+body.game-screen #actions-tab-count { min-width: 18px; text-align: center; }
+body.game-screen #actions-tab-count.is-empty {
+    background: rgba(241, 221, 186, .12);
+    color: var(--shell-text-dim);
+}
+body.game-screen .tab-button.has-actions .tab-count {
+    background: var(--shell-gold);
+    color: var(--shell-ink);
+}
+/* Barre mobile : un point doré signale qu'il y a quelque chose à faire ici. */
+body.game-screen .mobile-tab.has-actions .mt-icon::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 22%;
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--shell-ink);
+    border-radius: 50%;
+    background: var(--shell-gold);
+}
+body.game-screen .mobile-tab .mt-icon { position: relative; }
+
+/* =====================================================================
+   FIN DU RAPPROCHEMENT : L'ORDINATEUR REÇOIT LA MÊME PEAU QUE LE MOBILE
+   ---------------------------------------------------------------------
+   Jusqu'ici la maquette « carnet de survie » ne descendait que dans la
+   requête mobile ; sur grand écran il restait des cartouches plates au
+   milieu de panneaux en bois. Les deux cartouches du HUD passent donc au
+   parchemin 9-slice, et les boutons d'action au bois 9-slice — les mêmes
+   planches que sur téléphone.
+   ===================================================================== */
+@media (min-width: 901px) {
+    body.game-screen #game-info-hud,
+    body.game-screen #tile-info-hud {
+        border: 10px solid transparent;
+        border-image: url('/assets/ui/panel-parchment.png') 15 fill stretch;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: 3px 4px 0 rgba(26, 15, 12, .55);
+        color: #33231f;
+    }
+    body.game-screen #game-info-hud p,
+    body.game-screen #day-display,
+    body.game-screen #day-timer-countdown,
+    body.game-screen #day-timer-eta,
+    body.game-screen #daytime-display,
+    body.game-screen #level-display,
+    body.game-screen #time-display,
+    body.game-screen #position-display-nav,
+    body.game-screen #controls-hint {
+        color: #3a2620;
+        text-shadow: none;
+    }
+    body.game-screen .day-timer-caption,
+    body.game-screen #day-timer-eta,
+    body.game-screen #controls-hint { color: #78573f; }
+    body.game-screen #controls-hint span { color: #9a5f2e; }
+    body.game-screen .day-timer-track {
+        border: 1px solid #6a4737;
+        background: #a98562;
+    }
+    body.game-screen #xp-bar-container {
+        border: 1px solid #6a4737;
+        background: #a98562;
+    }
+
+    body.game-screen #tile-info-hud {
+        border-left-width: 10px;
+        color: #32221f;
+    }
+    body.game-screen #tile-info-hud h3 { color: #33231f; text-shadow: 0 1px 0 #fff0ce; }
+    body.game-screen #tile-info-hud .context-kicker { color: #8a5a32; }
+    body.game-screen #tile-info-hud p,
+    body.game-screen #tile-info-hud .context-meta { color: #5e4438; }
+
+    /* Le bouton « MODE TEST » et le son restent lisibles sur parchemin. */
+    body.game-screen #admin-open-btn {
+        border: 2px solid #59372b;
+        background: linear-gradient(#a8633e, #76462f);
+        box-shadow: inset 0 0 0 2px #d59a63, 0 2px 0 #38231e;
+        color: #fff0cf;
+    }
+    body.game-screen #sound-toggle { border-color: #6b4937; color: #34231f; }
+    body.game-screen .shell-control {
+        border: 1px solid #7a523a;
+        background: rgba(60, 36, 27, .9);
+        color: var(--shell-foam);
+    }
+
+    /* Boutons d'action : planche bois, comme les touches du pavé. */
+    body.game-screen #actions-tab-content .action-button {
+        border: 9px solid transparent;
+        border-image: url('/assets/ui/button-wood.png') 14 fill stretch;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: 0 3px 0 rgba(26, 15, 12, .7);
+        color: #fff2d2;
+        text-shadow: 1px 1px 0 #3a1f14;
+    }
+    body.game-screen #actions-tab-content .action-button.recommended {
+        box-shadow: 0 3px 0 rgba(26, 15, 12, .7), 0 0 0 2px var(--shell-gold);
+    }
+    body.game-screen #actions-tab-content .action-button:disabled {
+        filter: saturate(.3) brightness(.78);
+    }
+}
+
+/* =====================================================================
+   DÉSENCOMBREMENT DE LA SCÈNE (ordinateur)
+   ---------------------------------------------------------------------
+   La scène portait six surfaces flottantes superposées au décor : la carte
+   d'état, quatre jauges détachées en plein ciel, un dock « ACTIONS ICI »
+   encadré, la carte du lieu, et huit flèches éparpillées sur les quatre
+   bords. Deux de ces flèches tombaient littéralement sur les cartes (la
+   flèche Nord-Ouest sur la carte d'état, la Sud-Ouest sur « Vous êtes ici »,
+   dont elle tronquait le texte).
+
+   On ramène tout cela à trois objets, un par coin utile :
+     · en haut à gauche  : l'état du survivant (jour, phase, niveau) ;
+     · en bas à gauche   : le lieu où l'on se trouve ;
+     · en bas à droite   : le pavé directionnel.
+   Le ciel et le centre de l'image redeviennent du décor.
+   ===================================================================== */
+@media (min-width: 901px) {
+
+    /* --- 1. Les huit flèches se regroupent en un seul pavé ---------------
+       Éparpillées, elles occupaient les quatre bords et heurtaient les
+       cartes. Rassemblées en 3x3 sur leur plaque de bois, elles forment un
+       objet unique, reconnaissable, et identique à la version mobile : un
+       seul schéma mental pour les deux supports. */
+    body.game-screen #navigation-edge-panel {
+        --pad-key: 46px;
+        --pad-step: 50px;              /* touche + gouttière */
+        --pad-r: 20px;
+        --pad-b: 20px;
+    }
+    body.game-screen #nav-nw,
+    body.game-screen #nav-north,
+    body.game-screen #nav-ne,
+    body.game-screen #nav-west,
+    body.game-screen #nav-east,
+    body.game-screen #nav-sw,
+    body.game-screen #nav-south,
+    body.game-screen #nav-se {
+        /* Les anciennes règles plaçaient les flèches par `top`/`left` et
+           centraient les cardinales par `transform`. On repart de zéro :
+           sans ces remises à `auto`, `top: 15px` resterait prioritaire sur
+           le `bottom` qu'on pose ici. */
+        top: auto;
+        left: auto;
+        transform: none;
+        width: var(--pad-key);
+        height: var(--pad-key);
+    }
+    body.game-screen #nav-nw    { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-north { right: calc(var(--pad-r) + var(--pad-step));     bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-ne    { right: var(--pad-r);                             bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-west  { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: calc(var(--pad-b) + var(--pad-step)); }
+    body.game-screen #nav-east  { right: var(--pad-r);                             bottom: calc(var(--pad-b) + var(--pad-step)); }
+    body.game-screen #nav-sw    { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: var(--pad-b); }
+    body.game-screen #nav-south { right: calc(var(--pad-r) + var(--pad-step));     bottom: var(--pad-b); }
+    body.game-screen #nav-se    { right: var(--pad-r);                             bottom: var(--pad-b); }
+
+    /* Plaque de bois derrière le pavé (9-slice). */
+    body.game-screen #navigation-edge-panel::before {
+        content: '';
+        position: absolute;
+        right: calc(var(--pad-r) - 9px);
+        bottom: calc(var(--pad-b) - 9px);
+        width: calc(var(--pad-step) * 2 + var(--pad-key) + 18px);
+        height: calc(var(--pad-step) * 2 + var(--pad-key) + 18px);
+        border: 12px solid transparent;
+        border-image: url('/assets/ui/dpad-plate.png') 18 fill stretch;
+        image-rendering: pixelated;
+        pointer-events: none;
+        z-index: 10002;
+    }
+    /* Boussole au centre du pavé : la case vide du 3x3 sert à quelque chose. */
+    body.game-screen #navigation-edge-panel::after {
+        content: '';
+        position: absolute;
+        right: calc(var(--pad-r) + var(--pad-step));
+        bottom: calc(var(--pad-b) + var(--pad-step));
+        width: var(--pad-key);
+        height: var(--pad-key);
+        background: url('/assets/ui/compass.png') center / 68% auto no-repeat;
+        image-rendering: pixelated;
+        opacity: .7;
+        pointer-events: none;
+        z-index: 10003;
+    }
+
+    /* --- 2. Les jauges rejoignent le bord haut --------------------------
+       Elles flottaient au milieu du ciel parce que la flèche Nord occupait
+       le bord. Celle-ci est partie : les jauges remontent et s'alignent sur
+       la carte d'état. Une barre d'état en haut, plus rien dans l'image. */
+    html[data-shell='full'] body.game-screen.show-scene-vitals #mobile-vitals,
+    html[data-shell='compact'] body.game-screen.show-scene-vitals #mobile-vitals {
+        top: 12px;
+        left: 12px;
+        right: 14px;
+        width: auto;
+        max-width: none;
+        transform: none;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+    }
+    /* La carte d'état descend sous la bande : les deux ne se disputent plus
+       le coin, quelle que soit la largeur de la scène. Sans jauges affichées
+       (grand écran, panneau Statut visible), elle reprend sa place en haut. */
+    body.game-screen.show-scene-vitals #game-info-hud { top: 56px; }
+
+    /* --- 3. Le dock « ACTIONS ICI » disparaît quand la liste est déjà là --
+       Il affichait en icônes les mêmes actions que le panneau de droite,
+       visible en permanence : deux fois la même chose, dont une encadrée
+       au milieu du ciel. On ne le garde qu'en mode Focus, le seul cas où
+       le panneau de droite est masqué. */
+    body.game-screen #central-actions-panel { display: none; }
+    body.game-screen.focus-scene #central-actions-panel { display: block; }
+
+    /* --- 4. La carte d'état perd ce qui est écrit ailleurs ---------------
+       « Position » figurait trois fois à l'écran (ici, sur la carte du lieu
+       en bas à gauche, et dans l'en-tête de la minicarte). Le rappel clavier
+       est déjà donné par le tutoriel. Le bouton de test passe en pastille
+       au lieu d'un bandeau pleine largeur au milieu des informations. */
+    body.game-screen #position-display-nav { display: none; }
+    body.game-screen #controls-hint {
+        margin-top: 2px;
+        font-size: .54rem;
+        opacity: .62;
+    }
+    body.game-screen #time-display {
+        display: inline-block;
+        margin-right: 8px;
+        font-size: .62rem;
+        opacity: .8;
+    }
+    body.game-screen #admin-open-btn {
+        width: auto;
+        min-height: 0;
+        margin-top: 4px;
+        padding: 4px 8px;
+        font-size: .46rem;
+    }
+    body.game-screen #game-info-hud {
+        max-width: 212px;
+        padding: 8px 10px;
+    }
+}
+
+/* =====================================================================
+   COMBAT DANS LA SCÈNE
+   ---------------------------------------------------------------------
+   L'affrontement se jouait dans une fenêtre modale qui recouvrait l'île et
+   demandait un clic par tour pour une décision toujours identique. Il tient
+   maintenant dans un bandeau posé en bas de la scène : on voit le décor, on
+   voit l'ennemi fondre, et la seule décision qui compte reste sous le pouce.
+
+   Pendant le combat, le pavé directionnel s'efface : le serveur refuse les
+   déplacements (movePlayer), donc le laisser visible serait un mensonge.
+   La carte « Vous êtes ici » cède sa place au bandeau.
+   ===================================================================== */
+body.game-screen #scene-combat {
+    position: absolute;
+    left: 12px;
+    right: 14px;
+    bottom: 12px;
+    z-index: 10005;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border: 10px solid transparent;
+    border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+    image-rendering: pixelated;
+    box-shadow: 0 4px 0 rgba(26, 15, 12, .55);
+    pointer-events: auto;
+}
+body.game-screen #scene-combat.hidden { display: none; }
+
+/* Pendant le combat : pavé et carte du lieu s'effacent. */
+body.game-screen.in-combat #navigation-edge-panel::before,
+body.game-screen.in-combat #navigation-edge-panel::after,
+body.game-screen.in-combat .nav-button-overlay,
+body.game-screen.in-combat #tile-info-hud { display: none; }
+
+body.game-screen .combat-mini-portrait {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: 2px solid var(--shell-ink);
+    background: rgba(32, 18, 14, .55);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+body.game-screen .combat-mini-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+/* Secousse au moment où l'ennemi encaisse. */
+body.game-screen .combat-mini-portrait.hit { animation: combat-mini-hit .26s steps(3, end); }
+@keyframes combat-mini-hit {
+    0%   { transform: translateX(0); filter: none; }
+    40%  { transform: translateX(-4px); filter: brightness(2) saturate(.4); }
+    100% { transform: translateX(0); filter: none; }
+}
+/* Et un voile rouge quand c'est vous qui prenez le coup. */
+body.game-screen #scene-combat.player-hit { animation: combat-mini-ouch .3s steps(2, end); }
+@keyframes combat-mini-ouch {
+    50% { box-shadow: 0 4px 0 rgba(26, 15, 12, .55), inset 0 0 0 200px rgba(212, 71, 67, .22); }
+}
+
+body.game-screen .combat-mini-gauges { min-width: 0; }
+body.game-screen .combat-mini-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--pixel-font);
+    font-size: .46rem;
+    line-height: 1.5;
+    color: var(--shell-text);
+}
+body.game-screen .combat-mini-line strong { color: #f2b0a4; }
+body.game-screen .combat-mini-you { color: var(--shell-text-soft); }
+body.game-screen .combat-mini-hp { color: var(--shell-text-dim); font-size: .42rem; }
+body.game-screen .combat-mini-track {
+    height: 9px;
+    margin: 2px 0 5px;
+    border: 1px solid var(--shell-ink);
+    background: #3a2620;
+}
+body.game-screen .combat-mini-fill {
+    display: block;
+    height: 100%;
+    transition: width .22s linear;
+}
+body.game-screen .combat-mini-fill.enemy { background: linear-gradient(#d4584f, #8e2f2c); }
+body.game-screen .combat-mini-fill.player { background: linear-gradient(#78a95b, #4a6e39); }
+body.game-screen .combat-mini-fill.low { filter: saturate(1.3) brightness(1.1); }
+body.game-screen .combat-mini-fill.critical { animation: combat-mini-blink .7s steps(2, end) infinite; }
+@keyframes combat-mini-blink { 50% { opacity: .45; } }
+
+body.game-screen .combat-mini-log {
+    margin: 3px 0 0;
+    min-height: 1.1em;
+    font-size: .68rem;
+    color: var(--shell-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.game-screen .combat-mini-log.is-new { animation: combat-mini-slide .22s ease-out; }
+body.game-screen .combat-mini-log.crit { color: var(--shell-gold); }
+body.game-screen .combat-mini-log.damage { color: #f0a09a; }
+@keyframes combat-mini-slide { from { opacity: 0; transform: translateY(5px); } }
+
+/* Le bouton Fuir : petit, mais toujours au même endroit et toujours actif —
+   c'est la seule commande du combat, elle ne doit jamais être à chercher. */
+body.game-screen #scene-combat-flee {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    padding: 7px 10px;
+    border: 2px solid #59372b;
+    border-radius: 2px;
+    background: linear-gradient(#a8633e, #76462f);
+    box-shadow: inset 0 0 0 2px #d59a63, 0 3px 0 #38231e;
+    color: #fff0cf;
+    cursor: pointer;
+}
+body.game-screen #scene-combat-flee:hover { filter: brightness(1.12); }
+body.game-screen #scene-combat-flee:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px #d59a63, 0 1px 0 #38231e; }
+body.game-screen #scene-combat-flee .flee-glyph { font-size: 1.1rem; line-height: 1; }
+body.game-screen #scene-combat-flee small { font-family: var(--pixel-font); font-size: .42rem; }
+body.game-screen #scene-combat-flee em { font-style: normal; font-size: .58rem; opacity: .8; }
+/* Fuite demandée pendant le tour adverse : elle partira dès la main rendue. */
+body.game-screen #scene-combat.fleeing #scene-combat-flee {
+    animation: combat-mini-blink .5s steps(2, end) infinite;
+}
+
+/* Téléphone : le bandeau reste en bas, au-dessus de la barre d'onglets. */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    body.game-screen #scene-combat {
+        left: max(8px, var(--safe-l));
+        right: max(8px, var(--safe-r));
+        bottom: max(8px, var(--safe-b));
+        gap: 8px;
+        padding: 7px 8px;
+    }
+    body.game-screen .combat-mini-portrait { width: 42px; height: 42px; font-size: 1.3rem; }
+    body.game-screen .combat-mini-log { font-size: .6rem; }
 }

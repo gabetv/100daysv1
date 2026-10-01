@@ -11,8 +11,14 @@
     "generate:sheets": "node scripts/generate_ui_sheets.js",
     "generate:mobile-hud": "node scripts/generate_mobile_hud_sheet.js",
     "generate:sprites": "node scripts/generate_spritesheets.js",
-    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:mobile-hud && npm run generate:sprites",
-    "test:resolution": "node scripts/test-resolution.mjs"
+    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:mobile-hud && npm run generate:nav && npm run generate:sprites",
+    "test:resolution": "node scripts/test-resolution.mjs",
+    "generate:nav": "node scripts/generate_navigation_sheet.js",
+    "harmonize:palette": "node scripts/harmonize_palette.mjs",
+    "test:navigation": "node scripts/test-navigation.mjs",
+    "test": "npm run test:resolution && npm run test:navigation && npm run test:layout",
+    "test:layout": "node scripts/test-scene-layout.mjs",
+    "test:combat": "node scripts/test-combat.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

@@ -20,7 +20,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const SAND = [238, 190, 104, 255];
 const SAND_DARK = [199, 146, 66, 255];
-const GLASS = [168, 221, 229, 120];
+const GLASS = [238, 224, 196, 110];
 const WOOD = [142, 88, 44, 255];
 
 /** Compose une planche à partir d'une grille de frames. */
@@ -103,9 +103,9 @@ function drawPhase(p, col) {
     const wobble = col % 2;
     const skies = [
         [[62, 42, 72, 255], [214, 118, 86, 255]],   // aube
-        [[48, 128, 176, 255], [128, 198, 226, 255]], // jour
+        [[52, 124, 166, 255], [138, 205, 228, 255]], // jour
         [[86, 40, 58, 255], [226, 118, 62, 255]],   // crépuscule
-        [[9, 22, 48, 255], [28, 48, 92, 255]],      // nuit
+        [[26, 24, 48, 255], [62, 68, 120, 255]],    // nuit
     ];
     const [skyTop, skyBottom] = skies[phase];
 
@@ -119,7 +119,7 @@ function drawPhase(p, col) {
         p.circle(16, 9, 6, skyTop);
         [[6, 6], [11, 14], [26, 7], [23, 17], [8, 18]].forEach(([sx, sy], i) => {
             if ((i + wobble) % 2 === 0) p.rect(sx, sy, 1, 1, C.white);
-            else p.rect(sx, sy, 2, 1, [200, 214, 236, 255]);
+            else p.rect(sx, sy, 2, 1, [226, 219, 206, 255]);
         });
     } else {
         const positions = [[9, 16], [16, 8], [23, 16]];
@@ -136,10 +136,10 @@ function drawPhase(p, col) {
     }
 
     // Horizon + mer pixelisée.
-    p.rect(2, 22, 28, 2, [18, 62, 72, 255]);
-    p.rect(2, 24, 28, 6, [22, 84, 94, 255]);
+    p.rect(2, 22, 28, 2, [32, 86, 114, 255]);
+    p.rect(2, 24, 28, 6, [46, 120, 156, 255]);
     for (let x = 3; x < 29; x += 4) {
-        p.rect(x + (wobble ? 1 : 0), 26, 2, 1, [96, 186, 186, 255]);
+        p.rect(x + (wobble ? 1 : 0), 26, 2, 1, [126, 198, 224, 255]);
     }
     p.frame(1, 1, 30, 30, C.ink, 1);
 }
@@ -151,7 +151,7 @@ function drawDial(p, col, columns) {
     p.ring(16, 16, 14, 11, C.deep);
     p.arc(16, 16, 14, 11, 0, filled, filled > 0.75 ? C.coral : C.gold);
     p.ring(16, 16, 11, 10, C.teal);
-    p.circle(16, 16, 9, [10, 38, 46, 255]);
+    p.circle(16, 16, 9, [46, 30, 26, 255]);
     // Aiguille.
     const a = filled * Math.PI * 2;
     p.line(16, 16, 16 + Math.sin(a) * 7, 16 - Math.cos(a) * 7, C.white, 2);
@@ -282,13 +282,13 @@ function drawDanger(p, col, columns) {
 function drawTalk(p, col, columns) {
     const bob = Math.round(Math.sin((col / columns) * Math.PI * 2) * 1.5);
     p.rect(3, 5 + bob, 26, 16, C.ink);
-    p.rect(4, 6 + bob, 24, 14, [23, 73, 84, 255]);
-    p.rect(5, 7 + bob, 22, 3, [44, 108, 112, 255]);
-    p.polygon([[10, 21 + bob], [18, 21 + bob], [11, 27 + bob]], [23, 73, 84, 255]);
+    p.rect(4, 6 + bob, 24, 14, C.teal);
+    p.rect(5, 7 + bob, 22, 3, C.sea);
+    p.polygon([[10, 21 + bob], [18, 21 + bob], [11, 27 + bob]], C.teal);
     // Trois points qui s'allument l'un après l'autre.
     for (let i = 0; i < 3; i++) {
         const on = (col % 3) >= i;
-        p.rect(9 + i * 6, 12 + bob, 4, 4, on ? C.gold : [15, 52, 60, 255]);
+        p.rect(9 + i * 6, 12 + bob, 4, 4, on ? C.gold : C.deep);
     }
 }
 
@@ -298,9 +298,9 @@ function drawBuild(p, col, columns) {
     const lift = Math.round(swing * 4);
     const tilt = Math.round(swing * 3);
     p.line(10 - tilt, 26, 20 + tilt, 10 - lift, WOOD, 3);
-    p.rect(17 + tilt, 5 - lift, 11, 8, [152, 160, 172, 255]);
-    p.rect(17 + tilt, 5 - lift, 11, 3, [198, 206, 216, 255]);
-    p.rect(14 + tilt, 6 - lift, 4, 6, [120, 128, 140, 255]);
+    p.rect(17 + tilt, 5 - lift, 11, 8, [158, 152, 138, 255]);
+    p.rect(17 + tilt, 5 - lift, 11, 3, [204, 196, 178, 255]);
+    p.rect(14 + tilt, 6 - lift, 4, 6, [122, 114, 102, 255]);
     p.frame(17 + tilt, 5 - lift, 11, 8, C.ink, 1);
     // Étincelles au point d'impact.
     if (swing > 0.6) {
@@ -375,7 +375,7 @@ function drawHudIcon(p, name) {
         case 'clock':
             p.circle(12, 12, 10, ink);
             p.circle(12, 12, 9, C.foam);
-            p.circle(12, 12, 7, [14, 46, 54, 255]);
+            p.circle(12, 12, 7, C.deep);
             p.line(12, 12, 12, 6, C.gold, 2);
             p.line(12, 12, 16, 14, C.gold, 2);
             break;
@@ -388,7 +388,7 @@ function drawHudIcon(p, name) {
         case 'drop':
             p.polygon([[12, 2], [19, 13], [5, 13]], C.blue);
             p.circle(12, 14, 7, C.blue);
-            p.rect(8, 11, 2, 3, [198, 240, 248, 255]);
+            p.rect(8, 11, 2, 3, [206, 238, 248, 255]);
             break;
         case 'meat':
             p.circle(13, 11, 7, [196, 96, 72, 255]);
@@ -398,7 +398,7 @@ function drawHudIcon(p, name) {
             break;
         case 'sleep':
             p.rect(4, 5, 9, 2, C.foam); p.line(13, 5, 4, 12, C.foam, 2); p.rect(4, 11, 9, 2, C.foam);
-            p.rect(12, 13, 7, 2, C.blue); p.line(19, 13, 12, 19, C.blue, 2); p.rect(12, 18, 7, 2, C.blue);
+            p.rect(12, 13, 7, 2, C.gold); p.line(19, 13, 12, 19, C.gold, 2); p.rect(12, 18, 7, 2, C.gold);
             break;
         case 'compass':
             p.circle(12, 12, 10, ink);
@@ -423,21 +423,21 @@ function drawHudIcon(p, name) {
             p.rect(10, 13, 4, 5, C.gold);
             break;
         case 'sword':
-            p.polygon([[13, 2], [17, 6], [9, 16], [6, 13]], [206, 214, 224, 255]);
-            p.polygon([[13, 3], [15, 5], [9, 14], [8, 12]], [244, 248, 252, 255]);
+            p.polygon([[13, 2], [17, 6], [9, 16], [6, 13]], [206, 200, 184, 255]);
+            p.polygon([[13, 3], [15, 5], [9, 14], [8, 12]], [246, 240, 224, 255]);
             p.line(4, 15, 10, 21, C.goldDark, 4);
             p.line(3, 19, 8, 14, C.gold, 2);
             break;
         case 'hammer':
             p.line(6, 20, 15, 10, WOOD, 3);
-            p.rect(12, 3, 9, 7, [152, 160, 172, 255]);
-            p.rect(12, 3, 9, 2, [198, 206, 216, 255]);
-            p.rect(9, 4, 4, 5, [120, 128, 140, 255]);
+            p.rect(12, 3, 9, 7, [158, 152, 138, 255]);
+            p.rect(12, 3, 9, 2, [204, 196, 178, 255]);
+            p.rect(9, 4, 4, 5, [122, 114, 102, 255]);
             break;
         case 'chat':
             p.rect(2, 4, 20, 13, C.ink);
-            p.rect(3, 5, 18, 11, [30, 92, 102, 255]);
-            p.polygon([[7, 17], [14, 17], [8, 22]], [30, 92, 102, 255]);
+            p.rect(3, 5, 18, 11, C.teal);
+            p.polygon([[7, 17], [14, 17], [8, 22]], C.teal);
             p.rect(6, 9, 3, 3, C.gold);
             p.rect(11, 9, 3, 3, C.gold);
             p.rect(16, 9, 3, 3, C.gold);

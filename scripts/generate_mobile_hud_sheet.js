@@ -28,8 +28,8 @@ const C = {
     yellow: [249, 222, 91, 255],
     green: [72, 142, 73, 255],
     greenLight: [124, 190, 87, 255],
-    steel: [174, 188, 190, 255],
-    steelDark: [92, 104, 108, 255],
+    steel: [178, 172, 156, 255],
+    steelDark: [98, 92, 82, 255],
     white: [255, 244, 210, 255],
     shadow: [18, 13, 14, 145],
 };
@@ -105,7 +105,7 @@ function drawMagnifier(p) {
     p.line(27, 29, 39, 41, C.wood, 4);
     p.circle(20, 20, 14, C.ink);
     p.circle(20, 20, 10, C.steel);
-    p.circle(19, 19, 7, [188, 222, 222, 255]);
+    p.circle(19, 19, 7, [216, 210, 192, 255]);
     p.rect(13, 13, 6, 3, C.white);
     p.rect(35, 35, 4, 4, C.goldDark);
 }

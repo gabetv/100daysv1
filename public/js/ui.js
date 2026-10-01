@@ -11,6 +11,8 @@ import * as SheetsModule from './ui/sheets.js';
 import * as DayTimerModule from './ui/daytimer.js';
 import * as ViewportModule from './ui/viewport.js';
 import * as HotspotsModule from './ui/hotspots.js';
+import * as NavigationModule from './ui/navigation.js';
+import * as CombatModule from './ui/combat.js';
 import { OBJECTIVE_IMAGES } from './ui/icons.js';
 
 // --- Ré-exporter explicitement les fonctions ---
@@ -45,9 +47,6 @@ export const updateEquipmentModal = ModalsModule.updateEquipmentModal;
 export const showCustomizationModal = ModalsModule.showCustomizationModal;
 export const hideCustomizationModal = ModalsModule.hideCustomizationModal;
 export const setupCustomizationListeners = ModalsModule.setupCustomizationListeners;
-export const showCombatModal = ModalsModule.showCombatModal;
-export const hideCombatModal = ModalsModule.hideCombatModal;
-export const updateCombatUI = ModalsModule.updateCombatUI;
 export const showQuantityModal = ModalsModule.showQuantityModal;
 export const hideQuantityModal = ModalsModule.hideQuantityModal;
 export const setupQuantityModalListeners = ModalsModule.setupQuantityModalListeners;
@@ -86,6 +85,7 @@ export const updateGroundItemsPanel = PanelsModule.updateGroundItemsPanel;
 export const updateBottomBarEquipmentPanel = PanelsModule.updateBottomBarEquipmentPanel;
 export const updateActionsPanel = PanelsModule.updateActionsPanel;
 export const initializeTabs = PanelsModule.initializeTabs;
+export const openActionList = PanelsModule.openActionList;
 
 // Depuis ./ui/tutorial.js
 export const initTutorial = TutorialModule.initTutorial;
@@ -129,6 +129,18 @@ export const ensurePanelsVisible = ViewportModule.ensurePanelsVisible;
 export const initHotspots = HotspotsModule.initHotspots;
 export const getHotspots = HotspotsModule.getHotspots;
 
+// Depuis ./ui/navigation.js — pavé directionnel
+export const initNavigation = NavigationModule.initNavigation;
+export const startSceneCombat = CombatModule.startSceneCombat;
+export const updateSceneCombat = CombatModule.updateSceneCombat;
+export const hideSceneCombat = CombatModule.hideSceneCombat;
+export const initSceneCombat = CombatModule.initSceneCombat;
+export const updateNavigation = NavigationModule.updateNavigation;
+export const canMove = NavigationModule.canMove;
+export const evaluateDirection = NavigationModule.evaluateDirection;
+export const rejectMove = NavigationModule.rejectMove;
+export const navButton = NavigationModule.navButton;
+
 /**
  * Met à jour tous les éléments statiques de l'interface utilisateur.
  * @param {object} gameState L'état actuel du jeu.
@@ -149,6 +161,8 @@ export function updateAllUI(gameState) {
     PanelsModule.updateBottomBarEquipmentPanel(player);
     PanelsModule.updateActionsPanel(gameState);
     PanelsModule.updateAllButtonsState(gameState); // S'assurer que les boutons sont cliquables
+    // Pavé directionnel : grise les directions fermées (bord de carte, lagon…).
+    NavigationModule.updateNavigation(gameState);
     // Décompte de la journée : resynchronisé sur l'horloge serveur.
     DayTimerModule.syncDayTimer(gameState);
 

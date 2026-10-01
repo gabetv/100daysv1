@@ -15,9 +15,11 @@ const TARGET_FPS = 32;
 
 function shouldSkip() {
     if (document.hidden) return true;
-    // Une modale plein écran couvre la scène : inutile de dessiner
+    // Une modale plein écran couvre la scène : inutile de dessiner.
+    // Le combat n'en fait plus partie — il se joue désormais DANS la scène,
+    // qui doit donc continuer à être rendue pendant l'affrontement.
     const blocking = ['inventory-modal', 'equipment-modal', 'build-modal', 'workshop-modal',
-                      'chest-modal', 'combat-modal', 'customize-modal', 'large-map-modal', 'victory-overlay'];
+                      'chest-modal', 'customize-modal', 'large-map-modal', 'victory-overlay'];
     return blocking.some(id => {
         const el = document.getElementById(id);
         return el && !el.classList.contains('hidden');

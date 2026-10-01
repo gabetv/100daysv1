@@ -373,6 +373,31 @@ function updateQuickActionsDock(player, actions) {
     dock.classList.toggle('is-idle', actions.length === 0);
 }
 
+/**
+ * Ouvre la liste complète des actions.
+ *
+ * C'était auparavant le rôle du bouton flottant « Toutes les actions » posé
+ * sur la scène ; il faisait doublon avec l'onglet Actions et la barre mobile.
+ * Le comportement vit maintenant ici, et tout le monde (raccourcis de la
+ * scène, zones cliquables, tutoriel) appelle la même fonction.
+ */
+export function openActionList() {
+    if (window.UI?.isMobileLayout?.()) {
+        window.UI.openMobileTab?.('actions');
+        return;
+    }
+    // En mode Focus les panneaux sont masqués : on les ramène avant d'ouvrir
+    // la liste, sinon l'appel semblerait sans effet.
+    window.UI?.ensurePanelsVisible?.();
+    document.querySelector('#right-panel-tabs .tab-button[data-tab="actions-tab"]')?.click();
+    const rightPanel = document.getElementById('right-panel');
+    if (rightPanel) {
+        rightPanel.classList.remove('interaction-focus');
+        void rightPanel.offsetWidth;
+        rightPanel.classList.add('interaction-focus');
+    }
+}
+
 export function updateActionsPanel(gameState) {
     const actionsContainer = document.getElementById('actions-tab-content');
     if (!actionsContainer) return;
@@ -380,17 +405,18 @@ export function updateActionsPanel(gameState) {
     const { player } = gameState;
     const actions = player?.availableActions || [];
     const tile = gameState.map?.[player?.y]?.[player?.x];
-    const screenButton = document.getElementById('screen-interaction-button');
-    const screenLabel = document.getElementById('screen-action-label');
-    const screenCount = document.getElementById('screen-action-count');
-    if (screenCount) screenCount.textContent = String(actions.length);
-    if (screenLabel) screenLabel.textContent = actions.length ? 'Toutes les actions' : 'Observer';
-    if (screenButton) {
-        screenButton.classList.toggle('has-actions', actions.length > 0);
-        screenButton.setAttribute('aria-label', actions.length
-            ? `Afficher les ${actions.length} actions disponibles ici`
-            : 'Observer le lieu');
+
+    // Le nombre d'actions s'affiche sur l'onglet lui-même, là où l'on va
+    // cliquer — plus besoin d'une pastille flottante par-dessus la scène.
+    const tabCount = document.getElementById('actions-tab-count');
+    if (tabCount) {
+        tabCount.textContent = String(actions.length);
+        tabCount.classList.toggle('is-empty', actions.length === 0);
     }
+    const actionsTabButton = document.querySelector('#right-panel-tabs .tab-button[data-tab="actions-tab"]');
+    actionsTabButton?.classList.toggle('has-actions', actions.length > 0);
+    document.querySelector('.mobile-tab[data-mtab="actions"]')?.classList
+        .toggle('has-actions', actions.length > 0);
 
     updateQuickActionsDock(player, actions);
 
@@ -400,11 +426,16 @@ export function updateActionsPanel(gameState) {
     const summaryLabel = document.createElement('span');
     summaryLabel.className = 'actions-summary-label';
     summaryLabel.textContent = actions.length ? `${actions.length} choix possibles` : 'AUCUNE ACTION IMMÉDIATE';
-    const summaryText = document.createElement('p');
-    summaryText.textContent = actions.length
-        ? 'Choisissez une action, puis adaptez votre plan aux ressources et aux dangers de cette case.'
-        : 'Déplacez-vous vers une nouvelle case ou revenez après un événement.';
-    summary.append(summaryLabel, summaryText);
+    summary.append(summaryLabel);
+    // Quand il y a des actions, la liste juste en dessous se suffit : la phrase
+    // « Choisissez une action… » se répétait à chaque case sans rien apprendre
+    // et poussait les vrais boutons vers le bas. On ne garde le texte que dans
+    // le cas où il dit quelque chose d'utile : quand il n'y a rien à faire ici.
+    if (!actions.length) {
+        const summaryText = document.createElement('p');
+        summaryText.textContent = 'Déplacez-vous vers une nouvelle case ou revenez après un événement.';
+        summary.appendChild(summaryText);
+    }
     actionsContainer.appendChild(summary);
 
     if (!player || actions.length === 0) {

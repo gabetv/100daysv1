@@ -126,16 +126,47 @@
                                     <button id="toggle-focus-btn" class="shell-control" type="button" aria-pressed="false" title="Focus sur la scène (touche F)"><i class="sheet-icon" data-hud-icon="layout"></i><span>Focus</span></button>
                                 </div>
                             </div>
-                            <button class="nav-button-overlay" id="nav-nw" title="Nord-Ouest">↖</button>
-                            <button class="nav-button-overlay" id="nav-north" title="Nord">↑</button>
-                            <button class="nav-button-overlay" id="nav-ne" title="Nord-Est">↗</button>
-                            <button class="nav-button-overlay" id="nav-west" title="Ouest">←</button>
-                            <button class="nav-button-overlay" id="nav-east" title="Est">→</button>
-                            <button class="nav-button-overlay" id="nav-sw" title="Sud-Ouest">↙</button>
-                            <button class="nav-button-overlay" id="nav-south" title="Sud">↓</button>
-                            <button class="nav-button-overlay" id="nav-se" title="Sud-Est">↘</button>
+                            <!-- Combat jouÃ© dans la scÃ¨ne, sans fenÃªtre modale.
+                                 Les coups s'enchaÃ®nent tout seuls (js/ui/combat.js) ;
+                                 la seule dÃ©cision qui reste au joueur est de fuir,
+                                 puisque se dÃ©placer est refusÃ© pendant la rencontre. -->
+                            <section id="scene-combat" class="hidden" aria-live="polite" aria-label="Combat en cours">
+                                <div id="scene-combat-portrait" class="combat-mini-portrait" aria-hidden="true">👹</div>
+                                <div class="combat-mini-gauges">
+                                    <div class="combat-mini-line">
+                                        <strong id="scene-combat-enemy">Ennemi</strong>
+                                        <span id="scene-combat-enemy-hp" class="combat-mini-hp">0 / 0</span>
+                                    </div>
+                                    <div class="combat-mini-track"><i id="scene-combat-enemy-bar" class="combat-mini-fill enemy"></i></div>
+                                    <div class="combat-mini-line">
+                                        <span class="combat-mini-you">Vous</span>
+                                        <span id="scene-combat-player-hp" class="combat-mini-hp">0 / 0</span>
+                                    </div>
+                                    <div class="combat-mini-track"><i id="scene-combat-player-bar" class="combat-mini-fill player"></i></div>
+                                    <p id="scene-combat-log" class="combat-mini-log"></p>
+                                </div>
+                                <button id="scene-combat-flee" type="button" aria-label="Tenter de fuir le combat">
+                                    <span class="flee-glyph" aria-hidden="true">🏃</span>
+                                    <small>Fuir</small>
+                                    <em id="scene-combat-flee-odds">50%</em>
+                                </button>
+                            </section>
+                            <!-- Pavé directionnel. Chaque touche porte sa colonne dans la
+                                 planche pixel art (assets/ui/sheet-dpad.png) ; la ligne
+                                 affichée dépend de `data-nav-state`, posé par
+                                 js/ui/navigation.js : free · blocked · busy. -->
+                            <button class="nav-button-overlay" type="button" id="nav-nw" aria-label="Aller vers le Nord-Ouest" data-nav-column="7" title="Nord-Ouest"><span class="nav-glyph" aria-hidden="true">↖</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-north" aria-label="Aller vers le Nord" data-nav-column="0" title="Nord"><span class="nav-glyph" aria-hidden="true">↑</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-ne" aria-label="Aller vers le Nord-Est" data-nav-column="1" title="Nord-Est"><span class="nav-glyph" aria-hidden="true">↗</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-west" aria-label="Aller vers l'Ouest" data-nav-column="6" title="Ouest"><span class="nav-glyph" aria-hidden="true">←</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-east" aria-label="Aller vers l'Est" data-nav-column="2" title="Est"><span class="nav-glyph" aria-hidden="true">→</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-sw" aria-label="Aller vers le Sud-Ouest" data-nav-column="5" title="Sud-Ouest"><span class="nav-glyph" aria-hidden="true">↙</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-south" aria-label="Aller vers le Sud" data-nav-column="4" title="Sud"><span class="nav-glyph" aria-hidden="true">↓</span></button>
+                            <button class="nav-button-overlay" type="button" id="nav-se" aria-label="Aller vers le Sud-Est" data-nav-column="3" title="Sud-Est"><span class="nav-glyph" aria-hidden="true">↘</span></button>
                         </div>
-                        <button id="screen-interaction-button" type="button" title="Afficher toutes les actions disponibles ici" aria-label="Afficher toutes les actions disponibles ici"><img class="screen-action-icon" src="/assets/ui/action-burst.png" alt=""><span id="screen-action-label">Toutes les actions</span><span id="screen-action-count" class="action-count-badge">0</span></button>
+                        <!-- Le bouton flottant « Toutes les actions » a été retiré : il
+                             rouvrait simplement le menu Actions, déjà accessible par
+                             l'onglet (ordinateur) et par la barre du bas (mobile). -->
                     </div>
                 </div>
             </div>
@@ -144,7 +175,7 @@
             <div id="right-panel" class="ui-panel">
                 <div class="panel-identity"><span>COMMANDES</span><small>Choisis ton prochain geste</small></div>
                 <div id="right-panel-tabs">
-                    <button class="tab-button active" data-tab="actions-tab">Actions</button>
+                    <button class="tab-button active" data-tab="actions-tab">Actions <span id="actions-tab-count" class="tab-count">0</span></button>
                     <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
                     <button class="tab-button" data-tab="quests-tab">Quêtes <span id="quests-tab-count" class="tab-count">0/0</span></button>
                 </div>
@@ -286,45 +317,6 @@
             <div id="quantity-actions">
                 <button id="quantity-cancel-btn">Annuler</button>
                 <button id="quantity-confirm-btn">Confirmer</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="combat-modal" class="hidden">
-        <div id="combat-modal-content" role="dialog" aria-modal="true" aria-labelledby="combat-title">
-            <header id="combat-header">
-                <div>
-                    <span class="combat-kicker">RENCONTRE HOSTILE</span>
-                    <h2 id="combat-title">⚔️ Affrontement</h2>
-                </div>
-                <div id="combat-turn-indicator" class="turn-player"><span class="turn-dot"></span><span id="combat-turn-text">À vous de jouer</span></div>
-            </header>
-            <div id="combat-arena">
-                <div class="combatant-info" id="combat-player-info">
-                    <div class="combatant-label"><span class="combat-side-icon">◈</span> SURVIVANT</div>
-                    <div class="combat-portrait player" id="combat-player-portrait"><canvas id="combat-player-canvas" width="180" height="160" aria-label="Votre survivant"></canvas></div>
-                    <h3 id="combat-player-name">Vous</h3>
-                    <div class="combat-health-meta"><span>VITALITÉ</span><strong id="combat-player-health-text">10 / 10</strong></div>
-                    <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>
-                    <div class="combatant-status" id="combat-player-status">Prêt au combat</div>
-                </div>
-                <div id="combat-versus"><span>VS</span><i></i></div>
-                <div class="combatant-info enemy" id="combat-enemy-info">
-                    <div class="combatant-label"><span class="combat-side-icon">◆</span> MENACE</div>
-                    <div class="combat-portrait enemy" id="combat-enemy-portrait">🐺</div>
-                    <h3 id="combat-enemy-name">Loup Agressif</h3>
-                    <div class="combat-health-meta"><span>VITALITÉ</span><strong id="combat-enemy-health-text">10 / 10</strong></div>
-                    <div class="combat-health-bar-container"><div id="combat-enemy-health-bar" class="combat-health-bar"></div></div>
-                    <div class="combatant-status" id="combat-enemy-status">Adversaire</div>
-                </div>
-            </div>
-            <div id="combat-log-panel">
-                <div class="combat-section-heading"><span>Journal du combat</span><small>Derniers événements</small></div>
-                <div id="combat-log" aria-live="polite"></div>
-            </div>
-            <div id="combat-command-panel">
-                <div class="combat-section-heading"><span>Votre décision</span><small id="combat-command-hint">Choisissez une action</small></div>
-                <div id="combat-actions"></div>
             </div>
         </div>
     </div>

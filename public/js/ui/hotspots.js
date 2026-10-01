@@ -13,6 +13,7 @@
 import { drawSheetFrame, animatedFrame } from './sheets.js';
 import { ACTIONS, TILE_TYPES } from '../config.js';
 import { sendAction } from '../main.js';
+import { openActionList as PanelsOpenActionList } from './panels.js';
 
 let frameSpots = [];
 let activeSpots = [];
@@ -186,7 +187,7 @@ function findAction({ ids = [], keywords = [] }) {
 
 /** Ouvre la liste complète des actions (repli lisible). */
 function openActionList() {
-    document.getElementById('screen-interaction-button')?.click();
+    PanelsOpenActionList();
 }
 
 function runAction(action) {
