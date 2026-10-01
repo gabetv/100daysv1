@@ -175,6 +175,7 @@ wss.on('connection', (ws) => {
             if (action.id === 'restart_game') {
                 initializeGameState(CONFIG);
                 addNewPlayer(playerId, ws.username || null);
+                scheduleNextDay(); // Le décompte de la journée repart de zéro.
                 saveWorld();
                 const stateToSend = JSON.stringify({ type: 'gameState', payload: gameState }, (key, value) => value instanceof Set ? Array.from(value) : value);
                 broadcastToClients(stateToSend);
@@ -250,6 +251,10 @@ function gameLoop() {
         player.objectives = getObjectives(player);
     }
 
+    // Horodatage serveur : le client corrige le décalage de son horloge et
+    // affiche un décompte de la journée strictement identique pour tous.
+    gameState.serverNow = now;
+
     const stateToSend = JSON.stringify({ type: 'gameState', payload: gameState }, (key, value) => value instanceof Set ? Array.from(value) : value);
 
     broadcastToClients(stateToSend);
@@ -264,10 +269,25 @@ function gameLoop() {
 }
 setInterval(gameLoop, 500); // Réduit à 2 fois par seconde
 
-// Boucle de mise à jour quotidienne (durée unifiée depuis la config)
-setInterval(() => {
-    dailyUpdate().catch(err => console.error("Error in daily update:", err));
-}, CONFIG.DAY_DURATION_MS);
+// Boucle de mise à jour quotidienne (durée unifiée depuis la config).
+// Un `setTimeout` replanifié à chaque jour — et non un `setInterval` figé —
+// garantit que `gameState.dayStartedAt` correspond exactement à la prochaine
+// échéance, y compris après un redémarrage de partie.
+let dayTimer = null;
+function scheduleNextDay() {
+    if (dayTimer) clearTimeout(dayTimer);
+    gameState.dayStartedAt = Date.now();
+    gameState.dayDurationMs = CONFIG.DAY_DURATION_MS;
+    dayTimer = setTimeout(async () => {
+        try {
+            await dailyUpdate();
+        } catch (err) {
+            console.error('Error in daily update:', err);
+        }
+        scheduleNextDay();
+    }, CONFIG.DAY_DURATION_MS);
+}
+scheduleNextDay();
 
 // --- DÉMARRAGE DU SERVEUR ---
 const PORT = process.env.PORT || 3000;

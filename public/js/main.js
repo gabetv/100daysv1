@@ -481,6 +481,9 @@ function setupEventListeners() {
                 UI.openMobileTab('actions');
                 return;
             }
+            // En mode Focus les panneaux sont masqués : on les ramène avant
+            // d'ouvrir la liste, sinon le clic semblerait sans effet.
+            UI.ensurePanelsVisible?.();
             const rightPanel = document.getElementById('right-panel');
             document.querySelector('#right-panel-tabs .tab-button[data-tab="actions-tab"]')?.click();
             if (rightPanel) {
@@ -554,6 +557,14 @@ function init() {
         try {
             UI.initializeTabs();
             Admin.initAdminControls();
+            // La coquille doit être calculée avant la première mesure du canvas :
+            // c'est elle qui décide du nombre de colonnes et de la hauteur du dock.
+            UI.initViewport();
+            UI.loadUISheets().then(() => {
+                UI.hydrateHudIcons();
+                UI.initDayTimer();
+            });
+            UI.initHotspots();
             UI.resizeGameView();
             window.addEventListener('resize', UI.resizeGameView);
             setupEventListeners();

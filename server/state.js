@@ -36,6 +36,11 @@ export function initializeGameState(config) {
         globallyRevealedTiles: new Set(),
         day: 1,
         time: 0,
+        // Horloge de la journée : le client affiche un décompte exact et
+        // identique pour tout le monde au lieu d'estimer de son côté.
+        dayStartedAt: Date.now(),
+        dayDurationMs: config.DAY_DURATION_MS,
+        serverNow: Date.now(),
         config: config,
         victory: null,
         knownRecipes: {}, // Recettes connues par tous les joueurs
@@ -64,6 +69,9 @@ export async function dailyUpdate() {
     if (gameState.victory) return; // La partie est gagnée, on fige le compteur
 
     gameState.day++;
+    // Point de départ du nouveau décompte, diffusé tel quel aux clients.
+    gameState.dayStartedAt = Date.now();
+    gameState.dayDurationMs = CONFIG.DAY_DURATION_MS;
     console.log(`A new day has begun: Day ${gameState.day}`);
 
     // Annonce du nouveau jour à tous les joueurs
@@ -285,6 +293,10 @@ export function restoreWorld(data) {
 
         gameState.day = data.day || 1;
         gameState.time = data.time || 0;
+        // Le minuteur de la journée repart du redémarrage du serveur : c'est
+        // lui qui pilote réellement `dailyUpdate`, le décompte reste donc vrai.
+        gameState.dayStartedAt = Date.now();
+        gameState.dayDurationMs = CONFIG.DAY_DURATION_MS;
         gameState.victory = data.victory || null;
         gameState.lastEvent = data.lastEvent || null;
         gameState.nextEvent = data.nextEvent !== undefined ? data.nextEvent : undefined;

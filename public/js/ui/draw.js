@@ -1,5 +1,5 @@
 // js/ui/draw.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG, ENEMY_SPRITES, CHARACTER_APPEARANCE, DEFAULT_CHARACTER_APPEARANCE } from '../config.js';
+import { TILE_TYPES, ITEM_TYPES, CONFIG, ACTIONS, ENEMY_SPRITES, CHARACTER_APPEARANCE, DEFAULT_CHARACTER_APPEARANCE } from '../config.js';
 import { getItemImage, getTileImage, tileIconHTML } from './icons.js';
 import DOM from './dom.js';
 import {
@@ -11,6 +11,12 @@ import {
     wildlifeManager,
     triggerPixelEffect
 } from './sprites.js';
+import {
+    beginHotspotFrame,
+    registerHotspot,
+    commitHotspotFrame,
+    drawHotspotMarkers,
+} from './hotspots.js';
 
 export { triggerPixelEffect };
 
@@ -169,6 +175,11 @@ export function drawMainBackground(gameState) {
     // Les décors et sprites gardent des bords francs, y compris après le
     // recadrage vertical de la scène mobile.
     mainViewCtx.imageSmoothingEnabled = false;
+
+    // Nouvelle image = nouvelle carte des zones interactives. Les décors
+    // enregistrent leurs zones ici, les personnages plus bas, puis
+    // `drawSceneCharacters` valide l'ensemble.
+    beginHotspotFrame();
 
     if (!gameState || !gameState.player || !gameState.map ||
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
@@ -516,6 +527,83 @@ function drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim = null, shadow =
 /**
  * Dessine les constructions de la case dans le décor (sprites si dispo, sinon pastille icône).
  */
+// Les constructions deviennent des cibles directes : un clic sur le coffre
+// l'ouvre, un clic sur l'établi lance l'atelier. L'action réelle est résolue
+// au moment du clic à partir des actions renvoyées par le serveur.
+const BUILDING_HINTS = {
+    TREASURE_CHEST: 'Ouvrir le coffre',
+    FORTERESSE: 'Dormir ou stocker',
+    ETABLI: "Utiliser l'établi",
+    ATELIER: "Utiliser l'atelier",
+    FORGE: 'Utiliser la forge',
+    LABORATOIRE: 'Utiliser le laboratoire',
+    CAMPFIRE: 'Cuisiner ou se reposer',
+    SHELTER_INDIVIDUAL: 'Dormir',
+    SHELTER_COLLECTIVE: 'Dormir',
+    MINE: 'Extraire du minerai',
+    PETIT_PUIT: "Puiser de l'eau",
+    PUIT_PROFOND: "Puiser de l'eau",
+    OBSERVATOIRE: 'Observer le ciel',
+    BIBLIOTHEQUE: 'Chercher un plan',
+    BANANERAIE: 'Arroser ou récolter',
+    SUCRERIE: 'Arroser ou récolter',
+    COCOTERAIE: 'Arroser ou récolter',
+    POULAILLER: 'Abreuver ou récolter',
+    ENCLOS_COCHONS: 'Abreuver ou récolter',
+    PANNEAU_SOLAIRE: 'Recharger un appareil',
+};
+
+/**
+ * Le marqueur se déduit de la nature de la construction plutôt que d'une liste
+ * figée : tout ce qui stocke porte l'icône « butin », tout poste de travail
+ * porte l'icône « artisanat ». Les constructions purement décoratives n'en ont
+ * pas et se révèlent au survol.
+ */
+// Quelques cas où la déduction automatique n'est pas la bonne lecture :
+// le feu de camp et les abris sont déjà évidents dans le décor, le coffre au
+// trésor n'a pas d'inventaire déclaré mais reste bien du butin.
+const BUILDING_MARKER_OVERRIDES = {
+    CAMPFIRE: null,
+    SHELTER_INDIVIDUAL: null,
+    SHELTER_COLLECTIVE: null,
+    TREASURE_CHEST: 'loot',
+    FORTERESSE: 'loot',
+};
+
+function buildingMarkerFor(key, def) {
+    if (Object.prototype.hasOwnProperty.call(BUILDING_MARKER_OVERRIDES, key)) {
+        return BUILDING_MARKER_OVERRIDES[key];
+    }
+    if (!def) return null;
+    const ids = [
+        ...(Array.isArray(def.actions) ? def.actions : []),
+        ...(def.action ? [def.action] : []),
+    ].map(action => action?.id || '').join(' ');
+    if (/^use_|_etabli|_atelier|_forge|laboratoire/.test(ids)) return 'build';
+    if (def.maxInventory || def.inventory) return 'loot';
+    if (/harvest_|draw_water|search_/.test(ids)) return 'build';
+    return null;
+}
+
+function registerBuildingHotspot(building, def, x, y, w, h) {
+    if (!building || !def) return;
+    const key = building.key;
+    registerHotspot({
+        id: `building:${key}:${Math.round(x)}`,
+        type: 'building',
+        buildingKey: key,
+        x, y,
+        w: Math.max(42, w),
+        h: Math.max(42, h),
+        label: def.name || 'Construction',
+        hint: BUILDING_HINTS[key] || 'Voir les actions',
+        actionIds: [ACTIONS.OPEN_BUILDING_INVENTORY],
+        marker: buildingMarkerFor(key, def),
+        markerAlpha: 0.62,
+        priority: 2,
+    });
+}
+
 function drawTileProps(ctx, w, h, tile) {
     const buildings = tile.buildings || [];
     if (!buildings.length) return;
@@ -528,6 +616,12 @@ function drawTileProps(ctx, w, h, tile) {
         // mine...), on évite de la redessiner par-dessus et on garde juste les
         // effets d'ambiance éventuels.
         if (isBuildingInSceneBackground(tile, building)) {
+            // La construction est peinte dans le décor : elle reste cliquable.
+            const bgX = building.key === 'CAMPFIRE' ? 0.50 : 0.48;
+            const bgBase = sceneGroundY(tile, w, h, bgX, 'prop');
+            const bgSize = h * 0.26;
+            registerBuildingHotspot(building, def, w * bgX, bgBase - bgSize / 2, bgSize * 1.1, bgSize);
+
             if (building.key === 'CAMPFIRE') {
                 const x = 0.50;
                 const cx = w * x;
@@ -550,6 +644,8 @@ function drawTileProps(ctx, w, h, tile) {
         const cx = w * xNorm;
         const baseY = sceneGroundY(tile, w, h, xNorm, 'prop');
         const targetH = h * prop.scale * scenePerspectiveScale(tile, xNorm);
+
+        registerBuildingHotspot(building, def, cx, baseY - targetH / 2, targetH * 1.05, targetH);
 
         if (building.key === 'CAMPFIRE') {
             const targetW = targetH * 1.12;
@@ -1324,6 +1420,21 @@ function drawGroundLoot(ctx, w, h, tile, scale) {
         const itemDef = ITEM_TYPES[name] || {};
         const img = getItemImage(name);
 
+        // Ramassage au clic directement sur l'objet posé au sol.
+        registerHotspot({
+            id: `loot:${name}`,
+            type: 'loot',
+            itemName: name,
+            x,
+            y: groundY - size * 0.45,
+            w: size * 1.5,
+            h: size * 1.6,
+            label: Number(amount) > 1 ? `${name} ×${amount}` : name,
+            hint: 'Ramasser',
+            marker: 'loot',
+            priority: 4,
+        });
+
         ctx.save();
         // Petit halo : les objets restent visibles, y compris la nuit.
         const glow = ctx.createRadialGradient(x, y, 0, x, y, size * 1.28);
@@ -1452,6 +1563,42 @@ export function drawSceneCharacters(gameState) {
         charactersOnTile.push({ char: npc, x, y, isPlayer: false, sortOrder: 0 }); // PNJ derrière le joueur
     });
 
+    // Chaque survivant devient une cible : parler à un PNJ, consulter sa fiche.
+    charactersOnTile.forEach(entry => {
+        const body = 58 * scale;
+        if (entry.isPlayer) {
+            registerHotspot({
+                id: 'player:self',
+                type: 'player',
+                x: entry.x,
+                y: entry.y - body * 0.25,
+                w: body,
+                h: body * 1.7,
+                label: 'Vous',
+                hint: 'Ouvrir votre fiche',
+                actionIds: [],
+                keywords: [],
+                priority: 3,
+                onActivate: 'self',
+            });
+            return;
+        }
+        const isNpc = !!entry.char?.isNpc || Array.isArray(entry.char?.dialogue) || !!entry.char?.availableQuest;
+        registerHotspot({
+            id: `${isNpc ? 'npc' : 'survivor'}:${entry.char?.id || entry.char?.name || entry.x}`,
+            type: isNpc ? 'npc' : 'survivor',
+            x: entry.x,
+            y: entry.y - body * 0.25,
+            w: body,
+            h: body * 1.7,
+            label: entry.char?.name || (isNpc ? 'Survivant' : 'Joueur'),
+            hint: isNpc ? 'Parler' : 'Voir les actions',
+            actionIds: isNpc ? [ACTIONS.TALK_TO_NPC] : ['pvp_attack'],
+            marker: isNpc ? 'talk' : null,
+            priority: 3,
+        });
+    });
+
     // Trier les personnages pour le dessin (le joueur sera dessiné en dernier s'il a le sortOrder le plus élevé)
     charactersOnTile.sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -1508,6 +1655,22 @@ export function drawSceneCharacters(gameState) {
         const size = slot.size * scale * scenePerspectiveScale(currentTile, xNorm);
         const drawH = size * 1.35;
         const centerY = enemyBaseY - drawH / 2;
+
+        // Attaquer en visant directement la créature.
+        registerHotspot({
+            id: `enemy:${enemy.id || enemy.name}:${i}`,
+            type: 'enemy',
+            x: enemyX,
+            y: centerY,
+            w: size * 1.2,
+            h: drawH,
+            label: enemy.name || 'Créature hostile',
+            hint: 'Attaquer',
+            actionIds: [ACTIONS.INITIATE_COMBAT],
+            keywords: ['attaquer'],
+            marker: 'danger',
+            priority: 5,
+        });
 
         charactersCtx.save();
 
@@ -1630,6 +1793,31 @@ export function drawSceneCharacters(gameState) {
 
     // Dessiner tous les effets d'actions animés en pixel art (coupe, minage, combat, soins, etc.)
     drawActiveEffects(charactersCtx);
+
+    // Le sol lui-même devient interactif : toucher la zone devant le survivant
+    // lance la fouille / la récolte proposée ici. C'est la porte d'entrée la
+    // plus naturelle sur mobile, où il n'y a pas de survol.
+    const groundActions = player.availableActions || [];
+    const groundAction = groundActions.find(action => /fouill|cherch|recherch|search|récolt|harvest/i.test(`${action.id} ${action.name}`));
+    if (groundAction) {
+        const groundLine = sceneGroundY(currentTile, canvasWidth, canvasHeight, 0.5, 'loot');
+        registerHotspot({
+            id: 'ground:here',
+            type: 'ground',
+            x: canvasWidth / 2,
+            y: Math.min(canvasHeight - 10, groundLine + canvasHeight * 0.05),
+            w: canvasWidth * 0.52,
+            h: canvasHeight * 0.16,
+            label: groundAction.name,
+            hint: 'Agir sur cette zone',
+            actionIds: [groundAction.id],
+            priority: -1,
+        });
+    }
+
+    // Les zones interactives de l'image sont figées puis décorées.
+    commitHotspotFrame();
+    drawHotspotMarkers(charactersCtx, scale);
 }
 
 const minimapTrail = [];

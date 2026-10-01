@@ -1,20 +1,81 @@
 // js/ui/atmosphere.js — Ambiance visuelle : cycle jour/nuit, météo, lumières et particules
 
-const DAY_DURATION_MS = 120000; // Doit correspondre à CONFIG.DAY_DURATION_MS du serveur
+const DEFAULT_DAY_DURATION_MS = 120000; // Repli si le serveur ne l'envoie pas
 
 let currentDay = null;
 let dayStartedAt = Date.now();
+let dayDurationMs = DEFAULT_DAY_DURATION_MS;
 
-// --- Suivi de la progression de la journée (côté client) ---
-export function syncDay(day) {
+// Découpage de la journée. Une seule source de vérité : le HUD du décompte et
+// l'ambiance lumineuse utilisent exactement les mêmes bornes.
+export const DAY_PHASES = [
+    { id: 'aube', label: '🌅 Aube', short: 'Aube', from: 0, to: 0.12, sheetFrame: 0 },
+    { id: 'jour', label: '☀️ Jour', short: 'Jour', from: 0.12, to: 0.62, sheetFrame: 2 },
+    { id: 'crepuscule', label: '🌇 Crépuscule', short: 'Crépuscule', from: 0.62, to: 0.80, sheetFrame: 4 },
+    { id: 'nuit', label: '🌙 Nuit', short: 'Nuit', from: 0.80, to: 1, sheetFrame: 6 },
+];
+
+/**
+ * Cale l'horloge locale sur celle du serveur.
+ * Le serveur envoie `dayStartedAt` + `serverNow` : on en déduit l'instant local
+ * équivalent, ce qui rend le décompte identique sur tous les écrans, même si
+ * l'horloge de la machine est décalée ou si le joueur arrive en milieu de jour.
+ */
+export function syncDay(day, state = null) {
+    const startedAt = Number(state?.dayStartedAt);
+    const serverNow = Number(state?.serverNow);
+    const duration = Number(state?.dayDurationMs);
+    if (Number.isFinite(duration) && duration > 1000) dayDurationMs = duration;
+
+    if (Number.isFinite(startedAt) && Number.isFinite(serverNow)) {
+        // Décalage horloge serveur → horloge locale.
+        const localStart = Date.now() - (serverNow - startedAt);
+        // On ne recale que si l'écart dépasse 400 ms : évite de faire sautiller
+        // le décompte à chaque message reçu (deux par seconde).
+        if (Math.abs(localStart - dayStartedAt) > 400) dayStartedAt = localStart;
+        currentDay = day;
+        return;
+    }
+
+    // Repli : ancienne version du serveur, on estime localement.
     if (day == null) return;
     if (currentDay === null) { currentDay = day; dayStartedAt = Date.now(); return; }
     if (day !== currentDay) { currentDay = day; dayStartedAt = Date.now(); }
 }
 
 export function dayProgress() {
-    const p = (Date.now() - dayStartedAt) / DAY_DURATION_MS;
+    const p = (Date.now() - dayStartedAt) / dayDurationMs;
     return Math.max(0, Math.min(1, p));
+}
+
+/** Durée d'une journée de jeu, en millisecondes. */
+export function getDayDurationMs() { return dayDurationMs; }
+
+/** Millisecondes restantes avant le lever du jour suivant. */
+export function dayRemainingMs() {
+    return Math.max(0, dayDurationMs - (Date.now() - dayStartedAt));
+}
+
+/**
+ * Phase courante + temps restant avant la phase suivante.
+ * Sert au HUD « Nuit dans 0:42 ».
+ */
+export function getPhaseTimer() {
+    const p = dayProgress();
+    // À l'instant exact où p vaut 1, aucune borne `to` n'est strictement
+    // supérieure : on reste sur la dernière phase (nuit) plutôt que de
+    // repartir à l'aube pour une image.
+    const found = DAY_PHASES.findIndex(phase => p < phase.to);
+    const index = found === -1 ? DAY_PHASES.length - 1 : found;
+    const phase = DAY_PHASES[index];
+    const next = DAY_PHASES[(index + 1) % DAY_PHASES.length];
+    return {
+        phase,
+        next,
+        progress: p,
+        remainingMs: Math.max(0, (phase.to - p) * dayDurationMs),
+        dayRemainingMs: dayRemainingMs(),
+    };
 }
 
 /**
@@ -326,7 +387,7 @@ export function drawAtmosphere(ctx, w, h, gameState) {
 
     resetPoolsIfResized(w, h);
     ctx.imageSmoothingEnabled = false;
-    syncDay(gameState.day);
+    syncDay(gameState.day, gameState);
 
     const light = getLighting();
     const tile = gameState.map?.[gameState.player.y]?.[gameState.player.x];
@@ -461,4 +522,4 @@ export function drawAtmosphere(ctx, w, h, gameState) {
     }
 }
 
-export default { drawAtmosphere, getLighting, syncDay, dayProgress };
+export default { drawAtmosphere, getLighting, syncDay, dayProgress, dayRemainingMs, getPhaseTimer, getDayDurationMs, DAY_PHASES };
