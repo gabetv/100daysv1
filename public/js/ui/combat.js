@@ -12,6 +12,7 @@
 // combat n'est rejouée ici, et on ne peut donc pas diverger du serveur.
 
 import { sendAction } from '../main.js';
+import { triggerCharacterAnim } from './character-anim.js';
 import { ENEMY_IMAGES } from './icons.js';
 import { sfx } from '../audio.js';
 import { COMBAT_CONFIG } from '../config.js';
@@ -58,6 +59,9 @@ function scheduleAutoAttack(combatState) {
         const current = globalThis.gameState?.player?.combatState;
         if (!current || current.turn !== 'player' || fleePending) return;
         sfx('attack');
+        // Le coup se lit aussi sur le survivant : lunge vers la créature.
+        const me = globalThis.gameState?.player;
+        if (me) triggerCharacterAnim(me, 'attack', { force: true });
         sendAction('combat_action', { type: 'attack' });
     }, AUTO_ATTACK_DELAY);
 }

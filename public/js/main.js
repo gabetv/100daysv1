@@ -3,6 +3,7 @@ import * as UI from './ui.js';
 import * as Admin from './admin.js';
 import { ACTIONS, SPRITESHEET_PATHS } from './config.js';
 import DOM from './ui/dom.js';
+import { animForAction, triggerCharacterAnim, resetCharacterAnims } from './ui/character-anim.js';
 import { initInteractions } from './interactions.js';
 import { initAudio, sfx, toggleAudio, isEnabled as isAudioEnabled } from './audio.js';
 
@@ -158,6 +159,8 @@ function handleServerMessage(event) {
                         UI.triggerPixelEffect('heal', cx, cy - 35, 1.3);
                     } else if (msg.includes('niveau') || msg.includes('victoire') || msg.includes('sauvé')) {
                         UI.triggerPixelEffect('levelup', cx, cy - 45, 1.6);
+                        // Le survivant célèbre l'instant : bras au ciel, petit saut.
+                        if (gameState.player) triggerCharacterAnim(gameState.player, 'cheer', { force: true });
                     } else if (msg.includes('trouvé') || msg.includes('trésor') || msg.includes('découvert') || msg.includes('clé')) {
                         UI.triggerPixelEffect('shine', cx, cy - 35, 1.4);
                     }
@@ -190,6 +193,16 @@ export function sendAction(actionId, data) {
         if (actionId === ACTIONS.MOVE && UI.playerMovedForTutorial) {
             UI.playerMovedForTutorial();
         }
+        // Le survivant joue son geste dès l'envoi : l'action se lit sur lui,
+        // pas seulement dans un effet décorrélé au milieu de l'écran.
+        if (gameState?.player) {
+            if (isChat) {
+                triggerCharacterAnim(gameState.player, 'talk');
+            } else {
+                const anim = animForAction(actionId, data);
+                if (anim) triggerCharacterAnim(gameState.player, anim);
+            }
+        }
         UI.showLoading();
         ws.send(JSON.stringify({ id: actionId, data }));
     } else {
@@ -215,6 +228,9 @@ window.restartGame = function restartGame() {
         button.disabled = true;
         button.textContent = 'Nouvelle partie…';
     }
+    // Nouveau monde, nouvelles silhouettes : les runtimes d'animation repartent
+    // de zéro pour ne pas rejouer d'anciennes arrivées.
+    resetCharacterAnims();
     ws.send(JSON.stringify({ id: 'restart_game' }));
 };
 let tutorialInitialized = false;

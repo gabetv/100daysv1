@@ -12,6 +12,15 @@ import {
     triggerPixelEffect
 } from './sprites.js';
 import {
+    SKELETON,
+    updateCharacterRuntime,
+    computeCharacterPose,
+    triggerCharacterAnim,
+    previewRuntime,
+    characterParticles,
+    PARTICLE_COLORS,
+} from './character-anim.js';
+import {
     beginHotspotFrame,
     registerHotspot,
     commitHotspotFrame,
@@ -854,18 +863,6 @@ function roundedRectPath(ctx, x, y, w, h, r) {
     ctx.closePath();
 }
 
-function limb(ctx, x1, y1, x2, y2, width, color, outline) {
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = width + 2.5;
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.restore();
-}
-
 function drawSpeechBubble(ctx, x, topY, text, scale) {
     ctx.save();
     const fontSize = Math.max(11, 14 * scale);
@@ -914,495 +911,469 @@ function drawSpeechBubble(ctx, x, topY, text, scale) {
     displayed.forEach((l, i) => ctx.fillText(l, x, by + padY + lh * (i + 0.5)));
     ctx.restore();
 }
+/* -------------------------------------------------------------------------
+ * Survivant pixel-art articulé
+ * -------------------------------------------------------------------------
+ * Le personnage n'est plus une pile de blocs figés : un squelette léger
+ * (hanches, épaules, coudes, genoux) est posé à chaque image par le moteur
+ * d'animation (character-anim.js) puis peint en pixels « tamponnés » — des
+ * petits carrés alignés sur la grille, comme les décors. Les couches
+ * personnalisables (peau, cheveux, tenue, accessoire, équipement) restent
+ * indépendantes : le look choisi en jeu se voit bouger dans le monde.
+ *
+ * Convention locale : origine = point d'ancrage du personnage, +y vers le
+ * bas, le sol à SKELETON.FEET_Y. Le survivant regarde vers +x ; la scène
+ * est mise en miroir pour l'ouest.
+ * ------------------------------------------------------------------------- */
+
+/** Teinte de secours quand une couleur manque. */
+const FALLBACK_COLOR = '#7f8a90';
+
+function parseColorChannels(c) {
+    const s = String(c || FALLBACK_COLOR).trim();
+    if (s[0] === '#') {
+        const hex = s.length === 4 ? s.slice(1).split('').map(ch => ch + ch).join('') : s.slice(1, 7);
+        const n = parseInt(hex, 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+    const m = s.match(/(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+    if (m) return [+m[1], +m[2], +m[3]];
+    return [127, 138, 144];
+}
+
+function mixColors(a, b, t) {
+    const ca = parseColorChannels(a), cb = parseColorChannels(b);
+    const r = Math.round(ca[0] + (cb[0] - ca[0]) * t);
+    const g = Math.round(ca[1] + (cb[1] - ca[1]) * t);
+    const bl = Math.round(ca[2] + (cb[2] - ca[2]) * t);
+    return `rgb(${r}, ${g}, ${bl})`;
+}
+
+const charLerp = (a, b, t) => a + (b - a) * t;
+
+/** Ligne épaisse « pixel art » : des carrés tamponnés le long du segment. */
+function stampLine(ctx, x0, y0, x1, y1, wPx, color) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    const size = Math.max(1, Math.round(wPx));
+    const half = Math.floor(size / 2);
+    const steps = Math.max(1, Math.ceil(dist / Math.max(1, size * 0.35)));
+    ctx.fillStyle = color;
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        ctx.fillRect(Math.round(x0 + dx * t) - half, Math.round(y0 + dy * t) - half, size, size);
+    }
+}
+
+/** Segment de membre avec contour : tampon large sombre puis remplissage. */
+function stampLimb(ctx, x0, y0, x1, y1, wUnits, p, color, outlineColor) {
+    const wPx = wUnits * p;
+    stampLine(ctx, x0, y0, x1, y1, wPx + Math.max(2, Math.round(p * 0.7)), outlineColor);
+    stampLine(ctx, x0, y0, x1, y1, wPx, color);
+}
+
+/** Correspondance nom d'objet → type d'outil dessiné en main. */
+function toolTypeForItem(item) {
+    const name = String(item?.name || '');
+    if (!name) return null;
+    if (/hache/i.test(name)) return 'axe';
+    if (/pioche/i.test(name)) return 'pick';
+    if (/pelle/i.test(name)) return 'shovel';
+    if (/épée|lame|sabre|katana|gourdin/i.test(name)) return 'sword';
+    if (/lance|harpon/i.test(name)) return 'spear';
+    if (/canne|rod/i.test(name)) return 'rod';
+    if (/filet/i.test(name)) return 'net';
+    if (/marteau/i.test(name)) return 'hammer';
+    return null;
+}
 
 /**
- * Dessine un personnage complet (joueur, autre joueur ou PNJ).
- * Le rendu est mis à l'échelle en fonction de la hauteur du canvas afin de rester
- * lisible sur mobile comme sur grand écran.
+ * Dessine un outil tenu en main, aligné sur l'avant-bras.
+ * Toutes les coordonnées sont en unités locales (espace déjà miroité).
  */
-function drawLegacyCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
-    const look = characterLook(character);
-    const s = scale;
-    const outline = 'rgba(10, 18, 24, 0.85)';
-    const cloth = look.outfit || character.color || '#4f8fbf';
-    const clothDark = shadeColor(cloth, -45);
-    const clothLight = shadeColor(cloth, 35);
-    const pants = shadeColor(look.hair, 10);
-
-    // Dimensions de base (à l'échelle)
-    const headR = 15 * s;
-    const bodyW = 30 * s;
-    const bodyH = 42 * s;
-    const legLen = 26 * s;
-    const armLen = 30 * s;
-
-    const t = Date.now() / 1000;
-    const moving = animationProgress > 0;
-    const walk = moving ? Math.sin(animationProgress * Math.PI * 4) : 0;
-    const breathe = Math.sin((t + look.phase * 6) * 1.6) * 1.2 * s;
-    const bob = moving ? Math.abs(Math.sin(animationProgress * Math.PI * 4)) * 3 * s : 0;
-
-    // y = position des pieds
-    const feetY = y + legLen;
-    const hipY = y - bob + breathe * 0.3;
-    const bodyBottomY = hipY;
-    const bodyTopY = hipY - bodyH;
-    const shoulderY = bodyTopY + 8 * s;
-    const headCY = bodyTopY - headR + 3 * s + breathe * 0.5;
-
-    ctx.save();
-
-    // --- Ombre portée ---
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.ellipse(x, feetY + 3 * s, bodyW * 0.62, 7 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // --- Jambes ---
-    const legSwing = walk * 9 * s;
-    const hipOffset = bodyW * 0.22;
-    limb(ctx, x - hipOffset, hipY, x - hipOffset + legSwing, feetY, 9 * s, pants, outline);
-    limb(ctx, x + hipOffset, hipY, x + hipOffset - legSwing, feetY, 9 * s, pants, outline);
-    // Chaussures
-    ctx.fillStyle = '#3c2b20';
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 1.5;
-    [[-hipOffset + legSwing, 1], [hipOffset - legSwing, -1]].forEach(([dx, dir]) => {
-        roundedRectPath(ctx, x + dx - 6 * s, feetY - 2 * s, 12 * s + dir * 0, 6 * s, 3 * s);
-        ctx.fill(); ctx.stroke();
-    });
-
-    // --- Bras arrière ---
-    const armSwing = walk * 10 * s;
-    limb(ctx, x - bodyW * 0.42, shoulderY, x - bodyW * 0.5 - armSwing * 0.3, shoulderY + armLen - armSwing, 8 * s, clothDark, outline);
-    ctx.fillStyle = look.skin;
-    ctx.beginPath();
-    ctx.arc(x - bodyW * 0.5 - armSwing * 0.3, shoulderY + armLen - armSwing, 4.5 * s, 0, Math.PI * 2);
-    ctx.fill();
-
-    // --- Torse ---
-    const grad = ctx.createLinearGradient(x - bodyW / 2, bodyTopY, x + bodyW / 2, bodyBottomY);
-    grad.addColorStop(0, clothLight);
-    grad.addColorStop(0.55, cloth);
-    grad.addColorStop(1, clothDark);
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(x - bodyW * 0.42, bodyTopY + 4 * s);
-    ctx.quadraticCurveTo(x - bodyW * 0.56, bodyTopY + bodyH * 0.55, x - bodyW * 0.44, bodyBottomY);
-    ctx.lineTo(x + bodyW * 0.44, bodyBottomY);
-    ctx.quadraticCurveTo(x + bodyW * 0.56, bodyTopY + bodyH * 0.55, x + bodyW * 0.42, bodyTopY + 4 * s);
-    ctx.quadraticCurveTo(x, bodyTopY - 3 * s, x - bodyW * 0.42, bodyTopY + 4 * s);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Ceinture
-    ctx.fillStyle = '#5a3a22';
-    roundedRectPath(ctx, x - bodyW * 0.46, bodyBottomY - 7 * s, bodyW * 0.92, 6 * s, 2 * s);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#d8b24a';
-    roundedRectPath(ctx, x - 3.5 * s, bodyBottomY - 7 * s, 7 * s, 6 * s, 1.5 * s);
-    ctx.fill();
-
-    // Sac à dos (joueur uniquement)
-    if (isPlayer) {
-        ctx.fillStyle = '#6b4a2f';
-        ctx.strokeStyle = outline;
-        roundedRectPath(ctx, x + bodyW * 0.34, bodyTopY + 8 * s, 10 * s, bodyH * 0.55, 4 * s);
-        ctx.fill(); ctx.stroke();
-    }
-
-    // --- Bras avant ---
-    limb(ctx, x + bodyW * 0.42, shoulderY, x + bodyW * 0.5 + armSwing * 0.3, shoulderY + armLen + armSwing, 8 * s, cloth, outline);
-    ctx.fillStyle = look.skin;
-    ctx.beginPath();
-    ctx.arc(x + bodyW * 0.5 + armSwing * 0.3, shoulderY + armLen + armSwing, 4.5 * s, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // --- Équipement visible : arme/outil dans la main avant, bouclier au bras arrière ---
-    const equip = character.equipment || {};
-    const handX = x + bodyW * 0.5 + armSwing * 0.3;
-    const handY = shoulderY + armLen + armSwing;
-    if (equip.shield) {
-        const shieldDef = ITEM_TYPES[equip.shield.name] || {};
-        ctx.save();
-        ctx.fillStyle = 'rgba(12, 22, 30, 0.55)';
-        ctx.beginPath();
-        ctx.arc(x - bodyW * 0.62, shoulderY + armLen * 0.75, 11 * s, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = `${Math.round(16 * s)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(shieldDef.icon || '🛡️', x - bodyW * 0.62, shoulderY + armLen * 0.75);
-        ctx.restore();
-    }
-    if (equip.weapon) {
-        const wDef = ITEM_TYPES[equip.weapon.name] || {};
-        ctx.save();
-        ctx.translate(handX + 4 * s, handY - 2 * s);
-        ctx.rotate(-0.35 + walk * 0.18);
-        ctx.shadowColor = 'rgba(0,0,0,0.55)';
-        ctx.shadowBlur = 4 * s;
-        const wImg = getItemImage(equip.weapon.name);
-        if (wImg) {
-            const sizeW = 30 * s;
-            ctx.drawImage(wImg, -sizeW / 2, -sizeW / 2, sizeW, sizeW);
-        } else {
-            ctx.font = `${Math.round(20 * s)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(wDef.icon || '🔧', 0, 0);
-        }
-        ctx.restore();
-    }
-
-    // --- Cou ---
-    ctx.fillStyle = shadeColor(look.skin, -30);
-    roundedRectPath(ctx, x - 4 * s, bodyTopY - 6 * s, 8 * s, 9 * s, 3 * s);
-    ctx.fill();
-
-    // --- Tête ---
-    ctx.fillStyle = look.skin;
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.ellipse(x, headCY, headR * 0.92, headR, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Ombre du visage
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(x, headCY, headR * 0.92, headR, 0, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = 'rgba(0,0,0,0.13)';
-    ctx.fillRect(x + headR * 0.25, headCY - headR, headR, headR * 2);
-    ctx.restore();
-
-    // Oreilles
-    ctx.fillStyle = look.skin;
-    ctx.beginPath();
-    ctx.ellipse(x - headR * 0.92, headCY + 1 * s, 2.6 * s, 4 * s, 0, 0, Math.PI * 2);
-    ctx.ellipse(x + headR * 0.92, headCY + 1 * s, 2.6 * s, 4 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Cheveux
-    ctx.fillStyle = look.hair;
-    if (look.style !== 'bald') {
-        ctx.beginPath();
-        if (look.style === 'mohawk') {
-            ctx.ellipse(x, headCY - headR * 0.85, headR * 0.22, headR * 0.55, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(x, headCY - headR * 0.35, headR * 0.93, headR * 0.6, 0, Math.PI, 0);
-            ctx.fill();
-        } else if (look.style === 'cap') {
-            ctx.fillStyle = shadeColor(cloth, -25);
-            ctx.beginPath();
-            ctx.ellipse(x, headCY - headR * 0.28, headR * 0.98, headR * 0.72, 0, Math.PI, 0);
-            ctx.fill();
-            roundedRectPath(ctx, x - headR * 1.15, headCY - headR * 0.34, headR * 2.3, 3.4 * s, 2 * s);
-            ctx.fill();
-        } else {
-            ctx.ellipse(x, headCY - headR * 0.22, headR * 0.98, headR * 0.82, 0, Math.PI, 0);
-            ctx.fill();
-            if (look.style === 'long') {
-                ctx.beginPath();
-                ctx.ellipse(x - headR * 0.85, headCY + headR * 0.25, headR * 0.3, headR * 0.85, 0, 0, Math.PI * 2);
-                ctx.ellipse(x + headR * 0.85, headCY + headR * 0.25, headR * 0.3, headR * 0.85, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (look.style === 'bun') {
-                ctx.beginPath();
-                ctx.arc(x, headCY - headR * 1.05, headR * 0.35, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-    }
-
-    // Couvre-chef équipé
-    if (character.equipment && character.equipment.head) {
-        const hDef = ITEM_TYPES[character.equipment.head.name] || {};
-        ctx.save();
-        ctx.font = `${Math.round(22 * s)}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4 * s;
-        ctx.fillText(hDef.icon || '🎩', x, headCY - headR * 0.95);
-        ctx.restore();
-    }
-
-    // Yeux (avec clignement)
-    const blink = ((t + look.phase * 5) % 4.2) < 0.12;
-    const eyeY = headCY + 1 * s;
-    const eyeDX = headR * 0.36;
-    if (blink) {
-        ctx.strokeStyle = '#2b2b2b';
-        ctx.lineWidth = 1.6 * s;
-        ctx.beginPath();
-        ctx.moveTo(x - eyeDX - 2.6 * s, eyeY); ctx.lineTo(x - eyeDX + 2.6 * s, eyeY);
-        ctx.moveTo(x + eyeDX - 2.6 * s, eyeY); ctx.lineTo(x + eyeDX + 2.6 * s, eyeY);
-        ctx.stroke();
-    } else {
-        ctx.fillStyle = '#fdfdfd';
-        ctx.beginPath();
-        ctx.ellipse(x - eyeDX, eyeY, 3.1 * s, 3.4 * s, 0, 0, Math.PI * 2);
-        ctx.ellipse(x + eyeDX, eyeY, 3.1 * s, 3.4 * s, 0, 0, Math.PI * 2);
-        ctx.fill();
-        const gaze = Math.sin(t * 0.6 + look.phase * 3) * 0.9 * s;
-        ctx.fillStyle = '#20303a';
-        ctx.beginPath();
-        ctx.arc(x - eyeDX + gaze, eyeY + 0.4 * s, 1.6 * s, 0, Math.PI * 2);
-        ctx.arc(x + eyeDX + gaze, eyeY + 0.4 * s, 1.6 * s, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // Sourcils
-    ctx.strokeStyle = shadeColor(look.hair, -20);
-    ctx.lineWidth = 1.8 * s;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x - eyeDX - 3 * s, eyeY - 5.5 * s); ctx.lineTo(x - eyeDX + 3 * s, eyeY - 6.4 * s);
-    ctx.moveTo(x + eyeDX - 3 * s, eyeY - 6.4 * s); ctx.lineTo(x + eyeDX + 3 * s, eyeY - 5.5 * s);
-    ctx.stroke();
-
-    // Bouche (expression selon la santé)
-    const hp = character.health, hpMax = character.maxHealth || 10;
-    const hurt = typeof hp === 'number' && hp / hpMax < 0.4;
-    ctx.strokeStyle = '#7a4033';
-    ctx.lineWidth = 1.7 * s;
-    ctx.beginPath();
-    if (hurt) ctx.arc(x, headCY + headR * 0.72, 3.4 * s, Math.PI * 1.15, Math.PI * 1.85);
-    else ctx.arc(x, headCY + headR * 0.4, 4 * s, 0.2 * Math.PI, 0.8 * Math.PI);
-    ctx.stroke();
-
-    // Barbe
-    if (look.beard) {
-        ctx.fillStyle = look.hair;
-        ctx.globalAlpha = 0.85;
-        ctx.beginPath();
-        ctx.ellipse(x, headCY + headR * 0.62, headR * 0.6, headR * 0.42, 0, 0, Math.PI);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-
-    // --- Étiquette de nom + anneau joueur ---
-    if (isPlayer) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 212, 121, 0.75)';
-        ctx.lineWidth = 2 * s;
-        ctx.setLineDash([5 * s, 5 * s]);
-        ctx.beginPath();
-        ctx.ellipse(x, feetY + 3 * s, bodyW * 0.7, 8 * s, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    const label = character.name || character.username;
-    if (label) {
-        ctx.save();
-        const fs = Math.max(10, 12 * s);
-        ctx.font = `600 ${fs}px Poppins, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const w = ctx.measureText(label).width + 12 * s;
-        const ny = headCY - headR - 14 * s;
-        ctx.fillStyle = isPlayer ? 'rgba(255, 212, 121, 0.92)' : 'rgba(10, 22, 30, 0.72)';
-        roundedRectPath(ctx, x - w / 2, ny - fs * 0.75, w, fs * 1.5, fs * 0.7);
-        ctx.fill();
-        ctx.fillStyle = isPlayer ? '#12222c' : '#e8f4fa';
-        ctx.fillText(label, x, ny);
-        ctx.restore();
-    }
-
-    // Bulle de dialogue
-    if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) {
-        drawSpeechBubble(ctx, x, headCY - headR - (label ? 28 * s : 10 * s), character.chatMessage.text, s);
-    }
-
-    ctx.restore();
-}
-
-/* -------------------------------------------------------------------------
- * Survivant pixel-art modulaire
- * -------------------------------------------------------------------------
- * Les décors sont peints en pixels ; le protagoniste doit l'être aussi. Cette
- * version est volontairement dessinée sur une grille, plutôt qu'avec des
- * formes lissées, pour garder des contours nets quelle que soit la taille de
- * l'écran. Les couches (peau, cheveux, tenue et accessoire) sont indépendantes
- * afin que la personnalisation reste visible dans le monde, pas seulement dans
- * un menu.
- */
-function drawPixelTool(ctx, item, x, y, p, swing = 0) {
-    if (!item) return;
-    const name = String(item.name || '');
-    const px = (gx, gy, gw, gh, color) => {
+function drawHeldTool(ctx, type, hx, hy, angle, p, C) {
+    if (!type) return;
+    const dirX = Math.sin(angle), dirY = Math.cos(angle);
+    const P = v => Math.round(v * p);
+    const at = d => ({ x: hx + dirX * d, y: hy + dirY * d });
+    const outline = '#122029';
+    const block = (bx, by, bw, bh, color) => {
         ctx.fillStyle = color;
-        ctx.fillRect(Math.round(x + gx * p), Math.round(y + gy * p), Math.max(1, Math.round(gw * p)), Math.max(1, Math.round(gh * p)));
+        ctx.fillRect(P(bx), P(by), Math.max(1, P(bw)), Math.max(1, P(bh)));
     };
-    const offset = Math.round(swing * 1.5);
-    if (/hache/i.test(name)) {
-        px(4 + offset, -9, 1, 8, '#694227');
-        px(3 + offset, -9, 3, 3, '#c7d3d7');
-        px(2 + offset, -8, 1, 2, '#7b8e95');
-    } else if (/épée|lance|gourdain/i.test(name)) {
-        const blade = /gourdain/i.test(name) ? '#75451f' : '#dce8e9';
-        px(4 + offset, -10, 1, 9, blade);
-        px(3 + offset, -2, 3, 1, '#d6a64b');
-        if (!/gourdain/i.test(name)) px(4 + offset, -11, 1, 2, '#ffffff');
-    } else if (/pelle|pioche/i.test(name)) {
-        px(4 + offset, -9, 1, 8, '#765132');
-        px(3 + offset, -10, 3, 3, '#b9c3c8');
-    } else if (/canne|filet/i.test(name)) {
-        px(4 + offset, -11, 1, 10, '#a87635');
-        px(5 + offset, -11, 2, 1, '#d8ebee');
-    } else {
-        px(4 + offset, -7, 2, 5, '#d6a64b');
-        px(3 + offset, -8, 4, 2, '#eff5ef');
+    const handle = (d0, d1, color, w = 1.1) => {
+        const a = at(d0), b = at(d1);
+        stampLine(ctx, P(a.x), P(a.y), P(b.x), P(b.y), Math.max(1.6, w * p), color);
+    };
+
+    if (type === 'axe') {
+        handle(0, 7.2, C('#6b4a2c'));
+        handle(0.5, 7.2, C('#8a6238'), 0.6);
+        const tip = at(7.2);
+        block(tip.x - 1.9, tip.y - 1.5, 3.4, 3, outline);
+        block(tip.x - 1.4, tip.y - 1, 2.6, 2.2, C('#c9d4d9'));
+        block(tip.x - 1.4, tip.y - 1, 1.1, 2.2, C('#eef4f6'));
+    } else if (type === 'pick') {
+        handle(0, 7, C('#7a5636'));
+        const tip = at(7);
+        stampLine(ctx, P(tip.x - 2.2), P(tip.y - 1.6), P(tip.x + 2.2), P(tip.y - 1.6), Math.max(1.8, p), outline);
+        stampLine(ctx, P(tip.x - 1.7), P(tip.y - 1.4), P(tip.x + 1.7), P(tip.y - 1.4), Math.max(1.4, 0.8 * p), C('#b8c3c9'));
+        stampLine(ctx, P(tip.x - 1.6), P(tip.y - 1.9), P(tip.x - 1.6), P(tip.y + 0.4), Math.max(1.4, 0.8 * p), C('#a7b3ba'));
+        stampLine(ctx, P(tip.x + 1.6), P(tip.y - 1.9), P(tip.x + 1.6), P(tip.y + 0.4), Math.max(1.4, 0.8 * p), C('#a7b3ba'));
+    } else if (type === 'shovel') {
+        handle(0, 7.4, C('#7a5636'));
+        const tip = at(7.4);
+        block(tip.x - 1.6, tip.y - 1.6, 3.2, 3.4, outline);
+        block(tip.x - 1.15, tip.y - 1.2, 2.3, 2.8, C('#aab6bd'));
+        block(tip.x - 1.15, tip.y - 1.2, 2.3, 1, C('#cfdade'));
+    } else if (type === 'sword') {
+        handle(-0.6, 1.2, C('#5d4128'));
+        const g = at(1.2);
+        block(g.x - 1.7, g.y - 0.6, 3.4, 1.3, C('#d6a64b'));
+        stampLine(ctx, P(g.x), P(g.y), P(g.x + dirX * 7.4), P(g.y + dirY * 7.4), Math.max(1.6, 1.2 * p), C('#dce8e9'));
+        const tipBlock = at(8.4);
+        block(tipBlock.x - 0.5, tipBlock.y - 0.5, 1, 1, C('#ffffff'));
+    } else if (type === 'spear') {
+        handle(-1.6, 8.6, C('#8a6238'), 0.9);
+        const tip = at(8.6);
+        block(tip.x - 0.8, tip.y - 1.9, 1.7, 2.4, outline);
+        block(tip.x - 0.45, tip.y - 1.5, 1, 1.8, C('#dce8e9'));
+    } else if (type === 'rod') {
+        handle(0, 9.6, C('#a87635'), 0.75);
+        handle(7.8, 9.6, C('#c99a54'), 0.55);
+        const tip = at(9.6);
+        block(tip.x - 0.5, tip.y - 1.4, 1.1, 1.4, C('#e8f2f4'));
+        // Ligne de pêche tendue vers l'eau, bouchon rouge.
+        ctx.strokeStyle = 'rgba(226, 240, 244, 0.75)';
+        ctx.lineWidth = Math.max(1, Math.round(p * 0.35));
+        ctx.beginPath();
+        ctx.moveTo(P(tip.x), P(tip.y));
+        ctx.lineTo(P(tip.x + 2.4), P(SKELETON.FEET_Y));
+        ctx.stroke();
+        block(tip.x + 2, SKELETON.FEET_Y - 1.1, 0.9, 1.3, C('#e2574b'));
+    } else if (type === 'net') {
+        handle(0, 4.6, C('#a87635'), 0.8);
+        const tip = at(4.6);
+        ctx.strokeStyle = C('#d8e4d2');
+        ctx.lineWidth = Math.max(1, Math.round(p * 0.4));
+        ctx.beginPath();
+        ctx.arc(P(tip.x + 1.6), P(tip.y), Math.max(2, P(2.6)), 0, Math.PI * 2);
+        ctx.stroke();
+    } else if (type === 'hammer') {
+        handle(0, 4.8, C('#7a5636'));
+        const tip = at(4.8);
+        block(tip.x - 1.9, tip.y - 1.4, 3.8, 2.6, outline);
+        block(tip.x - 1.5, tip.y - 1, 3, 1.8, C('#9faeb6'));
+        block(tip.x - 1.5, tip.y - 1, 3, 0.7, C('#c8d3d9'));
+    } else if (type === 'spoon') {
+        handle(0, 4, C('#8a6238'), 0.7);
+        const tip = at(4);
+        block(tip.x - 0.9, tip.y - 1.3, 1.8, 2.2, C('#c9d4d9'));
+    } else if (type === 'canteen') {
+        block(hx - 1.5, hy - 1.6, 3, 3.1, outline);
+        block(hx - 1.1, hy - 1.2, 2.2, 2.3, C('#7f9aa4'));
+        block(hx - 0.4, hy - 2.1, 0.9, 0.7, C('#5d7681'));
+    } else if (type === 'food') {
+        block(hx - 1.4, hy - 1.3, 2.9, 2.3, outline);
+        block(hx - 1.1, hy - 1, 2.3, 1.7, C('#d19a5b'));
+        block(hx - 1.1, hy - 1, 2.3, 0.6, C('#e8bd85'));
+    } else if (type === 'guitar') {
+        // Tenu en diagonale contre le buste, manche vers l'avant-haut.
+        stampLine(ctx, P(hx - 1), P(hy + 1.6), P(hx + 2.4), P(hy - 3.4), Math.max(1.6, p), C('#6b4a2c'));
+        block(hx - 2.9, hy + 1.2, 3.6, 4.2, outline);
+        block(hx - 2.5, hy + 1.6, 2.8, 3.4, C('#b3543f'));
+        block(hx - 2.5, hy + 1.6, 2.8, 1, C('#d06a50'));
+        block(hx - 1.7, hy + 2.4, 0.7, 0.7, '#122029');
+        block(hx - 0.4, hy + 3.1, 0.7, 0.7, '#122029');
     }
 }
 
-function drawPixelCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1, { showLabel = true } = {}) {
+/** Petits motifs de particules (poussière, étincelles, Z de sommeil…). */
+function drawParticle(ctx, part, p) {
+    const color = PARTICLE_COLORS[part.kind] || PARTICLE_COLORS.dust;
+    const fade = 1 - part.life / part.maxLife;
+    ctx.globalAlpha = Math.max(0, Math.min(1, fade * 1.6));
+    ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+    const x = Math.round(part.x * p), y = Math.round(part.y * p);
+    const s = Math.max(1, Math.round(part.size * p * 0.8));
+    if (part.kind === 'zzz') {
+        // Un « Z » de trois traits.
+        const t = Math.max(1, Math.round(p * 0.5));
+        const w = Math.max(2, Math.round(p * 0.9));
+        ctx.fillRect(x, y, w, t);
+        ctx.fillRect(x + w - t, y + t, t, t);
+        ctx.fillRect(x + w - 2 * t, y + 2 * t, t, t);
+        ctx.fillRect(x, y + 3 * t, w, t);
+    } else if (part.kind === 'note') {
+        ctx.fillRect(x, y, s, Math.max(1, s * 2));
+        ctx.fillRect(x, y - Math.round(s * 0.6), Math.round(s * 1.4), Math.max(1, Math.round(s * 0.8)));
+    } else if (part.kind === 'heart') {
+        ctx.fillRect(x, y, Math.max(1, s - 1), s);
+        ctx.fillRect(x + s, y, Math.max(1, s - 1), s);
+        ctx.fillRect(x, y + 1, s * 2 - 1, Math.max(1, s - 1));
+    } else if (part.kind === 'spark' || part.kind === 'sparkle') {
+        ctx.fillRect(x - s, y, s * 3, Math.max(1, s - 1));
+        ctx.fillRect(x, y - s, Math.max(1, s - 1), s * 3);
+    } else {
+        ctx.fillRect(x, y, s, s);
+    }
+    ctx.globalAlpha = 1;
+}
+
+/**
+ * Dessine un personnage complet (joueur, autre joueur ou PNJ) à partir de sa
+ * pose calculée par character-anim.js.
+ */
+export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1, opts = {}) {
+    const { showLabel = true, faceHint = 0 } = opts;
     const look = characterLook(character);
     const p = Math.max(2, Math.round(4 * scale));
-    const t = Date.now() / 1000;
-    const walking = animationProgress > 0;
-    const step = walking ? Math.round(Math.sin(animationProgress * Math.PI * 4) * 1.2) : 0;
-    const bob = walking
-        ? Math.round(Math.abs(Math.sin(animationProgress * Math.PI * 4)) * p * 0.55)
-        : Math.round(Math.sin((t + look.phase) * 1.8) * p * 0.24);
-    const hipY = Math.round(y - bob);
-    const anchorX = Math.round(x);
-    const outfit = look.outfit || '#287c9d';
-    const outline = '#122029';
-    const pants = shadeColor(look.hair, -5);
-    const shadow = '#071118';
 
-    const block = (gx, gy, gw, gh, color) => {
-        ctx.fillStyle = color;
-        ctx.fillRect(
-            Math.round(anchorX + gx * p),
-            Math.round(hipY + gy * p),
-            Math.max(1, Math.round(gw * p)),
-            Math.max(1, Math.round(gh * p)),
-        );
+    // --- Pose : le moteur d'animation observe le personnage à chaque image.
+    // Les aperçus (personnalisation, avatar de combat) fournissent la leur.
+    let rt, pose;
+    if (opts.pose && opts.runtime) {
+        rt = opts.runtime;
+        pose = opts.pose;
+    } else {
+        rt = updateCharacterRuntime(character, { isPlayer });
+        pose = computeCharacterPose(character, rt, { isPlayer, faceHint });
+    }
+    // Compat : l'ancien paramètre de progression déclenchait une marche.
+    if (animationProgress > 0 && !rt.action) {
+        const c = animationProgress * Math.PI * 4;
+        pose.legFront = { h: Math.sin(c) * 0.62, k: Math.max(0, Math.cos(c)) * 0.85 };
+        pose.legBack = { h: -Math.sin(c) * 0.62, k: Math.max(0, -Math.cos(c)) * 0.85 };
+        pose.armFront = { s: -Math.sin(c) * 0.5, e: 0.4 };
+        pose.armBack = { s: Math.sin(c) * 0.5, e: 0.4 };
+        pose.bob = -Math.abs(Math.sin(c)) * 0.85;
+        pose.lean = 0.09;
+    }
+
+    const outfit = look.outfit || character.color || '#287c9d';
+    const pants = shadeColor(outfit, -64);
+    const boots = shadeColor(pants, -26);
+    const outline = '#122029';
+    const tint = pose.tint;
+    const C = tint > 0 ? (c => mixColors(c, '#ff4b45', tint * 0.6)) : (c => c);
+
+    // --- Squelette : positions des articulations (unités locales) ---
+    const feetY = SKELETON.FEET_Y;
+    const hipDrop = pose.crouch * 4.6 + pose.sit * 8.4;
+    const hipY = feetY - SKELETON.HIP_H + hipDrop + pose.bob;
+    const shoulderY = hipY - SKELETON.TORSO_H;
+    const hipCX = pose.sway;
+    const leanShift = Math.sin(pose.lean) * SKELETON.TORSO_H;
+    const shoulderCX = hipCX + leanShift;
+    const headCX = shoulderCX + pose.headTurn * 0.5 + pose.headNod * 0.9;
+    const headCY = shoulderY - SKELETON.NECK_H - SKELETON.HEAD_HH + pose.headNod * 2.1;
+
+    const hipF = { x: hipCX + SKELETON.HIP_X, y: hipY };
+    const hipB = { x: hipCX - SKELETON.HIP_X, y: hipY };
+    const shF = { x: shoulderCX + SKELETON.SHOULDER_X, y: shoulderY + 0.6 };
+    const shB = { x: shoulderCX - SKELETON.SHOULDER_X, y: shoulderY + 0.6 };
+
+    const limbEnd = (base, a1, l1, a2, l2) => {
+        const jx = base.x + Math.sin(a1) * l1, jy = base.y + Math.cos(a1) * l1;
+        const ex = jx + Math.sin(a1 + a2) * l2, ey = jy + Math.cos(a1 + a2) * l2;
+        return { jx, jy, ex, ey };
     };
-    const framed = (gx, gy, gw, gh, color, border = outline) => {
-        block(gx - 0.5, gy - 0.5, gw + 1, gh + 1, border);
-        block(gx, gy, gw, gh, color);
-    };
+    const legF = limbEnd(hipF, pose.legFront.h, SKELETON.LEG.upper, -pose.legFront.k, SKELETON.LEG.lower);
+    const legB = limbEnd(hipB, pose.legBack.h, SKELETON.LEG.upper, -pose.legBack.k, SKELETON.LEG.lower);
+    const armF = limbEnd(shF, pose.armFront.s, SKELETON.ARM.upper, pose.armFront.e, SKELETON.ARM.fore);
+    const armB = limbEnd(shB, pose.armBack.s, SKELETON.ARM.upper, pose.armBack.e, SKELETON.ARM.fore);
+
+    const anchorX = Math.round(x);
+    const anchorY = Math.round(y);
+    const P = v => Math.round(v * p);
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
 
-    // Ombre au sol en dalles, puis anneau de sélection du joueur.
-    block(-5, 6.5, 10, 1, shadow);
-    block(-3.5, 6, 7, 2, shadow);
+    // --- Espace local : ancrage, miroir selon la direction, décalage de pose.
+    ctx.save();
+    ctx.translate(anchorX, anchorY);
+    if (pose.facing < 0) ctx.scale(-1, 1);
+    ctx.translate(Math.round(pose.offsetX * p), Math.round(pose.offsetY * p));
+
+    const block = (gx, gy, gw, gh, color) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(P(gx), P(gy), Math.max(1, P(gw)), Math.max(1, P(gh)));
+    };
+    const limb = (a, b, w, color) => stampLimb(ctx, P(a.x), P(a.y), P(b.x), P(b.y), w, p, C(color), outline);
+
+    // 1. Ombre au sol (suit le personnage) + anneau de sélection du joueur.
+    const shadowW = 5.6 * pose.shadowScale + pose.crouch * 1.6 + pose.sit * 2.6;
+    ctx.fillStyle = 'rgba(7, 17, 24, 0.42)';
+    ctx.beginPath();
+    ctx.ellipse(0, P(feetY + 0.2), P(shadowW), P(1.5), 0, 0, Math.PI * 2);
+    ctx.fill();
     if (isPlayer) {
-        const ring = '#f8d475';
-        block(-6, 7.5, 3, 0.45, ring); block(3, 7.5, 3, 0.45, ring);
-        block(-5.6, 6.5, 0.45, 1, ring); block(5.15, 6.5, 0.45, 1, ring);
+        const pulse = 0.55 + Math.sin(Date.now() / 420) * 0.25;
+        ctx.strokeStyle = `rgba(248, 212, 117, ${pulse})`;
+        ctx.lineWidth = Math.max(1.5, p * 0.45);
+        ctx.beginPath();
+        ctx.ellipse(0, P(feetY + 0.3), P(shadowW + 1.6), P(1.9), 0, 0, Math.PI * 2);
+        ctx.stroke();
     }
 
-    // Jambes : le pas alterne sur une grille de pixels.
-    framed(-4, 0, 3, 6 + Math.max(0, step), pants);
-    framed(1, 0, 3, 6 + Math.max(0, -step), pants);
-    block(-4.7 + step * 0.28, 5.4 + Math.max(0, step), 4, 1.6, '#35251d');
-    block(0.7 - step * 0.28, 5.4 + Math.max(0, -step), 4, 1.6, '#35251d');
+    // 2. Bras arrière (derrière le buste).
+    limb(shB, { x: armB.jx, y: armB.jy }, SKELETON.ARM.w, shadeColor(outfit, -30));
+    limb({ x: armB.jx, y: armB.jy }, { x: armB.ex, y: armB.ey }, SKELETON.ARM.w - 0.3, shadeColor(look.skin, -18));
 
-    // Bras arrière et sac : superposés avant la tunique.
-    framed(-6, -9, 2, 7 - step, shadeColor(outfit, -28));
-    block(-6, -2.5 - step, 2, 1.4, look.skin);
-    if (isPlayer || character.equipment?.bag) {
-        framed(4, -9, 2.3, 7, '#65442c');
-        block(4.5, -7.3, 1.2, 1.1, '#bd8341');
+    // 3. Sac à dos (équipé, ou propre au joueur).
+    if (character.equipment?.bag || isPlayer) {
+        block(shoulderCX - SKELETON.TORSO_W / 2 - 2.1, shoulderY + 1, 3.2, 6.4, outline);
+        block(shoulderCX - SKELETON.TORSO_W / 2 - 1.75, shoulderY + 1.35, 2.5, 5.7, C('#65442c'));
+        block(shoulderCX - SKELETON.TORSO_W / 2 - 1.75, shoulderY + 2.8, 2.5, 1.1, C('#bd8341'));
     }
 
-    // Torse et ceinture.
-    framed(-4, -11, 8, 11, outfit);
-    block(-3, -10, 2, 8, shadeColor(outfit, 22));
-    block(-3.8, -2.1, 7.6, 1.2, '#674229');
-    block(-0.55, -2.2, 1.1, 1.2, '#e1b84a');
-
-    // Bras avant et main ; l'outil est dessiné au même ancrage.
-    framed(4, -9, 2, 7 + step, outfit);
-    block(4, -2.3 + step, 2, 1.5, look.skin);
-    drawPixelTool(ctx, character.equipment?.weapon, anchorX, hipY, p, step);
-    if (character.equipment?.shield) {
-        framed(-8, -7, 2.4, 4, '#657983');
-        block(-7.55, -6.5, 1.5, 2.6, '#9ebdc4');
+    // 4. Boucle de cheveux longue, derrière le buste.
+    if (look.style === 'long') {
+        const sway = pose.hairSway * 0.8;
+        block(headCX - SKELETON.HEAD_HW + 0.2 + sway * 0.4, headCY - 1, 2.6, 8.5, C(shadeColor(look.hair, -14)));
     }
 
-    // Cou, tête et oreilles.
-    block(-1, -13, 2, 2, shadeColor(look.skin, -24));
-    framed(-4, -19, 8, 7, look.skin);
-    block(-4.8, -16.6, 0.9, 2.2, look.skin);
-    block(3.9, -16.6, 0.9, 2.2, look.skin);
-    // Ombre de visage + nez, sans dégradé pour préserver le rendu sprite.
-    block(2.8, -17.6, 0.7, 4.5, shadeColor(look.skin, -30));
-    block(0.5, -15.2, 1, 0.8, shadeColor(look.skin, -42));
+    // 5. Jambes : l'arrière puis l'avant, bottes comprises.
+    limb(hipB, { x: legB.jx, y: legB.jy }, SKELETON.LEG.w, shadeColor(pants, -14));
+    limb({ x: legB.jx, y: legB.jy }, { x: legB.ex, y: legB.ey }, SKELETON.LEG.w - 0.3, shadeColor(pants, -14));
+    block(legB.ex - 1.7, legB.ey - 0.6, 3.4, 1.9, C(boots));
+    limb(hipF, { x: legF.jx, y: legF.jy }, SKELETON.LEG.w, pants);
+    limb({ x: legF.jx, y: legF.jy }, { x: legF.ex, y: legF.ey }, SKELETON.LEG.w - 0.3, pants);
+    block(legF.ex - 1.7, legF.ey - 0.6, 3.4, 1.9, C(boots));
 
-    // Chevelure interchangeable.
-    if (look.style !== 'bald') {
-        if (look.style === 'mohawk') {
-            block(-1, -22, 2, 3.5, look.hair);
-            block(-4, -19.5, 8, 2.5, look.hair);
-        } else if (look.style === 'cap') {
-            block(-4.5, -20, 9, 2.4, shadeColor(outfit, -20));
-            block(-5.2, -18, 10.3, 1.2, shadeColor(outfit, -35));
-        } else {
-            block(-4, -20, 8, 3.2, look.hair);
-            block(-3, -17.9, 6, 1.4, look.hair);
-            if (look.style === 'long') {
-                block(-4.8, -17.3, 1.4, 5.2, look.hair);
-                block(3.4, -17.3, 1.4, 5.2, look.hair);
-            }
-            if (look.style === 'bun') {
-                block(-1.8, -22, 3.6, 2.7, look.hair);
-            }
+    // 6. Buste : colonne cisaillée selon l'inclinaison. Le contour est posé
+    //    en premier passe complète, sinon chaque rangée mord sur la teinte de
+    //    la précédente et le buste se couvre de coutures sombres.
+    const torsoBaseW = SKELETON.TORSO_W;
+    const torsoTopW = torsoBaseW - 1.2;
+    const rows = Math.max(4, Math.round(SKELETON.TORSO_H));
+    for (let j = 0; j <= rows; j++) {
+        const tt = j / rows;
+        const cx = charLerp(hipCX, shoulderCX, tt);
+        const y = charLerp(hipY, shoulderY, tt);
+        const halfW = charLerp(torsoBaseW, torsoTopW, tt) / 2;
+        block(cx - halfW - 0.6, y - 0.8, halfW * 2 + 1.2, 1.6, outline);
+    }
+    for (let j = 0; j <= rows; j++) {
+        const tt = j / rows;
+        const cx = charLerp(hipCX, shoulderCX, tt);
+        const y = charLerp(hipY, shoulderY, tt);
+        const halfW = charLerp(torsoBaseW, torsoTopW, tt) / 2;
+        block(cx - halfW, y - 0.5, halfW * 2, 1, C(outfit));
+    }
+    // Ceinture, col et pli de lumière sur le tissu.
+    const beltY = hipY - 1.6;
+    block(hipCX - torsoBaseW / 2, beltY, torsoBaseW, 1.3, C('#5d4229'));
+    block(hipCX - 0.65, beltY - 0.1, 1.3, 1.5, C('#e1b84a'));
+    block(shoulderCX - torsoTopW / 2, shoulderY, torsoTopW, 1, C(shadeColor(outfit, 26)));
+    block(shoulderCX - torsoTopW / 2 + 0.4, shoulderY + 1, 1.6, SKELETON.TORSO_H - 2.5, C(shadeColor(outfit, 18)));
+
+    // 7. Cou.
+    block(shoulderCX - 1, shoulderY - 1.4, 2, 1.9, C(shadeColor(look.skin, -22)));
+
+    // 8. Tête : bloc arrondi. Contour complet puis peau, même logique anti-
+    //    couture que le buste.
+    const HW = SKELETON.HEAD_HW, HH = SKELETON.HEAD_HH;
+    for (let j = 0; j < HH * 2; j++) {
+        const rowY = headCY - HH + j;
+        const inset = (j === 0 || Math.ceil(HH * 2) - 1 === j) ? 1.4 : ((j === 1 || j === Math.ceil(HH * 2) - 2) ? 0.5 : 0);
+        block(headCX - HW - 0.5 + inset * 0.5, rowY - 0.75, (HW - inset) * 2 + 1, 1.5, outline);
+    }
+    for (let j = 0; j < HH * 2; j++) {
+        const rowY = headCY - HH + j;
+        const inset = (j === 0 || Math.ceil(HH * 2) - 1 === j) ? 1.4 : ((j === 1 || j === Math.ceil(HH * 2) - 2) ? 0.5 : 0);
+        block(headCX - HW + inset, rowY - 0.5, (HW - inset) * 2, 1, C(look.skin));
+    }
+    // Oreille côté arrière + ombrage du front, nez sur le bord avant.
+    block(headCX - HW - 0.6, headCY + 0.1, 1, 2, C(look.skin));
+    block(headCX - HW + 0.3, headCY - 1.2, 0.8, 2.4, shadeColor(look.skin, -26));
+    block(headCX + HW - 0.5, headCY + 0.2, 1.1, 1.3, C(shadeColor(look.skin, -34)));
+
+    // 9. Visage : sourcils, yeux (clignement + regard), bouche, joues.
+    const eyeY = headCY - 0.7 + pose.headNod * 0.6;
+    const glance = pose.headTurn;
+    const browColor = shadeColor(look.hair, -18);
+    if (pose.mouth === 'grimace') {
+        block(headCX + 0.1 + glance, eyeY - 1.8, 1.6, 0.6, browColor);
+        block(headCX + 2.2 - glance * 0.5, eyeY - 1.5, 1.6, 0.6, browColor);
+    }
+    const eyeH = pose.eyes > 0.5 ? 1.15 : 0.35;
+    block(headCX + 0.2 + glance * 0.6, eyeY, 1.15, eyeH, C('#17242b'));
+    block(headCX + 2.3 + glance * 0.6, eyeY, 1.15, eyeH, C('#17242b'));
+    if (pose.eyes > 0.5) {
+        block(headCX + 0.95 + glance * 0.6, eyeY, 0.4, 0.4, '#f4fbfd');
+        block(headCX + 3.05 + glance * 0.6, eyeY, 0.4, 0.4, '#f4fbfd');
+    }
+    const mouthY = headCY + 1.9;
+    if (pose.mouth === 'smile') {
+        block(headCX + 0.9, mouthY, 2.4, 0.6, C('#854639'));
+        block(headCX + 0.5, mouthY - 0.6, 0.7, 0.7, C('#854639'));
+        block(headCX + 3, mouthY - 0.6, 0.7, 0.7, C('#854639'));
+        block(headCX - 1.6, mouthY - 0.2, 1.2, 0.7, C('#e89a94'));
+        block(headCX + 3.6, mouthY - 0.2, 1.2, 0.7, C('#e89a94'));
+    } else if (pose.mouth === 'open') {
+        block(headCX + 1.1, mouthY - 0.4, 2, 1.7, C('#6e3a30'));
+        block(headCX + 1.3, mouthY + 0.5, 1.6, 0.8, C('#c96a5c'));
+    } else if (pose.mouth === 'small') {
+        block(headCX + 1.3, mouthY, 1.2, 0.6, C('#854639'));
+    } else if (pose.mouth === 'grimace') {
+        block(headCX + 0.9, mouthY, 2.5, 0.9, C('#5d352d'));
+        block(headCX + 1.1, mouthY, 2.1, 0.4, C('#dfe8e6'));
+    } else {
+        block(headCX + 1.1, mouthY, 1.7, 0.55, C('#854639'));
+    }
+
+    // 10. Chevelure et accessoire cosmétique.
+    drawCharacterHair(ctx, look, headCX, headCY, HW, HH, block, C, pose, outfit);
+
+    // 11. Équipement de tête (casque / chapeau) par-dessus la chevelure.
+    if (character.equipment?.head) {
+        block(headCX - HW - 0.9, headCY - HH - 1.2, HW * 2 + 1.8, 1, outline);
+        block(headCX - HW - 0.5, headCY - HH - 0.8, HW * 2 + 1, 0.8, C('#9b7132'));
+        block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 2.4, C('#e4c36b'));
+        block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 0.8, C('#f2d98b'));
+    }
+
+    // 12. Bras avant + main, puis outil et bouclier.
+    limb(shF, { x: armF.jx, y: armF.jy }, SKELETON.ARM.w, outfit);
+    limb({ x: armF.jx, y: armF.jy }, { x: armF.ex, y: armF.ey }, SKELETON.ARM.w - 0.3, look.skin);
+    block(armF.ex - 1, armF.ey - 1, 2, 2, C(look.skin));
+
+    const equippedTool = toolTypeForItem(character.equipment?.weapon);
+    const activeTool = pose.tool?.type || equippedTool;
+    if (activeTool) {
+        const forearmAngle = pose.armFront.s + pose.armFront.e;
+        // Au repos, l'outil équipé pend le long de la cuisse ; en action, la
+        // pose impose son alignement pour que le fer suive l'arc du geste.
+        const REST_BIAS = { axe: 0.5, pick: 0.55, sword: -0.12, spear: -0.05, rod: 0.25, shovel: 0.45, hammer: 0.5, net: -0.35 };
+        const bias = pose.tool ? (pose.tool.angleBias ?? 0.12) : (REST_BIAS[activeTool] ?? 0.15);
+        drawHeldTool(ctx, activeTool, armF.ex, armF.ey, forearmAngle + bias, p, C);
+        // Seconde main sur le manche des outils à deux mains.
+        if (pose.tool?.twoHand) {
+            const gripD = activeTool === 'rod' ? 3.4 : 2.4;
+            const gx = armF.ex + Math.sin(forearmAngle + bias) * gripD;
+            const gy = armF.ey + Math.cos(forearmAngle + bias) * gripD;
+            block(gx - 0.9, gy - 0.9, 1.8, 1.8, C(shadeColor(look.skin, -12)));
         }
     }
-
-    // Visage : deux pixels d'yeux et une bouche. Les yeux clignent doucement.
-    const blink = ((t + look.phase * 3) % 4.5) < 0.12;
-    block(-2.3, -16.2, 1.1, blink ? 0.35 : 0.9, '#17242b');
-    block(1.2, -16.2, 1.1, blink ? 0.35 : 0.9, '#17242b');
-    block(-1.3, -13.7, 2.6, 0.5, '#854639');
-
-    // Accessoire cosmétique, isolé afin de ne jamais modifier l'équipement.
-    if (look.accessory === 'bandana') {
-        block(-4.2, -18, 8.4, 1.15, '#d55a4a');
-        block(3.9, -17, 1.5, 1.3, '#d55a4a');
-    } else if (look.accessory === 'flower') {
-        block(-5.1, -20.4, 1.4, 1.4, '#f7d4e1');
-        block(-4.3, -21.2, 1.4, 1.4, '#f7d4e1');
-        block(-4.3, -19.6, 1.4, 1.4, '#f7d4e1');
-        block(-4.35, -20.4, 0.7, 0.7, '#f0ba43');
-    } else if (look.accessory === 'monocle') {
-        block(1.0, -16.8, 2.4, 2.4, '#e3d27b');
-        block(1.55, -16.25, 1.3, 1.3, look.skin);
-        block(3.2, -14.5, 0.5, 2.5, '#e3d27b');
-    } else if (look.accessory === 'earring') {
-        block(4.2, -14.4, 1, 1.8, '#f1ce62');
-    } else if (look.accessory === 'scout') {
-        block(-4.3, -18.8, 8.6, 1.1, '#74a85c');
-        block(2.5, -18.4, 1.2, 1.2, '#d9edab');
+    if (character.equipment?.shield) {
+        const sx = armB.ex, sy = armB.jy + (armB.ey - armB.jy) * 0.4;
+        block(sx - 1.8, sy - 2.6, 3.6, 5.2, outline);
+        block(sx - 1.4, sy - 2.2, 2.8, 4.4, C('#657983'));
+        block(sx - 0.7, sy - 1.4, 1.4, 2.8, C('#9ebdc4'));
     }
 
-    if (character.equipment?.head) {
-        // Le vrai casque/chapeau équipé reste prioritaire sur la coiffure.
-        block(-4.6, -20.5, 9.2, 2.5, '#e4c36b');
-        block(-5.5, -18.5, 11, 1.2, '#9b7132');
-    }
+    // 13. Particules du personnage (poussière, Z, notes…).
+    for (const part of characterParticles(rt)) drawParticle(ctx, part, p);
 
+    ctx.restore(); // fin de l'espace local miroité
+
+    // --- Étiquette et bulle : jamais miroitées, mais suivant la pose.
+    const bodyShiftX = pose.facing * pose.offsetX * p;
+    const bodyShiftY = pose.offsetY * p;
+    const headTopPy = anchorY + Math.round(bodyShiftY + (headCY - HH - 4.6) * p);
+    const labelX = Math.round(anchorX + bodyShiftX);
     const label = showLabel ? (character.name || character.username) : '';
     if (label) {
         const fontSize = Math.max(9, Math.round(11 * scale));
@@ -1410,34 +1381,136 @@ function drawPixelCharacter(ctx, character, x, y, isPlayer = false, animationPro
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const width = ctx.measureText(label).width + p * 3;
-        const textY = hipY - 24 * p;
+        const textY = headTopPy - fontSize * 1.1;
         ctx.fillStyle = isPlayer ? '#f6d681' : 'rgba(8, 22, 30, .82)';
-        ctx.fillRect(Math.round(anchorX - width / 2), Math.round(textY - fontSize / 1.65), Math.round(width), Math.round(fontSize * 1.45));
+        ctx.fillRect(Math.round(labelX - width / 2), Math.round(textY - fontSize / 1.65), Math.round(width), Math.round(fontSize * 1.45));
         ctx.fillStyle = isPlayer ? '#13232b' : '#edf8fa';
-        ctx.fillText(label, anchorX, textY);
+        ctx.fillText(label, labelX, textY);
     }
     if (character.chatMessage && (Date.now() - character.chatMessage.timestamp < 5000)) {
-        drawSpeechBubble(ctx, anchorX, hipY - 24 * p - (label ? 14 * scale : 0), character.chatMessage.text, scale);
+        drawSpeechBubble(ctx, labelX, headTopPy - (label ? 14 * scale : 2), character.chatMessage.text, scale);
     }
     ctx.restore();
 }
 
-function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1) {
-    drawPixelCharacter(ctx, character, x, y, isPlayer, animationProgress, scale);
+/** Chevelures et accessoires cosmétiques, au-dessus de la tête. */
+function drawCharacterHair(ctx, look, cx, cy, HW, HH, block, C, pose, outfit) {
+    const hair = look.hair;
+    const sway = pose.hairSway;
+    const style = look.style;
+
+    if (style === 'bald') {
+        block(cx + 1, cy - HH + 0.3, 1.6, 0.6, C(shadeColor(look.skin, 38)));
+    } else if (style === 'cap') {
+        // Casquette en tissu coordonné à la tenue.
+        const capC = shadeColor(outfit, -26);
+        block(cx - HW - 0.4, cy - HH - 1.9, HW * 2 + 1.2, 0.9, '#122029');
+        block(cx - HW - 0.1, cy - HH - 1.5, HW * 2 + 0.6, 2.3, C(capC));
+        block(cx - HW - 0.1, cy - HH - 1.5, HW * 2 + 0.6, 0.7, C(shadeColor(capC, 22)));
+        block(cx + HW - 0.4, cy - HH + 0.9, 3.1, 0.9, C(shadeColor(capC, -14))); // visière avant
+        block(cx - 0.5, cy - HH - 2.4, 1, 0.6, C(shadeColor(capC, 30)));
+    } else if (style === 'mohawk') {
+        block(cx - 0.7 + sway * 0.2, cy - HH - 3.6, 1.5, 4.4, C(shadeColor(hair, -12)));
+        block(cx - 0.5 + sway * 0.2, cy - HH - 3.6, 1, 4.4, C(hair));
+        block(cx - 0.7, cy - HH + 0.4, 1.6, 1.1, C(hair));
+    } else {
+        // Calotte commune aux coupes courtes, longues, chignon.
+        block(cx - HW - 0.4, cy - HH - 1.6, HW * 2 + 1.1, 0.8, '#122029');
+        block(cx - HW - 0.1, cy - HH - 1.2, HW * 2 + 0.5, 2.6, C(hair));
+        block(cx - HW - 0.1, cy - HH - 1.2, HW * 2 + 0.5, 0.8, C(shadeColor(hair, 20)));
+        // Nuque et frange.
+        block(cx - HW - 0.2, cy - HH + 1.2, 2.2, 2.2, C(hair));
+        block(cx + HW - 2.4, cy - HH + 1.3, 2.6, 1, C(shadeColor(hair, -10)));
+        if (style === 'long') {
+            // Mèches descendant sur les épaules, avec un peu d'inertie.
+            block(cx + HW - 0.9 + sway * 0.5, cy - HH + 1.6, 1.8, 6.4, C(hair));
+            block(cx - HW - 0.7 + sway * 0.4, cy - HH + 1.6, 1.9, 5.8, C(shadeColor(hair, -12)));
+        }
+        if (style === 'bun') {
+            block(cx - 1.6 - sway * 0.2, cy - HH - 3.2, 3.3, 2.8, C(shadeColor(hair, -8)));
+            block(cx - 1.2 - sway * 0.2, cy - HH - 2.9, 2.5, 2.2, C(hair));
+        }
+    }
+
+    // Accessoire cosmétique (indépendant de l'équipement).
+    if (look.accessory === 'bandana') {
+        block(cx - HW - 0.3, cy - HH + 1.5, HW * 2 + 0.9, 1.05, C('#d55a4a'));
+        block(cx - HW - 0.3, cy - HH + 1.5, HW * 2 + 0.9, 0.4, C('#e8796a'));
+        // Nœud qui claque derrière la tête.
+        const flap = Math.sin(Date.now() / 140) * 0.35 + sway * 0.6;
+        block(cx - HW - 1.6, cy - HH + 1.7, 1.4, 1, C('#d55a4a'));
+        block(cx - HW - 2.4 + flap * 0.5, cy - HH + 1.5, 1.2, 0.9, C('#c04a3c'));
+    } else if (look.accessory === 'flower') {
+        block(cx - 2.6, cy - HH - 1.4, 1.3, 1.3, C('#f7d4e1'));
+        block(cx - 1.6, cy - HH - 2.2, 1.3, 1.3, C('#f7d4e1'));
+        block(cx - 1.7, cy - HH - 0.6, 1.3, 1.3, C('#f7d4e1'));
+        block(cx - 1.9, cy - HH - 1.4, 0.9, 0.9, C('#f0ba43'));
+    } else if (look.accessory === 'monocle') {
+        // Anneau autour de l'œil avant + chaînette.
+        block(cx + 1.9, cy - 1.5, 2.1, 0.5, C('#e3d27b'));
+        block(cx + 1.9, cy + 0.1, 2.1, 0.5, C('#e3d27b'));
+        block(cx + 1.9, cy - 1.5, 0.5, 2.1, C('#e3d27b'));
+        block(cx + 3.5, cy - 1.5, 0.5, 2.1, C('#e3d27b'));
+        block(cx + 3.7, cy + 0.9, 0.45, 2.2, C('#e3d27b'));
+    } else if (look.accessory === 'earring') {
+        block(cx - HW - 0.7, cy + 2.2, 0.9, 1.6, C('#f1ce62'));
+    } else if (look.accessory === 'scout') {
+        block(cx - HW - 0.3, cy - HH + 0.9, HW * 2 + 0.9, 1, C('#74a85c'));
+        block(cx + 2.1, cy - HH + 0.9, 1.1, 1.1, C('#d9edab'));
+        // Plume plantée dans le bandeau.
+        block(cx - HW - 0.6, cy - HH - 2.6, 0.8, 2.4, C('#d9824f'));
+        block(cx - HW - 1.2, cy - HH - 3.2, 1, 1.2, C('#e8a06c'));
+    }
 }
 
-/** Prévisualisation de l'avatar pour le camp et le salon de personnalisation. */
-export function drawCharacterPreview(canvas, player = {}, appearance = null) {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const w = canvas.width || 320;
-    const h = canvas.height || 260;
+function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1, opts = {}) {
+    drawPixelCharacter(ctx, character, x, y, isPlayer, animationProgress, scale, opts);
+}
+
+/* -------------------------------------------------------------------------
+ * Aperçus animés (personnalisation, camp, avatar de combat)
+ * -------------------------------------------------------------------------
+ * Un même calendrier d'images redessine les aperçus visibles : le survivant
+ * y respire, cligne des yeux et salue de temps en temps, exactement comme
+ * dans la scène. La boucle s'arrête d'elle-même quand plus aucun aperçu
+ * n'est affiché.
+ * ------------------------------------------------------------------------- */
+const animatedCanvases = new Map(); // canvas → { paint }
+let animatedLoopId = null;
+
+function registerAnimatedCanvas(canvas, paint) {
+    animatedCanvases.set(canvas, { paint });
+    ensureAnimatedLoop();
+}
+
+function ensureAnimatedLoop() {
+    if (animatedLoopId) return;
+    let last = 0;
+    const loop = (ts) => {
+        animatedLoopId = null;
+        if (ts - last < 33) { // cadence modérée : l'aperçu n'a pas besoin de 60 i/s
+            animatedLoopId = requestAnimationFrame(loop);
+            return;
+        }
+        last = ts;
+        for (const [canvas, entry] of animatedCanvases) {
+            if (!canvas.isConnected) { animatedCanvases.delete(canvas); continue; }
+            if ((canvas.clientWidth | 0) < 4) continue; // masqué : rien à dessiner
+            try { entry.paint(); } catch (e) { /* un aperçu ne casse pas la boucle */ }
+        }
+        // La boucle s'éteint quand plus aucun aperçu n'est enregistré ; elle
+        // est relancée par le prochain appel à registerAnimatedCanvas.
+        if (animatedCanvases.size > 0) animatedLoopId = requestAnimationFrame(loop);
+    };
+    animatedLoopId = requestAnimationFrame(loop);
+}
+
+/** Décor du diorama d'aperçu : ciel, mer et îlot en dalles. */
+function paintPreviewDiorama(ctx, w, h) {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#102f3b';
     ctx.fillRect(0, 0, w, h);
-    // Ciel, mer et îlot en dalles : un petit diorama pixel-art autonome.
     ctx.fillStyle = '#1d5264'; ctx.fillRect(0, 0, w, h * 0.54);
     ctx.fillStyle = '#236f82'; ctx.fillRect(0, h * 0.54, w, h * 0.46);
     const tile = Math.max(4, Math.round(w / 44));
@@ -1458,69 +1531,99 @@ export function drawCharacterPreview(canvas, player = {}, appearance = null) {
         ctx.fillRect(px, py, tile, tile);
     }
     ctx.restore();
-    const previewPlayer = {
-        ...player,
-        name: '',
-        health: player.health ?? 20,
-        maxHealth: player.maxHealth ?? 20,
-        appearance: appearance || player.appearance,
+}
+
+/** Prévisualisation de l'avatar pour le camp et le salon de personnalisation. */
+export function drawCharacterPreview(canvas, player = {}, appearance = null) {
+    if (!canvas) return;
+    const paint = () => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const w = canvas.width || 320;
+        const h = canvas.height || 260;
+        paintPreviewDiorama(ctx, w, h);
+        const previewPlayer = {
+            ...player,
+            name: '',
+            health: player.health ?? 20,
+            maxHealth: player.maxHealth ?? 20,
+            appearance: appearance || player.appearance,
+        };
+        // Runtime isolé du monde : l'aperçu ne déclenche ni marche ni dégâts.
+        const rt = previewRuntime(previewPlayer);
+        const pose = computeCharacterPose(previewPlayer, rt, { isPlayer: true, preview: true });
+        drawPixelCharacter(ctx, previewPlayer, w / 2, h * 0.74, true, 0, Math.min(w / 320, h / 250) * 1.2, { showLabel: false, pose, runtime: rt });
     };
-    drawPixelCharacter(ctx, previewPlayer, w / 2, h * 0.78, true, 0, Math.min(w / 320, h / 250) * 1.2, { showLabel: false });
+    paint();
+    registerAnimatedCanvas(canvas, paint);
 }
 
 /** Avatar du joueur dans la scène de combat : on redessine le vrai survivant
  * (apparence + équipement) au lieu d'utiliser une image générique. */
-export function drawCombatPlayerAvatar(canvas, player = {}, { defending = false, hurt = false } = {}) {
+export function drawCombatPlayerAvatar(canvas, player = {}, { defending = false, hurt = false, mode = null } = {}) {
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const w = canvas.width || 180;
-    const h = canvas.height || 160;
+    const state = { player, defending, hurt, mode };
+    const paint = () => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const w = canvas.width || 180;
+        const h = canvas.height || 160;
+        const { player: p, defending: def, hurt: hr, mode: m } = state;
 
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, w, h);
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, w, h);
 
-    // Socle façon RPG : quelques pixels d'herbe/terre sous les pieds.
-    const cx = w * 0.5;
-    const groundY = h * 0.82;
-    ctx.fillStyle = 'rgba(5, 16, 20, 0.38)';
-    ctx.beginPath();
-    ctx.ellipse(cx, groundY, w * 0.30, h * 0.08, 0, 0, Math.PI * 2);
-    ctx.fill();
-    const unit = Math.max(2, Math.round(w / 72));
-    for (let i = 0; i < 18; i++) {
-        const px = (w * 0.22 + ((i * 17) % Math.round(w * 0.56)));
-        const py = groundY - unit + ((i % 3) - 1) * unit;
-        ctx.fillStyle = i % 2 ? '#6aa75d' : '#d6b466';
-        ctx.fillRect(Math.round(px), Math.round(py), unit * (1 + (i % 2)), unit);
-    }
-
-    const combatPlayer = {
-        ...player,
-        name: '',
-        appearance: player.appearance,
-        health: player.health ?? 20,
-        maxHealth: player.maxHealth ?? 20,
-    };
-    const scale = Math.min(w / 170, h / 145) * 1.15;
-    ctx.save();
-    if (hurt) {
-        ctx.translate(Math.round(Math.sin(Date.now() / 45) * 2), 0);
-    }
-    drawPixelCharacter(ctx, combatPlayer, cx, h * 0.73, true, 0, scale, { showLabel: false });
-    ctx.restore();
-
-    if (defending) {
-        ctx.strokeStyle = 'rgba(126, 221, 255, 0.82)';
-        ctx.lineWidth = Math.max(2, unit);
-        ctx.setLineDash([unit * 3, unit * 2]);
+        // Socle façon RPG : quelques pixels d'herbe/terre sous les pieds.
+        const cx = w * 0.5;
+        const groundY = h * 0.82;
+        ctx.fillStyle = 'rgba(5, 16, 20, 0.38)';
         ctx.beginPath();
-        ctx.ellipse(cx, h * 0.48, w * 0.28, h * 0.36, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-    ctx.restore();
+        ctx.ellipse(cx, groundY, w * 0.30, h * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const unit = Math.max(2, Math.round(w / 72));
+        for (let i = 0; i < 18; i++) {
+            const px = (w * 0.22 + ((i * 17) % Math.round(w * 0.56)));
+            const py = groundY - unit + ((i % 3) - 1) * unit;
+            ctx.fillStyle = i % 2 ? '#6aa75d' : '#d6b466';
+            ctx.fillRect(Math.round(px), Math.round(py), unit * (1 + (i % 2)), unit);
+        }
+
+        const combatPlayer = {
+            ...p,
+            name: '',
+            appearance: p.appearance,
+            health: p.health ?? 20,
+            maxHealth: p.maxHealth ?? 20,
+            combatState: null,
+        };
+        const scale = Math.min(w / 170, h / 145) * 1.15;
+        const rt = previewRuntime(combatPlayer, 'preview:combat');
+        // L'avatar adopte la posture demandée : garde en combat, coup porté,
+        // encaissement — les mêmes poses que la scène.
+        if (m && m !== rt._lastMode) {
+            rt._lastMode = m;
+            triggerCharacterAnim(rt.key, m, { force: true });
+        } else if (!m) {
+            rt._lastMode = null;
+        }
+        if (hr) triggerCharacterAnim(rt.key, 'hurt', { force: true });
+        const pose = computeCharacterPose(combatPlayer, rt, { isPlayer: true });
+        drawPixelCharacter(ctx, combatPlayer, cx, h * 0.73, true, 0, scale, { showLabel: false, pose, runtime: rt });
+
+        if (def) {
+            ctx.strokeStyle = 'rgba(126, 221, 255, 0.82)';
+            ctx.lineWidth = Math.max(2, unit);
+            ctx.setLineDash([unit * 3, unit * 2]);
+            ctx.beginPath();
+            ctx.ellipse(cx, h * 0.48, w * 0.28, h * 0.36, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.restore();
+    };
+    paint();
+    registerAnimatedCanvas(canvas, paint);
 }
 
 /** Dessine quelques objets laissés au sol pour relier l'inventaire au monde. */
@@ -1764,14 +1867,20 @@ export function drawSceneCharacters(gameState) {
                 else if(direction === 'north') modY = distance;  // Vient du haut
                 charactersCtx.globalAlpha = easedProgress; // Fade in
             }
-            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer, progress, scale);
+            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer, progress, scale, {
+                faceHint: p.isPlayer ? 0 : playerBaseX - p.x,
+            });
         });
         charactersCtx.globalAlpha = 1; // Réinitialiser l'alpha
     } else {
         // Dessiner les personnages normalement si pas d'animation
         charactersOnTile.forEach(p => {
             const animProgress = p.isPlayer ? player.animationProgress || 0 : 0;
-            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer, animProgress, scale);
+            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer, animProgress, scale, {
+                // Les autres survivants et les PNJ font face au joueur :
+                // la scène semble répondre à sa présence.
+                faceHint: p.isPlayer ? 0 : playerBaseX - p.x,
+            });
         });
     }
 

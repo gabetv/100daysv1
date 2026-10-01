@@ -297,3 +297,84 @@ d'échouer en silence.
   un DOM (jsdom, `npm install --no-save jsdom`), filtre de la fiche
   Équipement, clics réels sur les boutons, menu contextuel, rafraîchissement
   du coffre.
+
+---
+
+## 7. Survivants animés — `public/js/ui/character-anim.js` + `draw.js`
+
+Les personnages (joueur, autres survivants, PNJ) ne sont plus des sprites
+figés : un moteur de pose squelettique les fait respirer, marcher, travailler,
+se battre et dormir, en pixels tamponnés sur la grille comme les décors.
+
+### Architecture en deux modules
+
+| Responsabilité | Fichier |
+| --- | --- |
+| **Décider** — runtimes par personnage, détection automatique, poses, particules | `public/js/ui/character-anim.js` |
+| **Peindre** — squelette, membres articulés, chevelures, outils tenus en main | `drawPixelCharacter` dans `public/js/ui/draw.js` |
+
+`character-anim.js` ne connaît ni le DOM ni le canvas : à chaque image il
+produit une **pose** (un objet de nombres : angles de membres, inclinaison,
+regard, bouche, teinte). `draw.js` la traduit en pixels. Le module n'importe
+rien → testable sous Node (`scripts/test-character-anim.mjs`).
+
+### Conventions du squelette
+
+- Origine = point d'ancrage du personnage ; le sol est à `SKELETON.FEET_Y`
+  unités sous l'origine (aligné sur `characterAnchorForGround`) ;
+- Angles en radians, `0` = membre vers le bas, positif = vers l'avant ; les
+  genoux plient vers l'arrière, les coudes vers l'avant ;
+- Le personnage regarde vers `+x` ; la scène est **miroîtée** (`ctx.scale(-1,1)`)
+  pour l'ouest — étiquettes et bulles restent hors du miroir.
+
+### Ce qui déclenche quoi
+
+| Signal | Animation |
+| --- | --- |
+| `sendAction` (côté client, via `animForAction`) | le geste correspondant : `chop`, `mine`, `fish`, `craft`, `sleep`, `eat`… joué **dès l'envoi** |
+| Changement de case détecté par le runtime | `walkin` : cycle de pas + poussière, entrée latérale dans le sens du déplacement |
+| Chute de santé détectée par le runtime | `hurt` : recul, bras de garde, silhouette rougie (`pose.tint`) |
+| `combatState` présent | garde du combattant ; `attack` (lunge) déclenché par l'attaque automatique de `combat.js` |
+| `chatMessage` récent (joueur **et** PNJ) | `talk` : geste et hochements cadencés |
+| Stat sommeil très basse / PV < 32 % | bâillements périodiques / posture voûtée main au flanc |
+| PNJ sans activité | gestes sociaux aléatoires (`talk`, `look`) toutes les 6–15 s |
+| Notification « niveau / victoire » | `cheer` : bras au ciel et petits sauts |
+
+Les survivants et PNJ **font face au joueur** (`faceHint` passé par
+`drawSceneCharacters`) : la scène semble répondre à sa présence. Chaque
+runtime est déphasé par un hash de son identifiant — deux personnages côte à
+côte ne respirent ni ne clignent des yeux en phase.
+
+### Outils et équipement
+
+L'arme équipée (`toolTypeForItem`) est dessinée **dans la main**, alignée sur
+l'avant-bras : elle pend le long de la cuisse au repos, suit l'arc du geste en
+action (biais d'alignement fourni par la pose). Les actions imposent leur
+propre outil même s'il n'est pas équipé. Bouclier sur l'avant-bras arrière,
+sac à dos, casque/chapeau par-dessus la chevelure.
+
+### Particules attachées au personnage
+
+Poussière du pas, éclats de bois, étincelles de minage, miettes, éclaboussures,
+gouttes de sueur, Z du sommeil, notes de musique, paillettes de victoire — en
+unités locales, donc solidaires du corps.
+
+### Aperçus vivants
+
+`drawCharacterPreview` (personnalisation, camp, fiches) et
+`drawCombatPlayerAvatar` s'enregistrent dans une boucle d'images partagée
+(`registerAnimatedCanvas`) : le survivant y respire et **salue** toutes les
+~6 s. La boucle s'arrête seule quand plus aucun aperçu n'est visible.
+
+### Tests
+
+- `npm run test:character-anim` (`scripts/test-character-anim.mjs`) : les 23
+  animations rendent sans erreur dans un faux contexte 2D qui rastérise
+  réellement les pixels ; chaque pose dépasse 500 pixels de silhouette, reste
+  ancrée au sol, **change** entre ses phases ; chevelures distinctes, retournement
+  est/ouest, teinte rouge des dégâts.
+- `node scripts/test-character-anim.mjs --save` produit
+  `artifacts/character-poses.png`, une planche de contact des poses (fichier
+  généré, hors Git).
+- `node scripts/preview-character-ascii.mjs [idle|chop=0.29|sleep|…]` affiche
+  une pose en ASCII dans le terminal — lecture rapide sans navigateur.
