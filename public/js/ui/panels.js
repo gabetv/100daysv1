@@ -5,6 +5,7 @@ import { sendAction } from '../main.js';
 import { showChestModal, showLockModal, hideLockModal } from './modals.js';
 import { itemIconHTML, tileIconHTML } from './icons.js';
 import { drawCharacterPreview } from './draw.js';
+import { itemActionsHTML } from './item-actions.js';
 
 // Fonction utilitaire côté client pour calculer le total des ressources.
 // Elle remplace l'import depuis le fichier serveur `player.js` qui était incorrect.
@@ -162,18 +163,21 @@ export function updateInventory(player) {
                     const count = typeof value === 'number' ? value : 1;
                     const itemDef = ITEM_TYPES[baseItemName] || { icon: '❓', rarity: 'common' };
                     const li = document.createElement('li');
-                    li.className = `inventory-item rarity-${itemDef.rarity || 'common'} clickable`;
+                    li.className = `inventory-item rarity-${itemDef.rarity || 'common'} clickable has-actions`;
                     li.dataset.itemKey = key;
                     li.dataset.itemName = baseItemName;
                     li.dataset.itemCount = count;
                     li.draggable = true;
                     li.dataset.owner = 'player-inventory';
-                    
+
                     let displayName = baseItemName;
-                    if (typeof value === 'object' && value.hasOwnProperty('currentDurability')) {
+                    if (typeof value === 'object' && typeof value.currentDurability === 'number') {
                         displayName += ` (${value.currentDurability}/${value.durability})`;
                     }
-                    li.innerHTML = `${itemIconHTML(baseItemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
+                    // ✚ équiper/utiliser + ⬇ poser au sol : un clic, sans
+                    // passer par le menu contextuel.
+                    li.innerHTML = `${itemIconHTML(baseItemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`
+                        + itemActionsHTML({ owner: 'player-inventory', itemName: baseItemName, context: 'panel' });
                     content.appendChild(li);
                 });
             });
@@ -270,19 +274,36 @@ export function updateGroundItemsPanel(tile) {
     if (!list) return;
     list.innerHTML = '';
     const groundItems = tile.groundItems || {};
+
+    // « Tout ramasser » n'a d'intérêt que quand il y a quelque chose au sol.
+    const pickupAllBtn = document.getElementById('pickup-all-btn');
+    if (pickupAllBtn) pickupAllBtn.hidden = Object.keys(groundItems).length === 0;
+
     if (Object.keys(groundItems).length === 0) {
         list.innerHTML = '<li class="inventory-empty">(Rien au sol)</li>';
     } else {
         for (const itemKey in groundItems) {
-            const count = groundItems[itemKey];
-            const itemDef = ITEM_TYPES[itemKey] || { icon: '❓' };
+            const value = groundItems[itemKey];
+            // Les outils posés au sol gardent leur instance (durabilité) :
+            // la valeur est alors un objet et non un nombre.
+            const isInstance = typeof value === 'object' && value.name;
+            const itemName = isInstance ? value.name : itemKey;
+            const count = isInstance ? 1 : value;
+            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+            let displayName = itemName;
+            if (isInstance && typeof value.currentDurability === 'number') {
+                displayName += ` (${value.currentDurability}/${value.durability})`;
+            }
             const li = document.createElement('li');
-            li.className = 'inventory-item clickable';
-            li.dataset.itemName = itemKey;
+            li.className = 'inventory-item clickable has-actions';
+            li.dataset.itemName = itemName;
+            li.dataset.itemKey = itemKey;
             li.dataset.itemCount = count;
             li.dataset.owner = 'ground';
             li.draggable = true;
-            li.innerHTML = `${itemIconHTML(itemKey, itemDef.icon)}<span class="inventory-name">${itemKey}</span><span class="inventory-count">${count}</span>`;
+            // ✚ ramasse l'objet directement.
+            li.innerHTML = `${itemIconHTML(itemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`
+                + itemActionsHTML({ owner: 'ground', itemName });
             list.appendChild(li);
         }
     }

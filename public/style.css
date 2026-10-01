@@ -2976,3 +2976,164 @@ tout reste utilisable avec le pouce : aperçu puis options scrollables. */
 .appearance-choice,
 .survivor-card{ transition-duration: .01ms !important; }
 }
+
+/* =======================================================================
+   ACTIONS RAPIDES SUR LES OBJETS (✚ équiper/prendre, ⬇ poser au sol…)
+   =======================================================================
+   Chaque ligne d'inventaire porte ses actions : un clic suffit, sans
+   menu contextuel ni glisser-déposer. Voir js/ui/item-actions.js.
+   Le clic simple sur la ligne reste possible : il ouvre le menu complet. */
+.inventory-item .inventory-name{ min-width: 0; }
+.inventory-item.has-actions .inventory-name{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.inventory-item .item-actions{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 2px;
+}
+.inventory-item .inventory-count{ margin-right: 0; }
+.quick-action-btn{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.38);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+.quick-action-btn:hover{
+    filter: brightness(1.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px -3px rgba(0, 0, 0, 0.8);
+}
+.quick-action-btn:active{ transform: scale(0.9); }
+/* Une couleur par geste : vert = équiper, ambre = consommer,
+   bleu = prendre/ramasser, neutre = déposer/poser au sol. */
+.quick-action-btn.qa-equip{ color: #7ef0a2; border-color: rgba(126, 240, 162, 0.4); }
+.quick-action-btn.qa-use{ color: #ffd08a; border-color: rgba(255, 208, 138, 0.4); }
+.quick-action-btn.qa-take{ color: #8fd0ff; border-color: rgba(143, 208, 255, 0.4); }
+.quick-action-btn.qa-store{ color: #e8c98f; border-color: rgba(232, 201, 143, 0.4); }
+.quick-action-btn.qa-drop{ color: #cfc4b8; border-color: rgba(207, 196, 184, 0.35); }
+.quick-action-btn.qa-drop:hover{ color: #ffb08a; border-color: rgba(255, 176, 138, 0.55); }
+
+/* Badge d'emplacement (Tête, Arme/Outil…) dans la fiche Équipement. */
+.slot-chip{
+    flex-shrink: 0;
+    font-size: 0.68em;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 2px 7px;
+    white-space: nowrap;
+}
+
+/* Bouton « déséquiper » sur un emplacement occupé de la fiche Équipement. */
+.equipment-slot{ position: relative; }
+.slot-unequip-btn{
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 3;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(20, 12, 10, 0.85);
+    color: #ffd3c2;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter 0.15s ease;
+}
+.slot-unequip-btn:hover{ filter: brightness(1.35); transform: scale(1.08); }
+.slot-unequip-btn:active{ transform: scale(0.9); }
+
+/* Filtre « Équipables / Tout le sac » de la fiche Équipement. */
+.inventory-container-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.inventory-container-header h3{ margin: 0; }
+.equipment-filter-toggle{
+    display: inline-flex;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.equipment-filter-toggle button{
+    padding: 4px 12px;
+    font-size: 0.74em;
+    font-weight: 600;
+    border: none;
+    border-radius: 0;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.equipment-filter-toggle button + button{ border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.equipment-filter-toggle button:hover{ color: var(--text-light); }
+.equipment-filter-toggle button.active{
+    background: var(--action-color);
+    color: var(--text-light);
+}
+.equipment-filter-hint{
+    margin: 6px 0 8px 0;
+    font-size: 0.78em;
+    color: var(--text-secondary);
+    opacity: 0.85;
+}
+
+/* Petits boutons d'en-tête (« Tout ramasser », « Tout prendre »). */
+.panel-title-with-action{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.panel-mini-btn{
+    flex-shrink: 0;
+    padding: 3px 10px;
+    font-size: 0.72em;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid rgba(143, 208, 255, 0.35);
+    background: rgba(0, 0, 0, 0.35);
+    color: #8fd0ff;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.12s ease;
+}
+.panel-mini-btn:hover:not(:disabled){ filter: brightness(1.3); transform: translateY(-1px); }
+.panel-mini-btn:active:not(:disabled){ transform: scale(0.96); }
+.panel-mini-btn:disabled{ opacity: 0.45; cursor: default; }
+
+/* Écrans tactiles : cibles plus généreuses, sans gonfler les lignes. */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    .quick-action-btn{ width: 30px; height: 30px; font-size: 15px; }
+    .slot-unequip-btn{ width: 26px; height: 26px; }
+    /* La règle tactile « min-height: 44px » des boutons du panneau Sac ne
+       doit pas s'appliquer aux boutons d'action des lignes d'objets. */
+    #inventory-categories .inventory-item .quick-action-btn,
+    #inventory-categories .inventory-item .panel-mini-btn{ min-height: 0; }
+    .equipment-filter-toggle button{ padding: 6px 12px; }
+    .panel-mini-btn{ padding: 5px 11px; }
+}

@@ -232,3 +232,68 @@ réelle — même rendu qu'avant sur 1×, 2× et 3×.
 cadrage du sol, calibrage des personnages) et
 `node scripts/test-scene-shell.mjs` (exécute le vrai `resizeGameView` sur un
 mini-DOM : plein écran PC, verrou mobile, réaction à la qualité adaptative).
+
+---
+
+## 6. Actions rapides sur les objets — `public/js/ui/item-actions.js`
+
+Le sac, le coffre et les objets au sol réclama un menu contextuel (clic
+droit / appui long) ou un glisser-déposer précis pour chaque geste. Chaque
+ligne d'inventaire porte désormais ses actions directement :
+
+| Bouton | Geste | Où |
+| --- | --- | --- |
+| `✚` Équiper | équipe l'objet d'un clic | fiche Équipement, panneau Sac |
+| `🍽` Utiliser | consomme nourriture, soin, parchemin | fiche Équipement (tout le sac), panneau Sac |
+| `📥` Déposer | sac → coffre ouvert | modale Coffre |
+| `✚` Prendre | coffre → sac | modale Coffre |
+| `✚` Ramasser | sol → sac | panneau Objets au sol, butin de la scène |
+| `⬇` Poser au sol | sac → case courante | toutes les listes du sac |
+| `×` Déséquiper | emplacement → sac | fiche Équipement |
+| `✚ Tout ramasser` / `✚ Tout prendre` | vident sol / coffre d'un clic | en-têtes des panneaux |
+
+Règles communes :
+
+- **clic = toute la pile**, **Maj/Ctrl+clic = un seul exemplaire** (les objets
+  uniques — outils, armes — partent toujours à l'unité) ;
+- les actions de gestion du sac sont **gratuites** (aucune faim/soif/sommeil
+  consommée, voir `FREE_ACTIONS` dans `server/interactions.js`) ;
+- le clic simple sur une ligne (hors bouton) ouvre le **menu contextuel
+  complet**, qui reste disponible partout — clic droit et appui long inclus ;
+- les écouteurs sont **délégués sur `document`** : ils couvrent les panneaux
+  *et* les fenêtres modales (qui vivent hors de `#game-container` — avant,
+  glisser-déposer et menu contextuel étaient inertes dans le coffre et la
+  fiche Équipement).
+
+### Fiche Équipement filtrée
+
+La liste « Votre Inventaire » de la fiche Équipement n'affiche par défaut
+**que les objets équipables**, triés par nom avec leur badge d'emplacement
+(Tête, Arme/Outil…). Le commutateur « Équipables / Tout le sac » révèle le
+reste ; le choix est mémorisé pendant la partie. Chaque objet équipable
+porte son bouton `✚`, chaque emplacement occupé son bouton `×`.
+
+### Objets uniques : la durabilité suit l'objet
+
+Poser un outil au sol, le stocker dans un coffre ou le déséquiper **conserve
+son instance** (clé + durabilité). Avant : l'aller-retour sac ↔ sol ou
+sac ↔ équipement recréait l'objet neuf — équiper/déséquiper une hache usée
+la réparait gratuitement. Les outils posés au sol restent cliquables dans
+la scène (`itemKey` du hotspot) et reviennent à l'identique.
+
+### Coffre vivant
+
+La modale Coffre se rafraîchit à chaque état serveur (`refreshChestModal`
+appelé depuis `updateAllUI`) : dépôt, retrait et « Tout prendre » se voient
+immédiatement, sans fermer la fenêtre. Un coffre plein est signalé au lieu
+d'échouer en silence.
+
+### Tests
+
+- `npm run test:item-actions` (`scripts/test-item-actions.mjs`) : usure
+  conservée (équipement, sol, coffre), piles et instances, « Tout
+  ramasser »/« Tout prendre », boutons rendus et messages construits ;
+- `node scripts/test-ui-quick-actions.mjs` : le vrai `game.html` chargé dans
+  un DOM (jsdom, `npm install --no-save jsdom`), filtre de la fiche
+  Équipement, clics réels sur les boutons, menu contextuel, rafraîchissement
+  du coffre.

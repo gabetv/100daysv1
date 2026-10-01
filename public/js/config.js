@@ -67,6 +67,9 @@ export const ACTIONS = {
     UNEQUIP_ITEM_CONTEXT: 'unequip_item_context',
     DROP_ITEM_CONTEXT: 'drop_item_context',
     PICKUP_ITEM_CONTEXT: 'pickup_item_context',
+    // Raccourcis de sac : un clic au lieu d'un menu contextuel.
+    PICKUP_ALL_ITEMS: 'pickup_all_items',
+    TAKE_ALL_ITEMS: 'take_all_items',
     OPEN_BUILD_MODAL: 'open_build_modal',
     SEND_CHAT_MESSAGE: 'send_chat_message',
 
