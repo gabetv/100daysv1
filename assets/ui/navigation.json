@@ -1,0 +1,35 @@
+{
+  "generatedBy": "scripts/generate_navigation_sheet.js",
+  "dpad": {
+    "file": "assets/ui/sheet-dpad.png",
+    "frameW": 48,
+    "frameH": 48,
+    "columns": [
+      "north",
+      "ne",
+      "east",
+      "se",
+      "south",
+      "sw",
+      "west",
+      "nw"
+    ],
+    "rows": [
+      "idle",
+      "blocked",
+      "active"
+    ],
+    "notes": "La ligne « blocked » est affichée quand la case visée sort de la carte ou n'est pas accessible."
+  },
+  "nineSlices": {
+    "dpad-plate.png": {
+      "border": 18
+    },
+    "panel-parchment.png": {
+      "border": 15
+    },
+    "button-wood.png": {
+      "border": 14
+    }
+  }
+}

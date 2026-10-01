@@ -81,7 +81,7 @@ html[data-narrow='on'] body.game-screen #left-panel {
     overflow: hidden auto;
     transform: translateX(calc(-100% - 20px));
     transition: transform .18s steps(3, end);
-    box-shadow: 9px 0 0 rgba(3, 12, 16, .45), 0 10px 30px rgba(0, 0, 0, .5);
+    box-shadow: 9px 0 0 rgba(10, 6, 5, 0.45), 0 10px 30px rgba(0, 0, 0, .5);
 }
 html[data-narrow='on'] body.game-screen.left-drawer-open #left-panel { transform: translateX(0); }
 
@@ -90,7 +90,7 @@ body.game-screen #left-drawer-backdrop {
     position: absolute;
     inset: 0;
     z-index: 2100;
-    background: rgba(2, 10, 14, .58);
+    background: rgba(11, 6, 5, 0.58);
     opacity: 0;
     pointer-events: none;
     transition: opacity .16s ease;
@@ -127,18 +127,18 @@ body.game-screen .dock-tab {
     padding: 2px 6px;
     border: 1px solid rgba(248, 204, 105, .34);
     border-radius: 2px;
-    background: #0b2831;
-    color: #8db7b8;
+    background: #291814;
+    color: #b9a592;
     font-family: var(--pixel-font, monospace);
     font-size: .46rem;
     line-height: 1.4;
     cursor: pointer;
     transition: background .12s steps(2, end), color .12s steps(2, end);
 }
-body.game-screen .dock-tab:hover { background: #14424d; color: #d9f0e4; }
+body.game-screen .dock-tab:hover { background: #442b22; color: #ebe2d5; }
 body.game-screen .dock-tab.active {
     border-color: var(--shell-gold, #f8cc69);
-    background: linear-gradient(#24535a, #14353e);
+    background: linear-gradient(#54372c, #35221d);
     color: #fff0bc;
 }
 body.game-screen .dock-tab .sheet-icon { width: 16px; height: 16px; }
@@ -209,8 +209,8 @@ html[data-shell='compact'] body.game-screen.show-scene-vitals .mobile-vital {
     padding: 3px 5px;
     border: 1px solid rgba(248, 204, 105, .5);
     border-radius: 2px;
-    background: rgba(9, 38, 48, .94);
-    box-shadow: 2px 2px 0 rgba(3, 12, 16, .7);
+    background: rgba(42, 24, 19, 0.94);
+    box-shadow: 2px 2px 0 rgba(10, 6, 5, 0.7);
     cursor: pointer;
 }
 html[data-shell='full'] body.game-screen.show-scene-vitals .mobile-vital img,
@@ -247,8 +247,8 @@ body.game-screen .shell-control {
     padding: 3px 6px;
     border: 1px solid rgba(248, 204, 105, .5);
     border-radius: 2px;
-    background: rgba(6, 30, 37, .9);
-    box-shadow: 2px 2px 0 rgba(3, 12, 16, .66);
+    background: rgba(32, 18, 14, 0.9);
+    box-shadow: 2px 2px 0 rgba(10, 6, 5, 0.66);
     color: #fff0bc;
     font-family: var(--pixel-font, monospace);
     font-size: .4rem;
@@ -258,11 +258,11 @@ body.game-screen .shell-control {
     cursor: pointer;
     transition: background .12s steps(2, end), transform .1s steps(2, end);
 }
-body.game-screen .shell-control:hover { background: #16454f; }
+body.game-screen .shell-control:hover { background: #432b23; }
 body.game-screen .shell-control:active { transform: translate(1px, 1px); }
 body.game-screen .shell-control.is-active {
     border-color: #9cf0ae;
-    background: linear-gradient(#2f6b4c, #1d4a38);
+    background: linear-gradient(#486435, #2e4521);
     color: #e3ffe8;
 }
 body.game-screen .shell-control[hidden] { display: none; }
@@ -298,7 +298,7 @@ body.game-screen .day-timer-sprite {
     height: 34px;
     flex: 0 0 auto;
     image-rendering: pixelated;
-    filter: drop-shadow(2px 2px 0 rgba(3, 12, 16, .6));
+    filter: drop-shadow(2px 2px 0 rgba(10, 6, 5, 0.6));
 }
 body.game-screen .day-timer-values {
     display: grid;
@@ -311,11 +311,11 @@ body.game-screen #day-timer-countdown {
     font-size: .92rem;
     line-height: 1.2;
     letter-spacing: .04em;
-    text-shadow: 2px 2px 0 #06171e;
+    text-shadow: 2px 2px 0 #150c0a;
     font-variant-numeric: tabular-nums;
 }
 body.game-screen .day-timer-caption {
-    color: #8fb6b4;
+    color: #b8a593;
     font-size: .58rem;
     line-height: 1.3;
     letter-spacing: .02em;
@@ -327,8 +327,8 @@ body.game-screen .day-timer-track {
     height: 9px;
     /* Pas d'`overflow: hidden` : le curseur déborde volontairement de 2 px
        en haut et en bas pour rester lisible sur une barre de 9 px. */
-    border: 1px solid rgba(3, 12, 16, .85);
-    background-color: #071d25;
+    border: 1px solid rgba(10, 6, 5, 0.85);
+    background-color: #1f120f;
     background-repeat: no-repeat;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06);
 }
@@ -337,7 +337,7 @@ body.game-screen #day-timer-fill {
     position: absolute;
     inset: 0 auto 0 0;
     width: 0;
-    background: rgba(4, 16, 21, .62);
+    background: rgba(21, 12, 10, 0.62);
     box-shadow: inset -1px 0 0 rgba(255, 240, 188, .35);
     transition: width .25s linear;
 }
@@ -349,7 +349,7 @@ body.game-screen #day-timer-cursor {
     width: 3px;
     margin-left: -1px;
     background: #fff3c6;
-    box-shadow: 0 0 0 1px rgba(3, 12, 16, .9);
+    box-shadow: 0 0 0 1px rgba(10, 6, 5, 0.9);
     transition: left .25s linear;
 }
 body.game-screen .day-timer-tick {
@@ -357,7 +357,7 @@ body.game-screen .day-timer-tick {
     top: 0;
     bottom: 0;
     width: 1px;
-    background: rgba(5, 18, 24, .75);
+    background: rgba(21, 12, 10, 0.75);
 }
 
 body.game-screen .day-timer-phase {
@@ -385,7 +385,7 @@ body.game-screen .day-timer-phase #daytime-display {
 body.game-screen #day-timer-eta {
     margin-left: auto;
     flex: 0 0 auto;
-    color: #9ad0d8;
+    color: #d3bba1;
     font-size: .58rem;
     font-variant-numeric: tabular-nums;
 }
@@ -398,7 +398,7 @@ body.game-screen .day-timer.is-urgent #day-timer-countdown {
 }
 body.game-screen .day-timer.is-urgent .day-timer-track { box-shadow: 0 0 0 1px rgba(226, 94, 73, .9); }
 body.game-screen .day-timer.day-pulse { animation: day-timer-pop .5s steps(4, end) 1; }
-body.game-screen .day-timer.phase-nuit #day-timer-countdown { color: #bcd2ff; }
+body.game-screen .day-timer.phase-nuit #day-timer-countdown { color: #bcdeff; }
 
 @keyframes day-timer-blink { 50% { opacity: .35; } }
 @keyframes day-timer-pop {
@@ -420,8 +420,8 @@ body.game-screen #hotspot-tooltip {
     max-width: min(240px, 60%);
     padding: 5px 8px;
     border: 1px solid var(--shell-gold, #f8cc69);
-    background: rgba(5, 23, 29, .95);
-    box-shadow: 3px 3px 0 rgba(1, 8, 11, .72);
+    background: rgba(21, 12, 10, 0.95);
+    box-shadow: 3px 3px 0 rgba(11, 6, 5, 0.72);
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, -100%);
@@ -435,7 +435,7 @@ body.game-screen #hotspot-tooltip strong {
     line-height: 1.45;
 }
 body.game-screen #hotspot-tooltip small {
-    color: #9ad0d8;
+    color: #d3bba1;
     font-size: .6rem;
     line-height: 1.3;
 }

@@ -193,22 +193,46 @@ export class PixelCanvas {
 }
 
 /** Palette commune à tout le HUD de l'Île des 100 Jours. */
+/**
+ * PALETTE « CARNET DE SURVIE » — unique source de vérité du pixel art.
+ *
+ * Elle reprend, pixel pour pixel, les jetons CSS de `public/game-shell.css`
+ * (`--shell-*` / `--survival-*`). Toute planche générée par les scripts est
+ * donc automatiquement dans les mêmes bois, cuirs et parchemins que l'écran —
+ * c'est ce qui évite les icônes sarcelle posées sur des panneaux bois.
+ *
+ * Les clés historiques (`teal`, `sea`) sont conservées pour ne rien casser,
+ * mais désignent maintenant les deux bois intermédiaires.
+ */
 export const PALETTE = {
-    ink: [5, 18, 24, 255],
-    deep: [8, 31, 38, 255],
-    panel: [15, 48, 55, 255],
-    teal: [31, 91, 91, 255],
-    sea: [45, 132, 129, 255],
-    foam: [174, 228, 202, 255],
-    gold: [248, 204, 105, 255],
-    goldDark: [196, 146, 58, 255],
-    orange: [216, 130, 51, 255],
-    shadow: [3, 11, 16, 220],
-    coral: [226, 94, 73, 255],
-    white: [245, 239, 203, 255],
-    green: [105, 199, 137, 255],
-    blue: [108, 207, 225, 255],
-    night: [86, 112, 190, 255],
+    // Rampe bois, de l'encre au parchemin.
+    ink: [43, 27, 24, 255],          // #2b1b18  --shell-ink
+    deep: [59, 41, 36, 255],         // #3b2924  --shell-deep
+    panel: [91, 57, 45, 255],        // #5b392d  --shell-panel
+    teal: [113, 73, 54, 255],        // #714936  --shell-panel-2 (ex-sarcelle)
+    sea: [140, 82, 55, 255],         // #8c5237  --survival-leather (ex-mer)
+    line: [179, 122, 79, 255],       // #b37a4f  --shell-line
+    parchment: [227, 200, 156, 255], // #e3c89c  --survival-parchment
+    foam: [241, 221, 186, 255],      // #f1ddba  --shell-foam
+    white: [247, 232, 202, 255],     // #f7e8ca  texte principal
+
+    // Accents.
+    gold: [224, 183, 111, 255],      // #e0b76f  --shell-gold
+    goldDark: [179, 122, 79, 255],   // #b37a4f
+    orange: [189, 109, 62, 255],     // #bd6d3e  --shell-orange
+    coral: [212, 71, 67, 255],       // #d44743  --shell-coral
+    green: [120, 169, 91, 255],      // #78a95b  --shell-green
+    greenDark: [74, 110, 57, 255],
+    stone: [130, 120, 104, 255],     // #827868  --survival-stone
+    stoneLight: [176, 165, 143, 255],
+    stoneDark: [84, 77, 67, 255],
+
+    // Seule famille froide autorisée : l'eau (soif, lagon, ciel de jour).
+    blue: [85, 184, 219, 255],       // #55b8db  --shell-blue
+    blueDark: [38, 108, 148, 255],
+    night: [62, 68, 120, 255],       // ciel de nuit
+
+    shadow: [26, 15, 12, 220],
     transparent: [0, 0, 0, 0],
 };
 

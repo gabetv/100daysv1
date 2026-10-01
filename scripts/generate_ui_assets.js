@@ -3,16 +3,18 @@
 // Le moteur de dessin est partagé avec `generate_ui_sheets.js`.
 import fs from 'fs';
 import path from 'path';
-import { PixelCanvas } from './lib/pixel-canvas.js';
+import { PixelCanvas, PALETTE } from './lib/pixel-canvas.js';
 
 const OUT = path.resolve('assets/ui');
 fs.mkdirSync(OUT, { recursive: true });
+
+// Une seule palette pour tout le pixel art : celle de `lib/pixel-canvas.js`,
+// elle-même calquée sur les jetons `--shell-*` de game-shell.css.
 const C = {
-    // Palette chaude bois / cuir / parchemin de la maquette mobile.
-    ink: [43, 27, 24, 255], deep: [75, 46, 34, 255], panel: [105, 63, 45, 255],
-    teal: [48, 91, 100, 255], sea: [63, 139, 151, 255], foam: [213, 224, 203, 255],
-    gold: [218, 178, 107, 255], orange: [188, 104, 55, 255], shadow: [20, 13, 14, 220],
-    coral: [211, 72, 62, 255], white: [249, 229, 188, 255], transparent: [0, 0, 0, 0],
+    ...PALETTE,
+    // Les deux seules teintes froides : l'eau vue de la carte et du téléphone.
+    water: [46, 120, 156, 255],
+    waterDeep: [32, 86, 114, 255],
 };
 
 function panelFrame() {
@@ -58,10 +60,10 @@ function compass() {
     const p = new PixelCanvas(96, 96);
     p.circle(48, 51, 45, C.shadow);
     p.circle(48, 47, 44, C.ink);
-    p.circle(48, 47, 40, [126, 111, 91, 255]);
+    p.circle(48, 47, 40, C.stone);
     p.circle(48, 47, 36, C.gold);
     p.circle(48, 47, 33, C.deep);
-    p.circle(48, 47, 27, [28, 78, 92, 255]);
+    p.circle(48, 47, 27, C.deep);
     // Étoile des vents en gros pixels, proche de la boussole de référence.
     p.polygon([[48, 8], [55, 39], [48, 34], [41, 39]], C.white);
     p.polygon([[48, 86], [41, 54], [48, 60], [55, 54]], C.orange);
@@ -89,8 +91,8 @@ function rotateLandscape() {
     p.rect(27, 33, 132, 58, C.ink);
     p.rect(35, 38, 114, 48, C.deep);
     // Petit paysage insulaire à l'écran.
-    p.rect(37, 40, 110, 20, [40, 113, 132, 255]);
-    p.rect(37, 60, 110, 24, [48, 128, 114, 255]);
+    p.rect(37, 40, 110, 20, C.water);
+    p.rect(37, 60, 110, 24, [106, 150, 74, 255]);
     p.polygon([[66, 81], [82, 55], [99, 81]], [62, 123, 66, 255]);
     p.rect(81, 51, 4, 22, [103, 59, 32, 255]);
     p.polygon([[83, 42], [65, 56], [83, 52], [101, 56]], [78, 153, 69, 255]);
@@ -124,9 +126,9 @@ function mapRoute() {
     p.rect(4, 7, 152, 82, C.shadow);
     p.rect(7, 4, 146, 82, C.gold);
     p.rect(10, 7, 140, 76, C.deep);
-    p.rect(13, 10, 134, 70, [17, 67, 75, 255]);
-    for (let y = 14; y < 78; y += 8) p.rect(13, y, 134, 2, [27, 92, 95, 210]);
-    for (let x = 17; x < 147; x += 10) p.rect(x, 10, 2, 70, [27, 92, 95, 145]);
+    p.rect(13, 10, 134, 70, C.waterDeep);
+    for (let y = 14; y < 78; y += 8) p.rect(13, y, 134, 2, [46, 120, 156, 210]);
+    for (let x = 17; x < 147; x += 10) p.rect(x, 10, 2, 70, [46, 120, 156, 145]);
     // Îlot en gros pixels, avec relief et plage.
     p.polygon([[42, 61], [48, 37], [65, 26], [91, 28], [110, 42], [104, 66], [79, 74], [56, 70]], [35, 101, 64, 255]);
     p.polygon([[49, 54], [55, 37], [72, 31], [86, 35], [78, 46], [61, 50]], [72, 143, 71, 255]);

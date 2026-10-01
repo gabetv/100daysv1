@@ -320,6 +320,27 @@ function showVictoryScreen(victory, player) {
     overlay.classList.remove('hidden');
 }
 
+/**
+ * Demande un déplacement, quel que soit le geste d'origine.
+ *
+ * Trois filtres avant d'écrire sur le réseau :
+ *   1. le survivant est occupé (animation, action en cours) → on ignore ;
+ *   2. la direction est fermée (bord de carte ou case non accessible) → on
+ *      répond tout de suite par une secousse + un texte, sans aller-retour ;
+ *   3. sinon, l'action part et le serveur reste l'arbitre final.
+ */
+function requestMove(direction) {
+    const state = window.gameState;
+    const p = state && state.player;
+    if (p && (p.isBusy || p.animationState)) return false;
+    if (state && UI.canMove && !UI.canMove(state, direction)) {
+        UI.rejectMove?.(UI.navButton?.(direction), state, direction);
+        return false;
+    }
+    sendAction(ACTIONS.MOVE, { direction });
+    return true;
+}
+
 function setupEventListeners() {
     // Tutoriel court et actionnable : il guide sans transformer la première
     // partie en manuel de l'interface.
@@ -336,31 +357,19 @@ function setupEventListeners() {
             return;
         }
         if (action === 'tutorial_open_actions') {
-            if (UI.isMobileLayout?.()) {
-                UI.openMobileTab?.('actions');
-            } else {
-                document.getElementById('screen-interaction-button')?.click();
-            }
+            UI.openActionList?.();
         }
         UI.advanceTutorial?.();
     });
     tutorialSkipButton?.addEventListener('click', () => UI.skipTutorial?.());
 
-    document.querySelectorAll('.nav-button-overlay').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const direction = (e.currentTarget.id || e.target.id).replace('nav-', '');
-            sendAction(ACTIONS.MOVE, { direction });
-        });
-    });
+    // --- Déplacement : une seule porte d'entrée pour la croix directionnelle,
+    //     le clavier et le balayage tactile. Une direction fermée ne part pas
+    //     sur le réseau : le retour est immédiat. ---
+    UI.initNavigation({ onMove: (direction) => requestMove(direction) });
 
     // --- Interface mobile : onglets, feuilles coulissantes, déplacement au doigt ---
-    UI.initMobileUI({
-        onMove: (direction) => {
-            const p = window.gameState && window.gameState.player;
-            if (p && (p.isBusy || p.animationState)) return;
-            sendAction(ACTIONS.MOVE, { direction });
-        }
-    });
+    UI.initMobileUI({ onMove: (direction) => requestMove(direction) });
     
     // --- Audio : démarrage au premier geste + clics + bouton mute ---
     document.addEventListener('pointerdown', () => initAudio(), { once: true });
@@ -384,10 +393,15 @@ function setupEventListeners() {
         });
     }
 
-    // --- Clavier : déplacements (flèches / ZQSD / WASD) et Échap pour fermer ---
+    // --- Clavier : déplacements (flèches / ZQSD / WASD / pavé numérique) ---
+    // Le pavé numérique ajoute les quatre diagonales, qui n'étaient jusqu'ici
+    // accessibles qu'à la souris ou au doigt.
     const KEY_DIRECTIONS = {
         arrowup: 'north', arrowdown: 'south', arrowleft: 'west', arrowright: 'east',
         w: 'north', z: 'north', s: 'south', a: 'west', q: 'west', d: 'east',
+        // Pavé numérique, disposition classique des huit directions.
+        8: 'north', 2: 'south', 4: 'west', 6: 'east',
+        7: 'nw', 9: 'ne', 1: 'sw', 3: 'se',
     };
     document.addEventListener('keydown', (e) => {
         // Ne pas interférer avec la saisie de texte
@@ -407,10 +421,15 @@ function setupEventListeners() {
             'chest-modal', 'combat-modal', 'large-map-modal', 'quantity-modal', 'lock-modal', 'admin-modal', 'victory-overlay']
             .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
         if (modalOpen) return;
-        const p = window.gameState && window.gameState.player;
-        if (p && (p.isBusy || p.animationState)) return;
         e.preventDefault();
-        sendAction(ACTIONS.MOVE, { direction: dir });
+        // Repère visuel : la touche correspondante s'enfonce comme si on
+        // l'avait cliquée, y compris quand la direction est fermée.
+        const button = UI.navButton?.(dir);
+        if (button) {
+            button.classList.add('is-pressed');
+            setTimeout(() => button.classList.remove('is-pressed'), 130);
+        }
+        requestMove(dir);
     });
 
     // --- Chat rapide (+) : afficher/masquer le menu et envoyer les phrases toutes prêtes ---
@@ -469,31 +488,6 @@ function setupEventListeners() {
         }
     }
 
-    // Interaction directe depuis la scène : ouvre toujours le menu d'actions sans
-    // demander de viser un petit bouton dans le panneau latéral.
-    const screenInteractionButton = document.getElementById('screen-interaction-button');
-    if (screenInteractionButton) {
-        screenInteractionButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            // Les quatre raccourcis sont désormais toujours visibles sur la
-            // scène : ce bouton ouvre la liste complète des actions.
-            if (UI.isMobileLayout && UI.isMobileLayout()) {
-                UI.openMobileTab('actions');
-                return;
-            }
-            // En mode Focus les panneaux sont masqués : on les ramène avant
-            // d'ouvrir la liste, sinon le clic semblerait sans effet.
-            UI.ensurePanelsVisible?.();
-            const rightPanel = document.getElementById('right-panel');
-            document.querySelector('#right-panel-tabs .tab-button[data-tab="actions-tab"]')?.click();
-            if (rightPanel) {
-                rightPanel.classList.remove('interaction-focus');
-                void rightPanel.offsetWidth;
-                rightPanel.classList.add('interaction-focus');
-            }
-        });
-    }
-
     // Les quatre raccourcis visibles sur la scène déclenchent la même action
     // que le bouton correspondant dans le panneau Actions. Cela évite les
     // raccourcis décoratifs qui ne faisaient rien.
@@ -518,7 +512,7 @@ function setupEventListeners() {
             } else {
                 // Si le raccourci n'est pas disponible ici, ouvrir la liste
                 // complète pour conserver une explication à l'utilisateur.
-                document.getElementById('screen-interaction-button')?.click();
+                UI.openActionList?.();
             }
         });
     });
