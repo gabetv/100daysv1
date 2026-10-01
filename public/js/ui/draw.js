@@ -69,7 +69,22 @@ function getDominantSceneBuilding(tile) {
 
 function getSceneBackgroundKey(tile) {
     const dominant = getDominantSceneBuilding(tile);
-    return buildingSceneBackground(dominant) || tile?.backgroundKey;
+    const buildingBackground = buildingSceneBackground(dominant);
+
+    // La maquette mobile est verticale : un fond dédié évite de recadrer les
+    // paysages 16:9 jusqu'à ne garder qu'un morceau de ciel ou d'herbe.
+    const mobilePortrait = typeof window !== 'undefined'
+        && window.matchMedia('(max-width: 900px) and (orientation: portrait)').matches;
+    if (mobilePortrait) {
+        if (buildingBackground === 'bg_campfire') return 'bg_campfire_mobile';
+        if (buildingBackground) return buildingBackground;
+        if (tile?.type?.name === 'Forêt') return 'bg_forest_mobile';
+        if (tile?.type?.name === 'Plaine') return 'bg_plains_mobile';
+        if (tile?.type?.name === 'Plage' || tile?.type?.name === 'Lagon') return 'bg_sand_mobile';
+        if (tile?.type?.name === 'Friche') return 'bg_wasteland_mobile';
+        if (tile?.type?.name === 'Mine (Terrain)') return 'bg_stone_mobile';
+    }
+    return buildingBackground || tile?.backgroundKey;
 }
 
 function isBuildingInSceneBackground(tile, building) {
@@ -92,7 +107,24 @@ function sceneGroundY(tile, w, h, xNorm = 0.5, role = 'default') {
     let slope = 0;
     let curve = 0.02;
 
-    if (key.startsWith('bg_sand')) {
+    if (key === 'bg_sand_mobile') {
+        // En portrait, le personnage reste au centre et laisse la zone basse
+        // aux cartes de lieu et au pavé directionnel.
+        base = 0.67; slope = 0.015; curve = 0.015;
+    } else if (key === 'bg_forest_mobile') {
+        base = 0.68; slope = 0.005; curve = 0.02;
+    } else if (key === 'bg_plains_mobile') {
+        base = 0.66; slope = -0.005; curve = 0.018;
+    } else if (key === 'bg_wasteland_mobile') {
+        base = 0.67; slope = 0.005; curve = 0.015;
+    } else if (key === 'bg_stone_mobile') {
+        base = 0.68; slope = 0.01; curve = 0.014;
+    } else if (key === 'bg_campfire_mobile') {
+        // Le foyer est peint vers 70 % de la hauteur. Le joueur reste juste
+        // au-dessus, tandis que le hotspot et la lueur suivent le vrai feu.
+        base = role === 'player' ? 0.62 : 0.70;
+        slope = 0; curve = 0.01;
+    } else if (key.startsWith('bg_sand')) {
         // Les plages ont une diagonale de sable/eau : le sol jouable reste
         // surtout dans le tiers inférieur gauche.
         base = 0.83; slope = 0.10; curve = -0.035;
@@ -436,8 +468,11 @@ function drawBiomeDressing(ctx, w, h, tile) {
     drawGroundDetails(ctx, w, h, tile, rand);
     drawTreasureGlints(ctx, w, h, tile);
 
-    // Vagues et caustiques animées sur l'eau
-    drawAnimatedWaterWaves(ctx, w, h, biome);
+    // Le décor vertical de plage contient déjà son écume : la planche de
+    // vagues prévue pour les fonds 16:9 couvrirait le sable en portrait.
+    if (getSceneBackgroundKey(tile) !== 'bg_sand_mobile') {
+        drawAnimatedWaterWaves(ctx, w, h, biome);
+    }
 
     // Faune ambiante vivante en pixel art (oiseaux, poissons, crabes, papillons)
     const dt = 1 / 32;

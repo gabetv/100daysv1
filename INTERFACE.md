@@ -121,20 +121,33 @@ gestes ne se marchent pas dessus.
 ## 4. Planches pixel art — `scripts/generate_ui_sheets.js`
 
 ```bash
-npm run generate:ui      # icônes et cadres isolés
-npm run generate:sheets  # planches + assets/ui/sheets.json
-npm run generate:sprites # spritesheets de jeu
-npm run generate:assets  # les trois d'un coup
+npm run generate:ui         # cadres 9-slice et boussole
+npm run generate:sheets     # planches + assets/ui/sheets.json
+npm run generate:mobile-hud # jauges, actions et onglets mobiles groupés
+npm run generate:sprites    # spritesheets de jeu
+npm run generate:assets     # tous les assets procéduraux
 ```
 
 Tout passe par `scripts/lib/pixel-canvas.js` (aucune dépendance, encodeur PNG
-maison). Trois planches sont produites :
+maison). Quatre planches sont produites :
 
 | Planche | Grille | Lignes |
 | --- | --- | --- |
 | `sheet-timer.png` | 32×32, 8 colonnes | `hourglass`, `phase`, `dial`, `urgent` |
 | `sheet-interactions.png` | 32×32, 6 colonnes | `focus`, `alert`, `loot`, `danger`, `talk`, `build` |
 | `sheet-hud-icons.png` | 24×24, 8×2 | 16 icônes, de `sun` à `layout` |
+| `sheet-mobile-hud.png` | 48×48, 8×2 | 4 jauges + 4 actions, puis les 8 onglets mobiles |
+
+La planche mobile est générée par `scripts/generate_mobile_hud_sheet.js` et
+accompagnée de `assets/ui/mobile-hud.json`. Elle remplace seize petits fichiers
+par une seule requête ; `public/reference-ui.css` choisit chaque cellule avec
+`background-position`. La commande dédiée est `npm run generate:mobile-hud` et
+elle est incluse dans `npm run generate:assets`.
+
+Les six décors verticaux `mobile-{forest,plains,beach,wasteland,mine,campfire}-backdrop.png`
+couvrent les biomes mobiles principaux et le feu de camp. `draw.js` les choisit
+uniquement en portrait ; les illustrations 16:9 historiques restent utilisées
+sur ordinateur et pour les autres lieux spéciaux.
 
 Côté client, `public/js/ui/sheets.js` lit `UI_SHEETS` et offre
 `applySpriteFrame()` (sprite CSS), `applyHudIcon()` / `hydrateHudIcons()`

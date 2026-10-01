@@ -9,8 +9,9 @@
     "dev": "node server.js",
     "generate:ui": "node scripts/generate_ui_assets.js",
     "generate:sheets": "node scripts/generate_ui_sheets.js",
+    "generate:mobile-hud": "node scripts/generate_mobile_hud_sheet.js",
     "generate:sprites": "node scripts/generate_spritesheets.js",
-    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:sprites"
+    "generate:assets": "npm run generate:ui && npm run generate:sheets && npm run generate:mobile-hud && npm run generate:sprites"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

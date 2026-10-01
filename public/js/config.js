@@ -463,6 +463,14 @@ export const TREASURE_COMBAT_KIT = {
 export const SPRITESHEET_PATHS = {
     bg_forest_1: 'assets/bg_forest_1.png', bg_forest_2: 'assets/bg_forest_2.png', bg_forest_3: 'assets/bg_forest_3.png', bg_forest_4: 'assets/bg_forest_4.png',
     bg_plains_1: 'assets/bg_plains_1.png', bg_plains_2: 'assets/bg_plains_2.png', bg_plains_3: 'assets/bg_plains_3.png', bg_plains_4: 'assets/bg_plains_4.png',
+    // Six décors verticaux couvrent les biomes et lieux mobiles principaux ;
+    // les autres gardent leur illustration 16:9.
+    bg_forest_mobile: 'assets/ui/mobile-forest-backdrop.png',
+    bg_plains_mobile: 'assets/ui/mobile-plains-backdrop.png',
+    bg_sand_mobile: 'assets/ui/mobile-beach-backdrop.png',
+    bg_wasteland_mobile: 'assets/ui/mobile-wasteland-backdrop.png',
+    bg_stone_mobile: 'assets/ui/mobile-mine-backdrop.png',
+    bg_campfire_mobile: 'assets/ui/mobile-campfire-backdrop.png',
     bg_sand_1: 'assets/bg_sand_1.png', bg_sand_2: 'assets/bg_sand_2.png', bg_sand_3: 'assets/bg_sand_3.png', bg_sand_4: 'assets/bg_sand_4.png',
     bg_wasteland_1: 'assets/bg_wasteland_1.png', bg_wasteland_2: 'assets/bg_wasteland_2.png', bg_wasteland_3: 'assets/bg_wasteland_3.png', bg_wasteland_4: 'assets/bg_wasteland_4.png',
     bg_stone_1: 'assets/bg_stone_1.png',

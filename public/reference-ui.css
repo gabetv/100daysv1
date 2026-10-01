@@ -1,0 +1,465 @@
+/* =====================================================================
+   HABILLAGE « CARNET DE SURVIE »
+   Reprend la hiérarchie de la maquette mobile : bois, cuir, parchemin,
+   jauges en haut, actions à droite, carte de lieu et boussole en bas.
+   Chargé en dernier afin de rester une peau visuelle sans toucher au jeu.
+   ===================================================================== */
+
+:root {
+    --shell-ink: #2b1b18;
+    --shell-deep: #3b2924;
+    --shell-panel: #5b392d;
+    --shell-panel-2: #714936;
+    --shell-line: #b37a4f;
+    --shell-foam: #f1ddba;
+    --shell-gold: #e0b76f;
+    --shell-orange: #bd6d3e;
+    --shell-coral: #d44743;
+    --shell-green: #78a95b;
+    --shell-blue: #55b8db;
+    --survival-wood: #5b392d;
+    --survival-wood-dark: #2b1b18;
+    --survival-leather: #8c5237;
+    --survival-parchment: #e3c89c;
+    --survival-parchment-light: #f4dfb5;
+    --survival-stone: #827868;
+}
+
+body.game-screen {
+    background-color: #1e1716;
+    color: #f7e8ca;
+}
+
+/* La planche 8 × 2 remplace seize requêtes d'icônes. */
+body.game-screen .mobile-ui-icon {
+    --sprite-x: 0%;
+    --sprite-y: 0%;
+    width: 28px;
+    height: 28px;
+    display: block;
+    flex: 0 0 auto;
+    background-image: url('/assets/ui/sheet-mobile-hud.png');
+    background-repeat: no-repeat;
+    background-size: 800% 200%;
+    background-position: var(--sprite-x) var(--sprite-y);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+body.game-screen .icon-health,
+body.game-screen .icon-scene { --sprite-x: 0%; }
+body.game-screen .icon-thirst,
+body.game-screen .icon-actions { --sprite-x: 14.2857%; }
+body.game-screen .icon-hunger,
+body.game-screen .icon-quests { --sprite-x: 28.5714%; }
+body.game-screen .icon-sleep,
+body.game-screen .icon-inventory { --sprite-x: 42.8571%; }
+body.game-screen .icon-search,
+body.game-screen .icon-equipment { --sprite-x: 57.1429%; }
+body.game-screen .icon-build,
+body.game-screen .icon-status { --sprite-x: 71.4286%; }
+body.game-screen .icon-harvest,
+body.game-screen .icon-chat { --sprite-x: 85.7143%; }
+body.game-screen .icon-interact,
+body.game-screen .icon-map { --sprite-x: 100%; }
+body.game-screen .icon-scene,
+body.game-screen .icon-actions,
+body.game-screen .icon-quests,
+body.game-screen .icon-inventory,
+body.game-screen .icon-equipment,
+body.game-screen .icon-status,
+body.game-screen .icon-chat,
+body.game-screen .icon-map { --sprite-y: 100%; }
+
+/* Palette chaude commune aux panneaux desktop et aux feuilles mobiles. */
+body.game-screen .ui-panel,
+body.game-screen .bottom-bar-section {
+    background: var(--survival-wood) !important;
+}
+body.game-screen .ui-panel section {
+    border-color: rgba(244, 223, 181, .16);
+    background: rgba(43, 27, 24, .68);
+}
+body.game-screen .panel-identity small,
+body.game-screen #minimap-legend-mini,
+body.game-screen .context-meta { color: #d8bd92; }
+body.game-screen #right-panel-tabs {
+    border-color: #40261f;
+    background: #3d2722;
+}
+body.game-screen .tab-button {
+    border-color: #4a2e26;
+    background: linear-gradient(#76503b, #513328);
+    color: #e0c6a0;
+}
+body.game-screen .tab-button.active {
+    border-color: #e0b76f;
+    background: linear-gradient(#a96741, #75452f);
+    color: #fff0c9;
+}
+body.game-screen #actions-tab-content .action-button {
+    border-color: #c18c59;
+    background: linear-gradient(180deg, #8e5b3f, #68412f);
+}
+body.game-screen #central-actions-panel {
+    border: 9px solid transparent;
+    border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+    background: #573329;
+}
+body.game-screen .central-action-button {
+    border-color: #c9a16d;
+    background: linear-gradient(#f0d6aa, #c99e6d);
+    box-shadow: inset 0 0 0 2px #6f4734, 0 3px 0 #2b1b18;
+    color: #2b1b18;
+}
+body.game-screen .central-action-button.is-available {
+    border-color: #f0cd83;
+    background: linear-gradient(#f5dfb6, #d5aa76);
+}
+body.game-screen .central-action-button .mobile-ui-icon { width: 29px; height: 29px; }
+body.game-screen .quick-actions-kicker { color: #ffe0a0; }
+
+/* =====================================================================
+   MOBILE : composition fidèle à la référence, sans écran figé.
+   ===================================================================== */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    :root {
+        --tabbar-h: clamp(64px, 9.2dvh, 78px);
+        --dpad-unit: clamp(36px, 10.8vw, 46px);
+    }
+
+    body.game-screen #main-view-container {
+        background: #145b95;
+        box-shadow: inset 0 0 0 2px rgba(65, 39, 27, .58);
+    }
+    body.game-screen #main-view-container::before {
+        opacity: .08;
+        background-size: 4px 4px;
+    }
+    body.game-screen #main-view-container::after {
+        background:
+            linear-gradient(90deg, rgba(38, 24, 19, .2), transparent 12%, transparent 88%, rgba(38, 24, 19, .2)),
+            linear-gradient(0deg, rgba(21, 14, 13, .34), transparent 20%, transparent 80%, rgba(21, 14, 13, .08));
+    }
+
+    /* Jauges segmentées, alignées comme quatre cartouches d'inventaire. */
+    body.game-screen #mobile-vitals {
+        top: calc(6px + var(--safe-t));
+        right: max(7px, var(--safe-r));
+        left: max(7px, var(--safe-l));
+        gap: 4px;
+    }
+    body.game-screen .mobile-vital {
+        height: 39px;
+        grid-template-columns: 25px minmax(0, 1fr);
+        gap: 3px;
+        padding: 3px 4px 3px 2px;
+        border: 2px solid #35201b;
+        border-radius: 5px;
+        background: linear-gradient(#79503d, #51342b);
+        box-shadow:
+            inset 0 0 0 2px #bc8257,
+            inset 0 -3px 0 rgba(40, 23, 19, .55),
+            2px 3px 0 rgba(30, 18, 16, .72);
+    }
+    body.game-screen .mobile-vital .mobile-ui-icon {
+        width: 25px;
+        height: 25px;
+        filter: drop-shadow(1px 2px 0 rgba(32, 18, 17, .65));
+    }
+    body.game-screen .mobile-vital-track {
+        height: 17px;
+        gap: 1px;
+        padding: 2px;
+        border: 2px solid #2b1b18;
+        background: #38251f;
+        box-shadow: inset 0 0 0 1px #9d6a4b;
+    }
+    body.game-screen .mobile-vital-track .stat-square {
+        background-color: #4a342c;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    body.game-screen .mobile-vital[data-vital="health"] { --vital-color: #df4d4d; }
+    body.game-screen .mobile-vital[data-vital="thirst"] { --vital-color: #55bde2; }
+    body.game-screen .mobile-vital[data-vital="hunger"] { --vital-color: #dfa04e; }
+    body.game-screen .mobile-vital[data-vital="sleep"] { --vital-color: #e4d46f; }
+
+    /* Carte Jour / phase : parchemin clair et texte sombre. */
+    body.game-screen #game-info-hud {
+        top: calc(52px + var(--safe-t));
+        left: max(8px, var(--safe-l));
+        width: min(43vw, 230px);
+        padding: 9px 10px 8px;
+        gap: 3px;
+        border: 9px solid transparent;
+        border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+        border-radius: 0;
+        background: var(--survival-parchment) !important;
+        box-shadow: 3px 4px 0 rgba(38, 23, 20, .65);
+        color: #34231f;
+    }
+    body.game-screen #game-info-hud .day-timer { gap: 4px; }
+    body.game-screen #game-info-hud p,
+    body.game-screen #day-display,
+    body.game-screen #day-timer-countdown,
+    body.game-screen #day-timer-eta,
+    body.game-screen #daytime-display { color: #34231f; text-shadow: none; }
+    body.game-screen #day-display {
+        justify-content: space-between;
+        gap: 5px;
+        font-size: clamp(.43rem, 1.7vw, .55rem);
+    }
+    body.game-screen #day-timer-countdown { font-size: clamp(.56rem, 2.2vw, .72rem); }
+    body.game-screen .day-timer-caption { color: #73513c; font-size: .43rem; }
+    body.game-screen #daytime-display { font-size: .56rem; font-weight: 800; }
+    body.game-screen #day-timer-eta { color: #74513d; font-size: .46rem; }
+    body.game-screen .day-timer-track {
+        border-color: #4f3128;
+        background: #6a4737;
+    }
+    body.game-screen #admin-open-btn {
+        min-height: 32px;
+        margin-top: 3px;
+        border: 2px solid #59372b;
+        border-radius: 3px;
+        background: linear-gradient(#a8633e, #76462f);
+        box-shadow: inset 0 0 0 2px #d59a63, 0 3px 0 #38231e;
+        color: #fff0cf;
+        font-family: var(--pixel-font);
+        font-size: .43rem;
+    }
+    body.game-screen #sound-toggle {
+        border-color: #6b4937;
+        border-radius: 2px;
+        color: #34231f;
+    }
+
+    /* Panneau 2 × 2 des actions, au même niveau que la carte Jour. */
+    body.game-screen #central-actions-panel {
+        top: calc(52px + var(--safe-t));
+        right: max(7px, var(--safe-r));
+        width: min(41vw, 210px);
+        padding: 8px;
+        gap: 5px;
+        border-width: 9px;
+        background: #5b372c;
+        box-shadow: 3px 4px 0 rgba(38, 23, 20, .7);
+    }
+    body.game-screen .quick-actions-kicker {
+        display: block;
+        margin: -4px -2px 1px;
+        padding: 4px 3px;
+        border: 1px solid #4b2d25;
+        background: linear-gradient(#aa633e, #7b4530);
+        color: #ffe2ad;
+        font-size: clamp(.34rem, 1.35vw, .43rem);
+        text-shadow: 1px 1px 0 #3a211c;
+    }
+    body.game-screen .quick-actions-grid { gap: 5px; }
+    body.game-screen .central-action-button,
+    body.game-screen .central-action-button.is-available {
+        width: 100%;
+        height: clamp(53px, 8.4dvh, 66px);
+        min-width: 0;
+        padding: 4px 2px 3px;
+        gap: 1px;
+        border: 2px solid #40271f;
+        border-radius: 5px;
+        background: linear-gradient(#efd4a6, #c99e70);
+        box-shadow: inset 0 0 0 2px #81583e, 0 3px 0 #2b1b18;
+        color: #30211d;
+    }
+    body.game-screen .central-action-button .mobile-ui-icon { width: 29px; height: 29px; }
+    body.game-screen .central-action-label {
+        display: block;
+        color: #30211d;
+        font-family: "Poppins", sans-serif;
+        font-size: clamp(.54rem, 2.2vw, .7rem);
+        font-weight: 800;
+        line-height: 1.05;
+        text-shadow: 0 1px 0 rgba(255,255,255,.38);
+    }
+    body.game-screen .central-action-button.is-unavailable { opacity: .48; }
+
+    /* Carte du biome : plus proche du parchemin de la référence. */
+    body.game-screen #tile-info-hud {
+        bottom: calc(78px + var(--safe-b));
+        left: max(9px, var(--safe-l));
+        width: min(49vw, 280px);
+        min-height: 72px;
+        padding: 10px 11px;
+        border: 9px solid transparent;
+        border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+        border-radius: 0;
+        background: var(--survival-parchment) !important;
+        box-shadow: 3px 4px 0 rgba(38, 23, 20, .68);
+        color: #32221f;
+    }
+    body.game-screen #tile-info-hud h3 {
+        color: #33231f;
+        font-family: "Poppins", sans-serif;
+        font-size: clamp(.75rem, 3.2vw, 1rem);
+        font-weight: 800;
+        text-shadow: 0 1px 0 #fff0ce;
+    }
+    body.game-screen #tile-info-hud .tile-name-icon { font-size: 1.35rem; }
+    body.game-screen #tile-info-hud .context-meta {
+        justify-content: space-between;
+        gap: 5px;
+        color: #5e4438;
+        font-size: clamp(.5rem, 2vw, .66rem);
+        font-weight: 700;
+    }
+
+    /* Plaque en pierre sous les neuf cases du pavé directionnel. */
+    body.game-screen #navigation-edge-panel::before {
+        content: '';
+        position: absolute;
+        z-index: 10000;
+        right: calc(var(--dpad-r) - 5px);
+        bottom: calc(var(--dpad-b) - 5px);
+        width: calc(var(--dpad-unit) + var(--dpad-unit) + var(--dpad-unit) + 10px);
+        height: calc(var(--dpad-unit) + var(--dpad-unit) + var(--dpad-unit) + 10px);
+        border: 3px solid #352822;
+        border-radius: 9px;
+        background:
+            linear-gradient(135deg, transparent 7px, #8d8373 8px) top left,
+            linear-gradient(225deg, transparent 7px, #8d8373 8px) top right,
+            linear-gradient(315deg, transparent 7px, #8d8373 8px) bottom right,
+            linear-gradient(45deg, transparent 7px, #8d8373 8px) bottom left;
+        background-size: 51% 51%;
+        background-repeat: no-repeat;
+        box-shadow: inset 0 0 0 3px #b9aa8f, inset 0 0 0 6px #655d53, 3px 5px 0 rgba(39, 24, 21, .65);
+        pointer-events: none;
+    }
+    body.game-screen #navigation-edge-panel::after {
+        z-index: 10004;
+        border: 3px solid #3d2922;
+        border-radius: 50%;
+        background: #594234 url('/assets/ui/compass.png') center / 96% no-repeat;
+        box-shadow: 0 0 0 3px #c7ad7a, 0 0 0 6px #4a352d, 2px 3px 0 rgba(29, 18, 16, .72);
+    }
+    body.game-screen .nav-button-overlay {
+        z-index: 10003;
+        border: 2px solid #43342c;
+        border-radius: 7px;
+        background: linear-gradient(#aaa08e, #777064);
+        box-shadow: inset 0 0 0 2px #cfc2aa, inset 0 -3px 0 #5c554d;
+        color: #f8e1af;
+        font-size: clamp(1rem, 4.5vw, 1.3rem);
+        font-weight: 900;
+        text-shadow: 2px 2px 0 #4b372b;
+    }
+    body.game-screen .nav-button-overlay:active:not(:disabled) {
+        background: linear-gradient(#786e61, #a69a87);
+        box-shadow: inset 0 3px 0 #595148;
+    }
+    body.game-screen.compact-dpad #nav-nw,
+    body.game-screen.compact-dpad #nav-ne,
+    body.game-screen.compact-dpad #nav-sw,
+    body.game-screen.compact-dpad #nav-se { display: flex !important; }
+
+    /* Gros bouton d'action orange à portée du pouce gauche. */
+    body.game-screen #screen-interaction-button {
+        left: max(12px, var(--safe-l));
+        bottom: calc(14px + var(--safe-b));
+        width: 64px;
+        min-width: 64px;
+        height: 64px;
+        min-height: 64px;
+        border-width: 10px;
+        box-shadow: 3px 5px 0 rgba(37, 22, 19, .72);
+    }
+    body.game-screen #screen-interaction-button .screen-action-icon { width: 34px; height: 34px; }
+
+    /* Barre de navigation façon tablette en bois. */
+    body.game-screen #mobile-tabbar {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        height: calc(var(--tabbar-h) + var(--safe-b));
+        padding: 5px max(3px, var(--safe-r)) calc(4px + var(--safe-b)) max(3px, var(--safe-l));
+        border-top: 3px solid #2e1d19;
+        background:
+            linear-gradient(180deg, #9b6848 0 5px, #6c4434 5px 100%);
+        box-shadow: inset 0 3px 0 #d1a06a, 0 -4px 0 rgba(43, 27, 24, .72);
+    }
+    body.game-screen .mobile-tab {
+        gap: 0;
+        padding: 1px 0 0;
+        border-right: 1px solid rgba(48, 28, 23, .58);
+        background: linear-gradient(180deg, rgba(246, 216, 167, .12), rgba(55, 32, 27, .16));
+        color: #f2dbb7;
+        font-family: "Poppins", sans-serif;
+        font-size: clamp(.49rem, 2vw, .66rem);
+        font-weight: 800;
+        line-height: 1.05;
+        text-shadow: 1px 2px 0 #38231e;
+    }
+    body.game-screen .mobile-tab .mt-icon { height: 37px; }
+    body.game-screen .mobile-tab .mobile-ui-icon {
+        width: 35px;
+        height: 35px;
+        filter: drop-shadow(1px 2px 0 rgba(39, 23, 20, .66));
+    }
+    body.game-screen .mobile-tab .mt-label {
+        display: block;
+        overflow: visible;
+        text-overflow: clip;
+    }
+    body.game-screen .mobile-tab.active {
+        color: #fff2c9;
+        background: linear-gradient(#bc7547, #7b4934);
+        box-shadow: inset 0 0 0 2px rgba(244, 194, 113, .45);
+    }
+    body.game-screen .mobile-tab.active::before {
+        top: -3px;
+        right: 10%;
+        left: 10%;
+        height: 4px;
+        background: #f4ca76;
+        box-shadow: 0 2px 0 #68422f;
+    }
+
+    /* Tiroirs : la structure reste identique, seule la peau change. */
+    body.game-screen #left-panel,
+    body.game-screen #right-panel,
+    body.game-screen #bottom-bar-chat-panel,
+    body.game-screen #minimap-section,
+    body.game-screen #bottom-bar-equipment-panel {
+        border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+        background: #5a382d !important;
+        color: #f6e4c5;
+    }
+    body.game-screen #left-panel::before,
+    body.game-screen #right-panel::before,
+    body.game-screen #bottom-bar-chat-panel::before,
+    body.game-screen #minimap-section::before,
+    body.game-screen #bottom-bar-equipment-panel::before {
+        border-color: #4a2d25;
+        background: #d6b579;
+        box-shadow: 5px 0 0 #8e573a, -5px 0 0 #8e573a;
+    }
+    body.game-screen #mobile-sheet-backdrop { background: rgba(35, 22, 19, .72); }
+    body.game-screen #quests-tab #objectives-hud { background: #684332; }
+}
+
+/* Les très petits écrans gardent les libellés d'action, en deux lignes. */
+@media (max-width: 360px) {
+    body.game-screen .central-action-label {
+        display: block;
+        font-size: .52rem;
+        white-space: normal;
+    }
+    body.game-screen .central-action-button .mobile-ui-icon { width: 25px; height: 25px; }
+    body.game-screen .mobile-tab { font-size: .47rem; }
+    body.game-screen .mobile-tab .mobile-ui-icon { width: 31px; height: 31px; }
+}
+
+@media (max-height: 620px) and (orientation: portrait) {
+    body.game-screen #game-info-hud,
+    body.game-screen #central-actions-panel { top: calc(48px + var(--safe-t)); }
+    body.game-screen #game-info-hud { max-height: 176px; overflow: hidden; }
+    body.game-screen .day-timer-caption,
+    body.game-screen #day-timer-eta { display: none; }
+    body.game-screen .central-action-button,
+    body.game-screen .central-action-button.is-available { height: 49px; }
+    body.game-screen #tile-info-hud { min-height: 62px; padding-top: 7px; padding-bottom: 7px; }
+}
