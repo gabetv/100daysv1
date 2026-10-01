@@ -426,11 +426,16 @@ export function updateActionsPanel(gameState) {
     const summaryLabel = document.createElement('span');
     summaryLabel.className = 'actions-summary-label';
     summaryLabel.textContent = actions.length ? `${actions.length} choix possibles` : 'AUCUNE ACTION IMMÉDIATE';
-    const summaryText = document.createElement('p');
-    summaryText.textContent = actions.length
-        ? 'Choisissez une action, puis adaptez votre plan aux ressources et aux dangers de cette case.'
-        : 'Déplacez-vous vers une nouvelle case ou revenez après un événement.';
-    summary.append(summaryLabel, summaryText);
+    summary.append(summaryLabel);
+    // Quand il y a des actions, la liste juste en dessous se suffit : la phrase
+    // « Choisissez une action… » se répétait à chaque case sans rien apprendre
+    // et poussait les vrais boutons vers le bas. On ne garde le texte que dans
+    // le cas où il dit quelque chose d'utile : quand il n'y a rien à faire ici.
+    if (!actions.length) {
+        const summaryText = document.createElement('p');
+        summaryText.textContent = 'Déplacez-vous vers une nouvelle case ou revenez après un événement.';
+        summary.appendChild(summaryText);
+    }
     actionsContainer.appendChild(summary);
 
     if (!player || actions.length === 0) {

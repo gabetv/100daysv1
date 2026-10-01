@@ -641,3 +641,146 @@ body.game-screen .mobile-tab .mt-icon { position: relative; }
         filter: saturate(.3) brightness(.78);
     }
 }
+
+/* =====================================================================
+   DÉSENCOMBREMENT DE LA SCÈNE (ordinateur)
+   ---------------------------------------------------------------------
+   La scène portait six surfaces flottantes superposées au décor : la carte
+   d'état, quatre jauges détachées en plein ciel, un dock « ACTIONS ICI »
+   encadré, la carte du lieu, et huit flèches éparpillées sur les quatre
+   bords. Deux de ces flèches tombaient littéralement sur les cartes (la
+   flèche Nord-Ouest sur la carte d'état, la Sud-Ouest sur « Vous êtes ici »,
+   dont elle tronquait le texte).
+
+   On ramène tout cela à trois objets, un par coin utile :
+     · en haut à gauche  : l'état du survivant (jour, phase, niveau) ;
+     · en bas à gauche   : le lieu où l'on se trouve ;
+     · en bas à droite   : le pavé directionnel.
+   Le ciel et le centre de l'image redeviennent du décor.
+   ===================================================================== */
+@media (min-width: 901px) {
+
+    /* --- 1. Les huit flèches se regroupent en un seul pavé ---------------
+       Éparpillées, elles occupaient les quatre bords et heurtaient les
+       cartes. Rassemblées en 3x3 sur leur plaque de bois, elles forment un
+       objet unique, reconnaissable, et identique à la version mobile : un
+       seul schéma mental pour les deux supports. */
+    body.game-screen #navigation-edge-panel {
+        --pad-key: 46px;
+        --pad-step: 50px;              /* touche + gouttière */
+        --pad-r: 20px;
+        --pad-b: 20px;
+    }
+    body.game-screen #nav-nw,
+    body.game-screen #nav-north,
+    body.game-screen #nav-ne,
+    body.game-screen #nav-west,
+    body.game-screen #nav-east,
+    body.game-screen #nav-sw,
+    body.game-screen #nav-south,
+    body.game-screen #nav-se {
+        /* Les anciennes règles plaçaient les flèches par `top`/`left` et
+           centraient les cardinales par `transform`. On repart de zéro :
+           sans ces remises à `auto`, `top: 15px` resterait prioritaire sur
+           le `bottom` qu'on pose ici. */
+        top: auto;
+        left: auto;
+        transform: none;
+        width: var(--pad-key);
+        height: var(--pad-key);
+    }
+    body.game-screen #nav-nw    { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-north { right: calc(var(--pad-r) + var(--pad-step));     bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-ne    { right: var(--pad-r);                             bottom: calc(var(--pad-b) + var(--pad-step) * 2); }
+    body.game-screen #nav-west  { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: calc(var(--pad-b) + var(--pad-step)); }
+    body.game-screen #nav-east  { right: var(--pad-r);                             bottom: calc(var(--pad-b) + var(--pad-step)); }
+    body.game-screen #nav-sw    { right: calc(var(--pad-r) + var(--pad-step) * 2); bottom: var(--pad-b); }
+    body.game-screen #nav-south { right: calc(var(--pad-r) + var(--pad-step));     bottom: var(--pad-b); }
+    body.game-screen #nav-se    { right: var(--pad-r);                             bottom: var(--pad-b); }
+
+    /* Plaque de bois derrière le pavé (9-slice). */
+    body.game-screen #navigation-edge-panel::before {
+        content: '';
+        position: absolute;
+        right: calc(var(--pad-r) - 9px);
+        bottom: calc(var(--pad-b) - 9px);
+        width: calc(var(--pad-step) * 2 + var(--pad-key) + 18px);
+        height: calc(var(--pad-step) * 2 + var(--pad-key) + 18px);
+        border: 12px solid transparent;
+        border-image: url('/assets/ui/dpad-plate.png') 18 fill stretch;
+        image-rendering: pixelated;
+        pointer-events: none;
+        z-index: 10002;
+    }
+    /* Boussole au centre du pavé : la case vide du 3x3 sert à quelque chose. */
+    body.game-screen #navigation-edge-panel::after {
+        content: '';
+        position: absolute;
+        right: calc(var(--pad-r) + var(--pad-step));
+        bottom: calc(var(--pad-b) + var(--pad-step));
+        width: var(--pad-key);
+        height: var(--pad-key);
+        background: url('/assets/ui/compass.png') center / 68% auto no-repeat;
+        image-rendering: pixelated;
+        opacity: .7;
+        pointer-events: none;
+        z-index: 10003;
+    }
+
+    /* --- 2. Les jauges rejoignent le bord haut --------------------------
+       Elles flottaient au milieu du ciel parce que la flèche Nord occupait
+       le bord. Celle-ci est partie : les jauges remontent et s'alignent sur
+       la carte d'état. Une barre d'état en haut, plus rien dans l'image. */
+    html[data-shell='full'] body.game-screen.show-scene-vitals #mobile-vitals,
+    html[data-shell='compact'] body.game-screen.show-scene-vitals #mobile-vitals {
+        top: 12px;
+        left: 12px;
+        right: 14px;
+        width: auto;
+        max-width: none;
+        transform: none;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+    }
+    /* La carte d'état descend sous la bande : les deux ne se disputent plus
+       le coin, quelle que soit la largeur de la scène. Sans jauges affichées
+       (grand écran, panneau Statut visible), elle reprend sa place en haut. */
+    body.game-screen.show-scene-vitals #game-info-hud { top: 56px; }
+
+    /* --- 3. Le dock « ACTIONS ICI » disparaît quand la liste est déjà là --
+       Il affichait en icônes les mêmes actions que le panneau de droite,
+       visible en permanence : deux fois la même chose, dont une encadrée
+       au milieu du ciel. On ne le garde qu'en mode Focus, le seul cas où
+       le panneau de droite est masqué. */
+    body.game-screen #central-actions-panel { display: none; }
+    body.game-screen.focus-scene #central-actions-panel { display: block; }
+
+    /* --- 4. La carte d'état perd ce qui est écrit ailleurs ---------------
+       « Position » figurait trois fois à l'écran (ici, sur la carte du lieu
+       en bas à gauche, et dans l'en-tête de la minicarte). Le rappel clavier
+       est déjà donné par le tutoriel. Le bouton de test passe en pastille
+       au lieu d'un bandeau pleine largeur au milieu des informations. */
+    body.game-screen #position-display-nav { display: none; }
+    body.game-screen #controls-hint {
+        margin-top: 2px;
+        font-size: .54rem;
+        opacity: .62;
+    }
+    body.game-screen #time-display {
+        display: inline-block;
+        margin-right: 8px;
+        font-size: .62rem;
+        opacity: .8;
+    }
+    body.game-screen #admin-open-btn {
+        width: auto;
+        min-height: 0;
+        margin-top: 4px;
+        padding: 4px 8px;
+        font-size: .46rem;
+    }
+    body.game-screen #game-info-hud {
+        max-width: 212px;
+        padding: 8px 10px;
+    }
+}
