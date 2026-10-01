@@ -2594,7 +2594,7 @@ export function drawSceneCharacters(gameState) {
             resources.push({ icon: '🦊', count: currentTile.huntActionsLeft || 0, label: 'Chasse' });
             resources.push({ icon: '🔍', count: currentTile.searchActionsLeft || 0, label: 'Fouille' });
         } else if (currentTile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
-            resources.push({ icon: '⛰️', count: currentTile.harvestsLeft || 0, label: 'Pierre' });
+            resources.push({ icon: '⛰️', count: (typeof currentTile.harvests === 'number' ? currentTile.harvests : currentTile.harvestsLeft) || 0, label: 'Pierre' });
         } else if (currentTile.type.name === TILE_TYPES.PLAGE.name && currentTile.actionsLeft) {
             resources.push({ icon: '🔍', count: currentTile.actionsLeft.search_zone || 0, label: 'Fouilles' });
             resources.push({ icon: '🏖️', count: currentTile.actionsLeft.harvest_sand || 0, label: 'Sable' });
@@ -2661,6 +2661,93 @@ export function drawSceneCharacters(gameState) {
 
 const minimapTrail = [];
 let lastTrailKey = '';
+let minimapInteractionsReady = false;
+let minimapTooltipEl = null;
+let minimapLastCell = 8;
+
+/**
+ * Rend la mini-carte interactive : survol = infobulle sur la case,
+ * clic = ouverture de la grande carte.
+ */
+function setupMinimapInteractions(canvas) {
+    if (minimapInteractionsReady || !canvas) return;
+    minimapInteractionsReady = true;
+
+    const container = canvas.parentElement;
+    if (container) {
+        minimapTooltipEl = document.createElement('div');
+        minimapTooltipEl.id = 'minimap-tooltip';
+        minimapTooltipEl.setAttribute('aria-hidden', 'true');
+        container.appendChild(minimapTooltipEl);
+    }
+    canvas.style.cursor = 'pointer';
+
+    const tileFromEvent = (e) => {
+        const gs = window.gameState;
+        if (!gs?.map || !gs.config) return null;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = (gs.config.MAP_WIDTH * minimapLastCell) / rect.width;
+        const scaleY = (gs.config.MAP_HEIGHT * minimapLastCell) / rect.height;
+        const x = Math.floor(((e.clientX - rect.left) * scaleX) / minimapLastCell);
+        const y = Math.floor(((e.clientY - rect.top) * scaleY) / minimapLastCell);
+        if (x < 0 || y < 0 || x >= gs.config.MAP_WIDTH || y >= gs.config.MAP_HEIGHT) return null;
+        return { x, y, tile: gs.map[y]?.[x], gs };
+    };
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!minimapTooltipEl) return;
+        const info = tileFromEvent(e);
+        if (!info || !info.tile) { minimapTooltipEl.classList.remove('visible'); return; }
+        const { x, y, tile, gs } = info;
+        const player = gs.player;
+        const known = hasRevealed(player?.visitedTiles, `${x},${y}`)
+            || hasRevealed(gs.globallyRevealedTiles, `${x},${y}`)
+            || tile.type?.name === 'Lagon';
+
+        let html;
+        if (!known) {
+            html = `<strong>Zone inexplorée</strong><span>(${x}, ${y})</span>`;
+        } else {
+            const lines = [`<strong>${tile.type?.icon || ''} ${tile.type?.name || '?'}</strong><span>(${x}, ${y})</span>`];
+            (tile.buildings || []).forEach(b => {
+                const def = TILE_TYPES[b.key];
+                if (def) lines.push(`<span>${def.icon || '🏗️'} ${def.name}${b.builtByNpc ? ` — bâti par ${b.ownerName || 'un PNJ'}` : ''}</span>`);
+            });
+            (gs.npcs || []).filter(n => n.x === x && n.y === y).forEach(n => {
+                lines.push(`<span style="color:${n.color}">● ${n.name}${n.activity ? ` — ${n.activity}` : ''}</span>`);
+            });
+            (gs.enemies || []).filter(en => en.x === x && en.y === y).forEach(en => {
+                lines.push(`<span class="mm-danger">⚠ ${en.name || 'Monstre'}</span>`);
+            });
+            Object.values(gs.players || {}).forEach(op => {
+                if (op.x === x && op.y === y && op.id !== player?.id) lines.push(`<span>🧍 ${op.username || 'Survivant'}</span>`);
+            });
+            if (player && player.x === x && player.y === y) lines.push('<span class="mm-you">★ Vous êtes ici</span>');
+            html = lines.join('');
+        }
+        minimapTooltipEl.innerHTML = html;
+        minimapTooltipEl.classList.add('visible');
+
+        // Positionner l'infobulle près du curseur, sans sortir du cadre
+        const contRect = canvas.parentElement.getBoundingClientRect();
+        let tx = e.clientX - contRect.left + 12;
+        let ty = e.clientY - contRect.top + 12;
+        const maxX = contRect.width - minimapTooltipEl.offsetWidth - 6;
+        const maxY = contRect.height - minimapTooltipEl.offsetHeight - 6;
+        minimapTooltipEl.style.left = `${Math.max(4, Math.min(tx, maxX))}px`;
+        minimapTooltipEl.style.top = `${Math.max(4, Math.min(ty, maxY))}px`;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        minimapTooltipEl?.classList.remove('visible');
+    });
+
+    canvas.addEventListener('click', () => {
+        if (window.gameState && window.UI?.showLargeMap) {
+            window.UI.showLargeMap(window.gameState);
+        }
+    });
+}
 
 function hasRevealed(collection, key) {
     if (!collection) return false;
@@ -2685,10 +2772,12 @@ export function drawMinimap(gameState, config) {
     if (!minimapCtx || !minimapCanvas) return;
 
     rememberMinimapStep(player);
+    setupMinimapInteractions(minimapCanvas);
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     // La mini-carte est légèrement plus lisible que la grille de config brute.
     const cell = Math.max(7, MINIMAP_DOT_SIZE || 8);
+    minimapLastCell = cell;
     const W = MAP_WIDTH * cell;
     const H = MAP_HEIGHT * cell;
     if (minimapCanvas.width !== Math.round(W * dpr) || minimapCanvas.height !== Math.round(H * dpr)) {
@@ -2776,14 +2865,71 @@ export function drawMinimap(gameState, config) {
                 ctx.fill();
             }
 
-            // Constructions : marqueur doré avec petite base sombre.
+            // Points d'intérêt naturels : mine et trésor repérés.
+            if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
+                // Petite montagne grise à sommet clair.
+                ctx.fillStyle = '#4b5563';
+                ctx.beginPath();
+                ctx.moveTo(px + cell * 0.5, py + cell * 0.18);
+                ctx.lineTo(px + cell * 0.85, py + cell * 0.80);
+                ctx.lineTo(px + cell * 0.15, py + cell * 0.80);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#e5e7eb';
+                ctx.beginPath();
+                ctx.moveTo(px + cell * 0.5, py + cell * 0.18);
+                ctx.lineTo(px + cell * 0.62, py + cell * 0.40);
+                ctx.lineTo(px + cell * 0.38, py + cell * 0.40);
+                ctx.closePath();
+                ctx.fill();
+            } else if (tile.type.name === TILE_TYPES.TREASURE_CHEST?.name) {
+                // Coffre doré scintillant.
+                const sparkle = 0.6 + 0.4 * Math.sin(Date.now() / 300 + x + y);
+                ctx.fillStyle = `rgba(255, 200, 60, ${0.75 + sparkle * 0.25})`;
+                ctx.fillRect(px + cell * 0.24, py + cell * 0.34, cell * 0.52, cell * 0.40);
+                ctx.fillStyle = '#7c4a12';
+                ctx.fillRect(px + cell * 0.24, py + cell * 0.48, cell * 0.52, Math.max(1, cell * 0.08));
+                ctx.strokeStyle = '#3f2606'; ctx.lineWidth = 1;
+                ctx.strokeRect(px + cell * 0.24, py + cell * 0.34, cell * 0.52, cell * 0.40);
+            }
+
+            // Constructions : marqueur dédié selon le type de bâtiment.
             if (tile.buildings && tile.buildings.length > 0) {
-                ctx.fillStyle = 'rgba(0,0,0,0.36)';
-                ctx.fillRect(px + cell * 0.31, py + cell * 0.31, cell * 0.38, cell * 0.38);
-                ctx.fillStyle = '#ffd479';
-                ctx.fillRect(px + cell * 0.36, py + cell * 0.27, cell * 0.28, cell * 0.46);
-                ctx.fillStyle = '#8b5b2e';
-                ctx.fillRect(px + cell * 0.42, py + cell * 0.50, cell * 0.16, cell * 0.23);
+                const bKey = tile.buildings[0].key;
+                const builtByNpc = tile.buildings[0].builtByNpc;
+                if (bKey === 'CAMPFIRE') {
+                    // Flamme orangée sur braises sombres.
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.fillRect(px + cell * 0.28, py + cell * 0.62, cell * 0.44, cell * 0.16);
+                    const flick = 0.75 + 0.25 * Math.sin(Date.now() / 160 + x * 3 + y);
+                    ctx.fillStyle = `rgba(255, ${Math.round(120 + 60 * flick)}, 40, 0.95)`;
+                    ctx.beginPath();
+                    ctx.moveTo(px + cell * 0.5, py + cell * (0.70 - 0.42 * flick));
+                    ctx.lineTo(px + cell * 0.68, py + cell * 0.68);
+                    ctx.lineTo(px + cell * 0.32, py + cell * 0.68);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (bKey === 'SHELTER_INDIVIDUAL' || bKey === 'SHELTER_COLLECTIVE' || bKey === 'FORTERESSE') {
+                    // Maisonnette : toit + murs.
+                    ctx.fillStyle = builtByNpc ? '#9cd0ff' : '#ffd479';
+                    ctx.beginPath();
+                    ctx.moveTo(px + cell * 0.5, py + cell * 0.2);
+                    ctx.lineTo(px + cell * 0.82, py + cell * 0.52);
+                    ctx.lineTo(px + cell * 0.18, py + cell * 0.52);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.fillStyle = builtByNpc ? '#5d87ab' : '#b8884a';
+                    ctx.fillRect(px + cell * 0.28, py + cell * 0.52, cell * 0.44, cell * 0.28);
+                } else {
+                    // Autres bâtiments : marqueur doré avec petite base sombre
+                    // (bleuté si c'est l'œuvre d'un PNJ).
+                    ctx.fillStyle = 'rgba(0,0,0,0.36)';
+                    ctx.fillRect(px + cell * 0.31, py + cell * 0.31, cell * 0.38, cell * 0.38);
+                    ctx.fillStyle = builtByNpc ? '#9cd0ff' : '#ffd479';
+                    ctx.fillRect(px + cell * 0.36, py + cell * 0.27, cell * 0.28, cell * 0.46);
+                    ctx.fillStyle = builtByNpc ? '#3e6b8f' : '#8b5b2e';
+                    ctx.fillRect(px + cell * 0.42, py + cell * 0.50, cell * 0.16, cell * 0.23);
+                }
             }
 
             // Ressources restantes : petite jauge en bas de case.
@@ -2793,7 +2939,7 @@ export function drawMinimap(gameState, config) {
             } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
                 totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
             } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
-                totalActions = tile.harvestsLeft || 0;
+                totalActions = (typeof tile.harvests === 'number' ? tile.harvests : tile.harvestsLeft) || 0;
             } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
                 const a = tile.actionsLeft;
                 totalActions = (a.search_zone || 0) + (a.harvest_sand || 0) + (a.fish || 0) + (a.harvest_salt_water || 0);
@@ -2858,11 +3004,41 @@ export function drawMinimap(gameState, config) {
         ctx.strokeStyle = '#5a351c'; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
-    // PNJ.
+    // PNJ : point coloré + visualisation de leur activité (IA).
     npcs.forEach(npc => {
         if (!isKnown(npc.x, npc.y)) return;
         const nx = (npc.x + 0.5) * cell;
         const ny = (npc.y + 0.5) * cell;
+
+        // Trajet de travail : pointillé discret vers la destination du PNJ.
+        if (npc.target && (npc.target.x !== npc.x || npc.target.y !== npc.y) && isKnown(npc.target.x, npc.target.y)) {
+            ctx.save();
+            ctx.strokeStyle = `${npc.color || '#60a5fa'}55`;
+            ctx.lineWidth = Math.max(1, cell * 0.1);
+            ctx.setLineDash([cell * 0.3, cell * 0.3]);
+            ctx.beginPath();
+            ctx.moveTo(nx, ny);
+            ctx.lineTo((npc.target.x + 0.5) * cell, (npc.target.y + 0.5) * cell);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Petit repère sur la destination.
+            ctx.fillStyle = `${npc.color || '#60a5fa'}66`;
+            ctx.beginPath();
+            ctx.arc((npc.target.x + 0.5) * cell, (npc.target.y + 0.5) * cell, cell * 0.16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Anneau « au travail » pulsant lorsqu'il récolte ou construit.
+        if (npc.goal === 'gather' || npc.goal === 'build' || npc.goal === 'stockpile') {
+            const workPulse = 0.5 + 0.5 * Math.sin(Date.now() / 260 + npc.x * 2 + npc.y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${0.25 + 0.4 * workPulse})`;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(nx, ny, cell * (0.38 + 0.14 * workPulse), 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
         ctx.fillStyle = npc.color || '#60a5fa';
         ctx.beginPath();
         ctx.arc(nx, ny, cell * 0.28, 0, Math.PI * 2);
@@ -2917,6 +3093,33 @@ export function drawMinimap(gameState, config) {
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle = '#2d1b12'; ctx.lineWidth = 1.2; ctx.stroke();
+
+    // Rose des vents : petit « N » dans le coin supérieur droit.
+    ctx.save();
+    const compassR = Math.max(6, cell * 0.9);
+    const compX = W - compassR - 4;
+    const compY = compassR + 4;
+    ctx.fillStyle = 'rgba(8, 20, 26, 0.55)';
+    ctx.beginPath();
+    ctx.arc(compX, compY, compassR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 241, 188, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#ffe28a';
+    ctx.beginPath();
+    ctx.moveTo(compX, compY - compassR * 0.62);
+    ctx.lineTo(compX + compassR * 0.3, compY + compassR * 0.3);
+    ctx.lineTo(compX, compY + compassR * 0.08);
+    ctx.lineTo(compX - compassR * 0.3, compY + compassR * 0.3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 241, 188, 0.9)';
+    ctx.font = `bold ${Math.max(5, compassR * 0.55)}px Poppins, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('N', compX, compY - compassR * 0.7 + 1);
+    ctx.restore();
 
     // Bordure interne et vignette pour détacher la carte de l'interface.
     ctx.strokeStyle = 'rgba(255, 241, 188, 0.28)';
@@ -3005,7 +3208,7 @@ export function drawLargeMap(gameState, config) {
             } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
                 totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
             } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
-                totalActions = tile.harvestsLeft || 0;
+                totalActions = (typeof tile.harvests === 'number' ? tile.harvests : tile.harvestsLeft) || 0;
             } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
                 totalActions = (tile.actionsLeft.search_zone || 0) + (tile.actionsLeft.harvest_sand || 0) + (tile.actionsLeft.fish || 0) + (tile.actionsLeft.harvest_salt_water || 0);
             } else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
