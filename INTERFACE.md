@@ -152,3 +152,83 @@ sur ordinateur et pour les autres lieux spéciaux.
 Côté client, `public/js/ui/sheets.js` lit `UI_SHEETS` et offre
 `applySpriteFrame()` (sprite CSS), `applyHudIcon()` / `hydrateHudIcons()`
 (attribut `data-hud-icon` dans le HTML) et `drawSheetFrame()` (canvas).
+
+---
+
+## 5. Résolution de la scène — `public/js/ui/resolution.js`
+
+Trois règles, une seule source de vérité. Le module ne dépend d'aucun autre
+fichier ; `effects.js` (redimensionnement), `render.js` (mesure) et `draw.js`
+(échelle des personnages) s'y réfèrent.
+
+### Mobile : résolution logique verrouillée
+
+Le petit côté de la scène vaut toujours **412 px logiques**, quel que soit le
+téléphone. Deux appareils de tailles différentes affichent exactement le même
+cadrage ; seule la finesse du rendu change :
+
+| Écran | Échelle d'appareil | Canvas (portrait 390×844) |
+| --- | --- | --- |
+| 1× (émulateur) | 1 | 412×891 |
+| 2× | 2 | 824×1782 |
+| 3× (iPhone Pro, Pixel) | 3 | 1236×2673 |
+
+Le canvas est ensuite étiré en CSS pour remplir l'écran. Le mode de mapping
+(`image-rendering`) est choisi dynamiquement : `pixelated` quand le canvas
+contient moins de pixels que l'écran physique (agrandissement net), `auto`
+sinon — un canvas verrouillé étant rarement à un facteur entier de l'écran.
+
+### PC : plein écran, plus de letterbox
+
+L'ancien format imposé 1408/768 laissait des bandes inutilisées dès que la
+fenêtre s'écartait du 16:9 (≈ 200 px perdus en hauteur sur un écran 16:9
+typique) et le rendu ignorait la densité de l'écran (flou en HiDPI). Désormais :
+
+- le conteneur de scène remplit **toute** la zone disponible (le plafond
+  `max-width/max-height` de `style.css` est retiré) ;
+- le rendu suit la densité de l'écran, jusqu'à **2×**, avec un budget de
+  **12,6 Mpx** pour rester fluide sur les très grandes dalles ;
+- ultra-large ou fenêtre haute : la scène s'étire réellement.
+
+### Cadrage « sol verrouillé » — `draw.js`
+
+Un fond carré (mine, feu de camp, abris, trésor, carrières : 1024×1024)
+recadré « cover » sur un écran large centre son horizon et perd sa ligne de sol
+sous le cadre. `sceneGroundProfile()` (ancres des personnages) et la table
+`SCENE_GROUND_LINE` (position du sol dans chaque illustration) permettent à
+`paintBackgroundImage()` de résoudre le recadrage pour que **le sol peint
+reste à la même hauteur à l'écran**, aligné avec les personnages, du 16:9 à
+l'ultra-large. Sur le format historique 1408/768, le calcul retombe à moins
+d'un pixel près sur l'ancien cadrage centré (vérifié par test).
+
+Les illustrations peintes profitent aussi d'un lissage adaptatif :
+`imageSmoothingEnabled` uniquement à l'agrandissement (rendu propre sur écran
+dense), pixels francs en réduction (grain pixel art conservé).
+
+### Qualité adaptative
+
+La boucle de rendu rapporte le coût réel de chaque image dessinée
+(`reportFrameCost`). Toutes les 80 images (~2,5 s à 32 fps) :
+
+- P90 > 34 ms → l'échelle de rendu baisse d'un cran (0,25), plancher 0,55 ;
+- moyenne < 13 ms pendant 3 fenêtres → elle remonte d'un cran.
+
+Un changement déclenche un redimensionnement immédiat du canvas. La taille
+**affichée** des personnages est indépendante de cette échelle :
+`characterScaleFor()` applique la formule historique
+(`clamp(hauteur/620, 0.75, 1.6)`) à la hauteur « équivalente » d'avant la
+refonte (pixels CSS sur PC, ≤ 2× sur mobile), puis la re-projette sur l'échelle
+réelle — même rendu qu'avant sur 1×, 2× et 3×.
+
+### Diagnostic
+
+`<html>` expose `data-scene-scale` (échelle de rendu) et `data-scene-locked`
+(`on` en mobile). La console affiche chaque changement :
+`[scene] 1236×2673 (échelle 3, résolution mobile verrouillée)`.
+
+### Tests
+
+`npm run test:resolution` (strate pure : verrou, budget, qualité adaptative,
+cadrage du sol, calibrage des personnages) et
+`node scripts/test-scene-shell.mjs` (exécute le vrai `resizeGameView` sur un
+mini-DOM : plein écran PC, verrou mobile, réaction à la qualité adaptative).
