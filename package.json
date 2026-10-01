@@ -16,8 +16,9 @@
     "generate:nav": "node scripts/generate_navigation_sheet.js",
     "harmonize:palette": "node scripts/harmonize_palette.mjs",
     "test:navigation": "node scripts/test-navigation.mjs",
-    "test": "npm run test:resolution && npm run test:navigation && npm run test:layout",
+    "test": "npm run test:resolution && npm run test:navigation && npm run test:layout && npm run test:item-actions",
     "test:layout": "node scripts/test-scene-layout.mjs",
+    "test:item-actions": "node scripts/test-item-actions.mjs",
     "test:combat": "node scripts/test-combat.mjs"
   },
   "dependencies": {

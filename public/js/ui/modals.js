@@ -6,6 +6,7 @@ import { sendAction } from '../main.js';
 import { sfx } from '../audio.js';
 import { itemIconHTML, tileIconHTML, ENEMY_IMAGES } from './icons.js';
 import { getWorkshopRecipes, maxCraftableAmount, countInInventory } from '../recipes.js';
+import { itemActionsHTML, slotUnequipButtonHTML, dispatchPlayerAction } from './item-actions.js';
 
 /** Vérifie un statut quel que soit son format (objet {Nom:{...}} ou tableau). */
 function hasStatus(player, statusName) {
@@ -14,56 +15,74 @@ function hasStatus(player, statusName) {
     return !!player.status[statusName];
 }
 
+const SLOT_LABELS = { head: 'Tête', weapon: 'Arme/Outil', shield: 'Bouclier', body: 'Habits', feet: 'Chaussures', bag: 'Sac' };
+
 let quantityConfirmCallback = null;
 let currentWorkshopRecipes = [];
 let lockConfirmCallback = null;
 let isSettingNewCode = false;
 
-function populateInventoryList(inventory, listElement, owner, searchTerm = '') {
+/**
+ * Construit une liste d'objets : une ligne par entrée d'inventaire.
+ *
+ * Les exemplaires uniques d'un même objet (deux Haches…) ne sont plus
+ * fusionnés sur une seule ligne : chacun garde sa clé, sa durabilité et
+ * ses boutons d'action rapide (✚ équiper, ⬇ poser au sol…).
+ */
+function populateInventoryList(inventory, listElement, owner, searchTerm = '', options = {}) {
     if (!listElement) return;
+    const context = options.context || 'storage';
+    // La liste peut scroller elle-même (modale Équipement) ou via son
+    // conteneur (modale Coffre) : on restaure la position de lecture.
+    const scroller = listElement.closest('.inventory-list-wrapper') || listElement;
+    const previousScroll = scroller.scrollTop;
+
     listElement.innerHTML = '';
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
-    const groupedItems = {};
+    const rows = [];
 
     for (const key in inventory) {
         const item = inventory[key];
         const isInstance = typeof item === 'object' && item.name;
         const itemName = isInstance ? item.name : key;
-
-        if (lowerCaseSearchTerm && !itemName.toLowerCase().includes(lowerCaseSearchTerm)) {
-            continue;
-        }
-        if (!groupedItems[itemName]) groupedItems[itemName] = [];
-        groupedItems[itemName].push({ key, value: item });
+        if (lowerCaseSearchTerm && !itemName.toLowerCase().includes(lowerCaseSearchTerm)) continue;
+        rows.push({ key, item, itemName, isInstance });
     }
 
-    if (Object.keys(groupedItems).length === 0) {
+    if (rows.length === 0) {
         listElement.innerHTML = `<li class="inventory-empty">${searchTerm.trim() !== '' ? '(Aucun résultat)' : '(Vide)'}</li>`;
         return;
     }
-    
-    Object.keys(groupedItems).sort().forEach(itemName => {
-        const itemsToRender = groupedItems[itemName];
-        const firstItem = itemsToRender[0].value;
-        const count = typeof firstItem === 'number' ? firstItem : 1;
+
+    rows.sort((a, b) => a.itemName.localeCompare(b.itemName, 'fr')).forEach(({ key, item, itemName, isInstance }) => {
+        const count = typeof item === 'number' ? item : 1;
         const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
-        
+
         const li = document.createElement('li');
-        li.className = 'inventory-item clickable';
+        li.className = `inventory-item clickable has-actions rarity-${itemDef.rarity || 'common'}`;
         li.draggable = true;
         li.dataset.itemName = itemName;
-        li.dataset.itemKey = itemsToRender[0].key;
+        li.dataset.itemKey = key;
         li.dataset.itemCount = count;
         li.dataset.owner = owner;
-        
+
         let displayName = itemName;
-        if(typeof firstItem === 'object' && firstItem.hasOwnProperty('currentDurability')) {
-            displayName += ` (${firstItem.currentDurability}/${firstItem.durability})`;
+        if (isInstance && typeof item.currentDurability === 'number') {
+            displayName += ` (${item.currentDurability}/${item.durability})`;
         }
-        li.innerHTML = `${itemIconHTML(itemName, itemDef.icon)}<span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
+        const slotChip = (context === 'equipment' && itemDef.slot)
+            ? `<span class="slot-chip">${SLOT_LABELS[itemDef.slot] || itemDef.slot}</span>`
+            : '';
+
+        li.innerHTML = `${itemIconHTML(itemName, itemDef.icon)}`
+            + `<span class="inventory-name">${displayName}</span>${slotChip}`
+            + `<span class="inventory-count">${count}</span>`
+            + itemActionsHTML({ owner, itemName, context });
         listElement.appendChild(li);
     });
+
+    scroller.scrollTop = previousScroll;
 }
 
 export function showInventoryModal(gameState) {
@@ -103,28 +122,45 @@ export function hideInventoryModal() {
 }
 
 export function showChestModal(gameState) {
+    if (!DOM.chestModal) return;
+    // Dévoiler la modale AVANT de la remplir : refreshChestModal ignore
+    // volontairement les appels quand la fenêtre est cachée.
+    DOM.chestModal.classList.remove('hidden');
+    refreshChestModal(gameState);
+}
+
+/**
+ * Recharge le contenu de la modale Coffre. Appelée à chaque état serveur
+ * tant qu'elle est ouverte : après un dépôt ou un retrait, les deux listes
+ * reflètent immédiatement la réalité — plus besoin de fermer puis rouvrir.
+ */
+export function refreshChestModal(gameState) {
+    if (!DOM.chestModal || DOM.chestModal.classList.contains('hidden')) return;
     if (!gameState || !gameState.player || !gameState.map) return;
     const { player, map } = gameState;
     const tile = map[player.y]?.[player.x];
-    if (!tile) return;
+    if (!tile) { hideChestModal(); return; }
 
     let buildingWithInventory = tile.buildings?.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
-    if (!buildingWithInventory) return;
+    if (!buildingWithInventory) { hideChestModal(); return; }
 
     let buildingDef = TILE_TYPES[buildingWithInventory.key];
     if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {};
     let currentBuildingInventory = buildingWithInventory.inventory;
     let currentBuildingMaxInventory = buildingDef.maxInventory || Infinity;
 
-    const { chestModal, chestPlayerInventoryEl, chestBuildingInventoryEl, chestPlayerCapacityEl, chestBuildingCapacityEl } = DOM;
+    const { chestPlayerInventoryEl, chestBuildingInventoryEl, chestPlayerCapacityEl, chestBuildingCapacityEl, chestTakeAllBtn } = DOM;
 
-    populateInventoryList(player.inventory, chestPlayerInventoryEl, 'player-inventory');
+    populateInventoryList(player.inventory, chestPlayerInventoryEl, 'player-inventory', '', { context: 'storage' });
     populateInventoryList(currentBuildingInventory, chestBuildingInventoryEl, 'building-inventory');
 
     if (chestPlayerCapacityEl) chestPlayerCapacityEl.textContent = `${Object.keys(player.inventory).length} / ${player.maxInventory}`;
     if (chestBuildingCapacityEl) chestBuildingCapacityEl.textContent = `${Object.keys(currentBuildingInventory).length} / ${currentBuildingMaxInventory === Infinity ? "∞" : currentBuildingMaxInventory}`;
+    if (chestTakeAllBtn) chestTakeAllBtn.disabled = Object.keys(currentBuildingInventory).length === 0;
+}
 
-    if (chestModal) chestModal.classList.remove('hidden');
+export function isChestModalOpen() {
+    return !!DOM.chestModal && !DOM.chestModal.classList.contains('hidden');
 }
 
 export function hideChestModal() {
@@ -133,12 +169,22 @@ export function hideChestModal() {
 
 export function setupChestModalListeners() {
     DOM.closeChestModalBtn?.addEventListener('click', hideChestModal);
+    // « Tout prendre » : vide le coffre dans le sac en une seule action.
+    DOM.chestTakeAllBtn?.addEventListener('click', () => {
+        dispatchPlayerAction(ACTIONS.TAKE_ALL_ITEMS, {});
+    });
 }
 
 /** Boutons de fermeture des modales d'inventaire et d'équipement. */
 export function setupMiscModalListeners() {
     DOM.closeInventoryModalBtn?.addEventListener('click', hideInventoryModal);
     DOM.closeEquipmentModalBtn?.addEventListener('click', hideEquipmentModal);
+
+    // Filtre du sac dans la modale Équipement : équipables seuls (défaut,
+    // pour équiper d'un clic) ou tout le sac. Le choix reste mémorisé
+    // pendant la partie.
+    DOM.equipmentFilterEquippableBtn?.addEventListener('click', () => setEquipmentListFilter('equippable'));
+    DOM.equipmentFilterAllBtn?.addEventListener('click', () => setEquipmentListFilter('all'));
 }
 
 /** Ferme la modale visible la plus prioritaire (touche Échap). Renvoie true si une modale a été fermée. */
@@ -158,6 +204,13 @@ export function closeTopModal() {
         const el = document.getElementById(id);
         if (el && !el.classList.contains('hidden')) { closeFn(); return true; }
     }
+    // Pas de modale ouverte : le menu contextuel des objets se ferme aussi
+    // avec Échap.
+    const contextMenu = document.getElementById('item-context-menu');
+    if (contextMenu && !contextMenu.classList.contains('hidden')) {
+        contextMenu.classList.add('hidden');
+        return true;
+    }
     return false;
 }
 
@@ -169,14 +222,57 @@ export function showEquipmentModal(gameState) {
 export function hideEquipmentModal() {
     if(DOM.equipmentModal) DOM.equipmentModal.classList.add('hidden');
 }
+
+// Filtre du sac dans la fiche Équipement : 'equippable' (défaut) ou 'all'.
+let equipmentListFilter = 'equippable';
+
+function setEquipmentListFilter(value) {
+    if (equipmentListFilter === value) return;
+    equipmentListFilter = value;
+    if (window.gameState?.player) updateEquipmentModal(window.gameState);
+}
+
+/** Les entrées d'inventaire portant un emplacement (tête, arme, habits…). */
+function equippableEntriesOnly(inventory) {
+    const result = {};
+    for (const key in inventory) {
+        const value = inventory[key];
+        const baseName = (typeof value === 'object' && value && value.name) ? value.name : key;
+        if (ITEM_TYPES[baseName]?.slot) result[key] = value;
+    }
+    return result;
+}
+
 export function updateEquipmentModal(gameState) {
     if (!gameState || !gameState.player) return;
     const { player } = gameState;
-    const { equipmentPlayerInventoryEl, equipmentPlayerCapacityEl, playerStatAttackEl, playerStatDefenseEl, equipmentSlotsEl } = DOM;
+    const { equipmentPlayerInventoryEl, equipmentPlayerCapacityEl, playerStatAttackEl, playerStatDefenseEl, equipmentSlotsEl,
+        equipmentFilterEquippableBtn, equipmentFilterAllBtn, equipmentFilterHintEl } = DOM;
 
-    if (equipmentPlayerInventoryEl) populateInventoryList(player.inventory, equipmentPlayerInventoryEl, 'player-inventory'); 
-    if (equipmentPlayerCapacityEl) equipmentPlayerCapacityEl.textContent = `${Object.keys(player.inventory).length} / ${player.maxInventory}`;
-    
+    // Reflet du filtre choisi sur les deux boutons et l'explication.
+    equipmentFilterEquippableBtn?.classList.toggle('active', equipmentListFilter !== 'all');
+    equipmentFilterAllBtn?.classList.toggle('active', equipmentListFilter === 'all');
+    equipmentFilterEquippableBtn?.setAttribute('aria-pressed', String(equipmentListFilter !== 'all'));
+    equipmentFilterAllBtn?.setAttribute('aria-pressed', String(equipmentListFilter === 'all'));
+    if (equipmentFilterHintEl) {
+        equipmentFilterHintEl.textContent = equipmentListFilter === 'all'
+            ? 'Tout le sac : ✚ équipe ou utilise, ⬇ pose au sol.'
+            : 'Seuls les objets équipables sont listés : ✚ les équipe en un clic.';
+    }
+
+    if (equipmentPlayerInventoryEl) {
+        const showAll = equipmentListFilter === 'all';
+        const inventory = showAll ? player.inventory : equippableEntriesOnly(player.inventory);
+        populateInventoryList(inventory, equipmentPlayerInventoryEl, 'player-inventory', '', { context: 'equipment' });
+
+        const equippableCount = Object.keys(equippableEntriesOnly(player.inventory)).length;
+        if (equipmentPlayerCapacityEl) {
+            equipmentPlayerCapacityEl.textContent = showAll
+                ? `${Object.keys(player.inventory).length} / ${player.maxInventory}`
+                : `${equippableCount} équipable${equippableCount > 1 ? 's' : ''} · ${Object.keys(player.inventory).length} / ${player.maxInventory}`;
+        }
+    }
+
     if (equipmentSlotsEl) {
         equipmentSlotsEl.querySelectorAll('.equipment-slot').forEach(slotEl => {
             const slotType = slotEl.dataset.slotType;
@@ -185,10 +281,12 @@ export function updateEquipmentModal(gameState) {
             if (equippedItem) {
                 const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
                 let displayName = equippedItem.name;
-                if (equippedItem.hasOwnProperty('currentDurability')) displayName += ` (${equippedItem.currentDurability}/${equippedItem.durability})`;
+                if (typeof equippedItem.currentDurability === 'number') displayName += ` (${equippedItem.currentDurability}/${equippedItem.durability})`;
                 
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'inventory-item';
+                // 'clickable' : un clic simple ouvre le menu contextuel
+                // (Déséquiper, Jeter…), comme pour les objets du sac.
+                itemDiv.className = 'inventory-item clickable';
                 itemDiv.draggable = true;
                 itemDiv.dataset.itemName = equippedItem.name;
                 itemDiv.dataset.itemKey = `${equippedItem.name}_equipped`;
@@ -196,6 +294,8 @@ export function updateEquipmentModal(gameState) {
                 itemDiv.dataset.slotType = slotType;
                 itemDiv.innerHTML = `${itemIconHTML(equippedItem.name, itemDef.icon)}<span class="inventory-name">${displayName}</span>`;
                 slotEl.appendChild(itemDiv);
+                // Bouton « déséquiper » direct, sans menu contextuel.
+                slotEl.insertAdjacentHTML('beforeend', slotUnequipButtonHTML(slotType));
             }
         });
     }

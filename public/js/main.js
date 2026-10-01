@@ -468,6 +468,9 @@ function setupEventListeners() {
         if (!window.gameState || !window.gameState.player) return;
         // Sur mobile, la feuille doit se refermer : la modale prend tout l'écran.
         if (UI.isMobileLayout && UI.isMobileLayout() && UI.closeMobileSheets) UI.closeMobileSheets();
+        // Le menu contextuel des objets (clic sur un objet équipé) ne doit
+        // pas rester ouvert par-dessus la modale.
+        document.getElementById('item-context-menu')?.classList.add('hidden');
         UI.showEquipmentModal(window.gameState);
     };
     // Le double-clic n'est pas fiable au doigt : un bouton explicite le remplace.

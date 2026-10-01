@@ -3,9 +3,16 @@
 import { ITEM_TYPES, ACTIONS } from './config.js';
 import DOM from './ui/dom.js';
 import { sendAction } from './main.js';
+import { runQuickAction, dispatchPlayerAction } from './ui/item-actions.js';
 
 let draggedItemData = null; // Pour stocker les infos de l'objet glissé
 let contextMenuItemData = null; // Pour stocker les infos de l'objet du menu contextuel
+
+// Les modales (coffre, équipement…) vivent hors de #game-container : les
+// écouteurs sont posés sur document pour couvrir à la fois les panneaux et
+// les fenêtres modales. Auparavant, glisser un objet dans le coffre ou faire
+// un clic droit dans la fiche Équipement ne faisait rien du tout.
+const INTERACTION_ROOT = document;
 
 // --- Fonctions du Menu Contextuel ---
 
@@ -15,7 +22,7 @@ let contextMenuItemData = null; // Pour stocker les infos de l'objet du menu con
  * @param {HTMLElement} itemElement - L'élément HTML de l'objet.
  */
 function showContextMenu(e, itemElement) {
-    e.preventDefault();
+    if (e.preventDefault) e.preventDefault();
 
     const { itemName, itemKey, slotType } = itemElement.dataset;
     const owner = itemElement.dataset.owner || '';
@@ -52,7 +59,7 @@ function showContextMenu(e, itemElement) {
         actionsContainer.appendChild(button);
         hasAction = true;
     }
-    
+
     // Action "Déséquiper"
     if (owner === 'equipment') {
         const button = document.createElement('button');
@@ -61,7 +68,7 @@ function showContextMenu(e, itemElement) {
         actionsContainer.appendChild(button);
         hasAction = true;
     }
-    
+
     // Action "Jeter"
     if (owner.includes('inventory')) {
         const button = document.createElement('button');
@@ -70,7 +77,7 @@ function showContextMenu(e, itemElement) {
         actionsContainer.appendChild(button);
         hasAction = true;
     }
-    
+
     // Action "Ramasser"
     if (owner === 'ground') {
         const button = document.createElement('button');
@@ -82,9 +89,14 @@ function showContextMenu(e, itemElement) {
 
 
     if (hasAction) {
-        // Positionner le menu
-        menu.style.left = `${e.clientX + 5}px`;
-        menu.style.top = `${e.clientY + 5}px`;
+        // Positionner le menu, sans sortir de l'écran
+        const margin = 8;
+        const menuWidth = 210;
+        const menuHeight = 240;
+        const left = Math.min(e.clientX + 5, window.innerWidth - menuWidth - margin);
+        const top = Math.min(e.clientY + 5, window.innerHeight - menuHeight - margin);
+        menu.style.left = `${Math.max(margin, left)}px`;
+        menu.style.top = `${Math.max(margin, top)}px`;
         menu.classList.remove('hidden');
     } else {
         hideContextMenu();
@@ -135,7 +147,7 @@ function handleDrop(e, dropZone) {
     const target = { ...dropZone.dataset };
 
     if (source.owner === target.owner && source.slotType === target.slotType) return;
-    
+
     const quantity = parseInt(source.itemCount, 10);
 
     // Gérer le drop multiple avec la touche Ctrl/Cmd
@@ -181,13 +193,33 @@ export function initInteractions() {
         });
     }
 
-    gameContainer.addEventListener('click', (e) => {
+    INTERACTION_ROOT.addEventListener('click', (e) => {
+        // 1. Boutons d'action rapide (✚ équiper, ⬇ poser au sol…) : un clic,
+        //    une action, sans ouvrir le menu contextuel.
+        const quickBtn = e.target.closest('[data-quick-action]');
+        if (quickBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideContextMenu();
+            runQuickAction(quickBtn, e);
+            return;
+        }
+
+        // 2. Clic simple sur une ligne d'objet : ouvrir le menu contextuel
+        //    (Équiper, Utiliser, Jeter…). Le clic droit et l'appui long
+        //    restent disponibles, mais ne sont plus obligatoires.
+        const itemElement = e.target.closest('.inventory-item.clickable');
+        if (itemElement) {
+            showContextMenu(e, itemElement);
+            return;
+        }
+
         if (!e.target.closest('#item-context-menu')) {
             hideContextMenu();
         }
     });
 
-    gameContainer.addEventListener('contextmenu', (e) => {
+    INTERACTION_ROOT.addEventListener('contextmenu', (e) => {
         const itemElement = e.target.closest('.inventory-item.clickable');
         if (itemElement) {
             showContextMenu(e, itemElement);
@@ -202,12 +234,18 @@ export function initInteractions() {
             const button = e.target.closest('button');
             if (button && button.dataset.action) {
                 if (contextMenuItemData) {
-                    sendAction(button.dataset.action, {
+                    // Ramassage : la clé d'entrée au sol prime sur le nom
+                    // (les outils posés gardent leur clé et leur durabilité).
+                    const payload = {
                         itemKey: contextMenuItemData.itemKey,
                         itemName: contextMenuItemData.itemName,
                         owner: contextMenuItemData.owner,
                         slot: contextMenuItemData.slotType
-                    });
+                    };
+                    if (contextMenuItemData.owner === 'ground') {
+                        payload.itemKey = contextMenuItemData.itemKey || contextMenuItemData.itemName;
+                    }
+                    dispatchPlayerAction(button.dataset.action, payload);
                 }
                 hideContextMenu();
             }
@@ -223,7 +261,7 @@ export function initInteractions() {
         longPressStart = null;
     };
 
-    gameContainer.addEventListener('touchstart', (e) => {
+    INTERACTION_ROOT.addEventListener('touchstart', (e) => {
         const itemElement = e.target.closest('.inventory-item.clickable');
         if (!itemElement || e.touches.length !== 1) return;
         const touch = e.touches[0];
@@ -239,37 +277,37 @@ export function initInteractions() {
         }, 420);
     }, { passive: true });
 
-    gameContainer.addEventListener('touchmove', (e) => {
+    INTERACTION_ROOT.addEventListener('touchmove', (e) => {
         if (!longPressStart || !e.touches[0]) return;
         const dx = e.touches[0].clientX - longPressStart.x;
         const dy = e.touches[0].clientY - longPressStart.y;
         if (Math.hypot(dx, dy) > 12) cancelLongPress();
     }, { passive: true });
 
-    gameContainer.addEventListener('touchend', cancelLongPress, { passive: true });
-    gameContainer.addEventListener('touchcancel', cancelLongPress, { passive: true });
+    INTERACTION_ROOT.addEventListener('touchend', cancelLongPress, { passive: true });
+    INTERACTION_ROOT.addEventListener('touchcancel', cancelLongPress, { passive: true });
 
-    gameContainer.addEventListener('dragstart', (e) => {
+    INTERACTION_ROOT.addEventListener('dragstart', (e) => {
         const itemElement = e.target.closest('.inventory-item[draggable="true"]');
         if (itemElement) handleDragStart(e, itemElement);
     });
 
-    gameContainer.addEventListener('dragend', (e) => {
+    INTERACTION_ROOT.addEventListener('dragend', (e) => {
         const itemElement = e.target.closest('.inventory-item[draggable="true"]');
         if (itemElement) handleDragEnd(itemElement);
     });
 
-    gameContainer.addEventListener('dragover', (e) => {
+    INTERACTION_ROOT.addEventListener('dragover', (e) => {
         const dropZone = e.target.closest('.droppable');
         if (dropZone) handleDragOver(e, dropZone);
     });
 
-    gameContainer.addEventListener('dragleave', (e) => {
+    INTERACTION_ROOT.addEventListener('dragleave', (e) => {
         const dropZone = e.target.closest('.droppable');
         if (dropZone) handleDragLeave(dropZone);
     });
 
-    gameContainer.addEventListener('drop', (e) => {
+    INTERACTION_ROOT.addEventListener('drop', (e) => {
         const dropZone = e.target.closest('.droppable');
         if (dropZone) handleDrop(e, dropZone);
     });
@@ -311,6 +349,14 @@ export function initInteractions() {
     }
     if (DOM.consumeHungerBtn) {
         DOM.consumeHungerBtn.addEventListener('click', () => findAndConsume('hunger'));
+    }
+
+    // Tout ramasser : vide la case courante de ses objets au sol en un clic.
+    const pickupAllBtn = document.getElementById('pickup-all-btn');
+    if (pickupAllBtn) {
+        pickupAllBtn.addEventListener('click', () => {
+            dispatchPlayerAction(ACTIONS.PICKUP_ALL_ITEMS, {});
+        });
     }
 
     // Enlarge map button

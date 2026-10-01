@@ -34,7 +34,7 @@
                     <div class="stat"><div class="stat-header"><span class="stat-icon"><img class="icon-img" src="assets/icons/moon.png" alt="Sommeil"></span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
                 </section>
                 <section id="bottom-bar-ground-items" class="droppable" data-owner="ground">
-                    <h3>Objets au sol</h3>
+                    <h3 class="panel-title-with-action">Objets au sol <button id="pickup-all-btn" class="panel-mini-btn" type="button" title="Ramasser tous les objets de la case" hidden>✚ Tout ramasser</button></h3>
                     <ul class="inventory-list ground-items-list">
                     </ul>
                 </section>
@@ -293,7 +293,7 @@
                     </div>
                 </div>
                 <div class="inventory-container">
-                    <h3>Coffre (<span id="chest-building-capacity">0 / 0</span>)</h3>
+                    <h3 class="panel-title-with-action">Coffre (<span id="chest-building-capacity">0 / 0</span>) <button id="chest-take-all-btn" class="panel-mini-btn" type="button" title="Prendre tout le contenu du coffre" disabled>✚ Tout prendre</button></h3>
                     <div class="inventory-list-wrapper">
                         <ul id="chest-building-inventory" class="inventory-list droppable" data-owner="building-inventory"></ul>
                     </div>
@@ -342,7 +342,14 @@
                     <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
-                    <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
+                    <div class="inventory-container-header">
+                        <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
+                        <div class="equipment-filter-toggle" role="group" aria-label="Filtre d'affichage du sac">
+                            <button id="equipment-filter-equippable" type="button" class="active" aria-pressed="true">Équipables</button>
+                            <button id="equipment-filter-all" type="button" aria-pressed="false">Tout le sac</button>
+                        </div>
+                    </div>
+                    <p id="equipment-filter-hint" class="equipment-filter-hint">Seuls les objets équipables sont listés : ✚ les équipe en un clic.</p>
                     <ul id="equipment-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
                 </div>
             </div>

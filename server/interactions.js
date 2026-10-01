@@ -30,6 +30,8 @@ const FREE_ACTIONS = new Set([
     ACTIONS.UNEQUIP_ITEM_CONTEXT,
     ACTIONS.DROP_ITEM_CONTEXT,
     ACTIONS.PICKUP_ITEM_CONTEXT,
+    ACTIONS.PICKUP_ALL_ITEMS,
+    ACTIONS.TAKE_ALL_ITEMS,
     // Le panneau de test ne doit pas vider les jauges avant d'appliquer son action.
     ACTIONS.ADMIN_GIVE_ALL,
     ACTIONS.ADMIN_GIVE_ALL_RESOURCES,
@@ -120,10 +122,25 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             if (data && data.slot) Player.unequipItem(player, data.slot);
             break;
         case ACTIONS.DROP_ITEM_CONTEXT:
-            if (data && data.itemKey) Player.dropItem(player, data.itemKey, 1);
+            // Poser au sol : la quantité vient du bouton (clic = toute la
+            // pile, Maj+clic = un seul). Le serveur borne toujours au réel.
+            if (data && data.itemKey) {
+                const qty = Math.max(1, Math.min(9999, parseInt(data.quantity, 10) || 1));
+                Player.dropItem(player, data.itemKey, qty);
+            }
             break;
         case ACTIONS.PICKUP_ITEM_CONTEXT:
-            if (data && data.itemName) Player.pickupItem(player, data.itemName, 1);
+            // itemKey désigne l'entrée au sol : nom de pile ou clé d'instance.
+            if (data && (data.itemKey || data.itemName)) {
+                const qty = Math.max(1, Math.min(9999, parseInt(data.quantity, 10) || 1));
+                Player.pickupItem(player, data.itemKey || data.itemName, qty);
+            }
+            break;
+        case ACTIONS.PICKUP_ALL_ITEMS:
+            Player.pickupAllItems(player);
+            break;
+        case ACTIONS.TAKE_ALL_ITEMS:
+            Player.takeAllItems(player);
             break;
         case ACTIONS.MOVE_ITEM:
             if (data) Player.moveItem(player, data);

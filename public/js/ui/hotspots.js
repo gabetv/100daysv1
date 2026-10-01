@@ -233,7 +233,9 @@ export function activateHotspot(spot) {
 
     // Objet au sol : ramassage direct, il n'existe pas d'action serveur dédiée.
     if (spot.type === 'loot' && spot.itemName) {
-        sendAction(ACTIONS.PICKUP_ITEM_CONTEXT, { itemName: spot.itemName });
+        // itemKey désigne l'entrée au sol : le nom pour une pile, la clé
+        // d'origine pour un outil posé (la durabilité est conservée).
+        sendAction(ACTIONS.PICKUP_ITEM_CONTEXT, { itemKey: spot.itemKey || spot.itemName, itemName: spot.itemName });
         return;
     }
 

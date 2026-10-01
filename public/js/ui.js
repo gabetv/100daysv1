@@ -71,6 +71,8 @@ export const setupMiscModalListeners = ModalsModule.setupMiscModalListeners;
 export const closeTopModal = ModalsModule.closeTopModal;
 export const hideChestModal = ModalsModule.hideChestModal;
 export const showChestModal = ModalsModule.showChestModal;
+export const refreshChestModal = ModalsModule.refreshChestModal;
+export const isChestModalOpen = ModalsModule.isChestModalOpen;
 
 
 // Depuis ./ui/panels.js
@@ -197,6 +199,11 @@ export function updateAllUI(gameState) {
     ModalsModule.refreshWorkshopAvailability(gameState);
     if (ModalsModule.isBuildModalOpen && ModalsModule.isBuildModalOpen()) {
         ModalsModule.populateBuildModal(gameState);
+    }
+    // Le coffre aussi : chaque dépôt ou retrait se voit immédiatement,
+    // sans fermer puis rouvrir la fenêtre.
+    if (ModalsModule.isChestModalOpen && ModalsModule.isChestModalOpen()) {
+        ModalsModule.refreshChestModal(gameState);
     }
 }
 

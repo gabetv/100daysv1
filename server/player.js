@@ -308,6 +308,11 @@ export function equipItem(player, itemKey) {
     }
 
     player.equipment[itemDef.slot] = itemToEquip;
+    // On retient la clé d'origine : au déséquipement, l'objet retrouvera sa
+    // place (et son usure) au lieu d'être recréé neuf.
+    if (typeof itemToEquip === 'object' && !itemToEquip.inventoryKey) {
+        itemToEquip.inventoryKey = itemKey;
+    }
     removeItemFromInventory(player, itemKey);
 
     player.notifications.push({ type: 'chat', message: `Vous avez équipé : ${itemName}.`, style: 'gain' });
@@ -318,7 +323,13 @@ export function unequipItem(player, slot) {
     if (!equippedItem) return;
 
     const itemName = equippedItem.name;
-    addItemToInventory(player, itemName, 1);
+    // L'instance équipée retourne telle quelle dans le sac : sa durabilité
+    // usée est conservée (aucune « réparation » par va-et-vient).
+    let restoreKey = typeof equippedItem === 'object' ? equippedItem.inventoryKey : null;
+    if (!restoreKey || player.inventory[restoreKey] !== undefined) {
+        restoreKey = `${itemName}_${Date.now()}_${Math.random()}`;
+    }
+    player.inventory[restoreKey] = equippedItem;
     player.equipment[slot] = null;
     player.notifications.push({ type: 'chat', message: `Vous avez déséquipé : ${itemName}.`, style: 'cost' });
 }
@@ -327,32 +338,118 @@ export function dropItem(player, itemKey, quantity = 1) {
     const item = player.inventory[itemKey];
     if (!item) return;
 
-    const itemName = typeof item === 'object' ? item.name : itemKey;
+    const isInstance = typeof item === 'object';
+    const itemName = isInstance ? item.name : itemKey;
     const tile = gameState.map[player.y][player.x];
     if (!tile.groundItems) tile.groundItems = {};
 
-    const amountToDrop = (typeof item === 'number') ? Math.min(quantity, item) : 1;
+    const amountToDrop = isInstance ? 1 : Math.min(quantity, item);
 
     if (removeItemFromInventory(player, itemKey, amountToDrop)) {
-        tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + amountToDrop;
-        player.notifications.push({ type: 'chat', message: `Vous avez jeté ${amountToDrop} ${itemName} au sol.`, style: 'system_info' });
+        if (isInstance) {
+            // Objet unique (outil, arme…) : posé au sol sous sa clé d'origine,
+            // il conserve sa durabilité — le ramasser ne le répare plus.
+            tile.groundItems[itemKey] = item;
+        } else {
+            tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + amountToDrop;
+        }
+        player.notifications.push({ type: 'chat', message: `Vous avez jeté ${amountToDrop > 1 ? amountToDrop + ' ' : ''}${itemName} au sol.`, style: 'system_info' });
     } else {
         player.notifications.push({ type: 'chat', message: `Impossible de jeter l'objet.`, style: 'system_error' });
     }
 }
 
-export function pickupItem(player, itemName, quantity = 1) {
+export function pickupItem(player, itemKey, quantity = 1) {
     const tile = gameState.map[player.y][player.x];
-    if (!tile.groundItems || !tile.groundItems[itemName]) return;
-    
-    const amountToPickup = Math.min(quantity, tile.groundItems[itemName]);
+    const entry = tile.groundItems && tile.groundItems[itemKey];
+    if (entry === undefined || entry === null) return;
 
-    if (addItemToInventory(player, itemName, amountToPickup)) {
-        tile.groundItems[itemName] -= amountToPickup;
-        if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
-        player.notifications.push({ type: 'chat', message: `Vous avez ramassé ${amountToPickup} ${itemName}.`, style: 'gain' });
+    // Objet unique posé au sol : l'instance reprend sa place dans le sac,
+    // durabilité comprise.
+    if (typeof entry === 'object' && entry.name) {
+        player.inventory[itemKey] = entry;
+        delete tile.groundItems[itemKey];
+        player.notifications.push({ type: 'chat', message: `Vous avez ramassé ${entry.name}.`, style: 'gain' });
+        return;
+    }
+
+    const amountToPickup = Math.min(quantity, entry);
+    if (amountToPickup <= 0) return;
+
+    if (addItemToInventory(player, itemKey, amountToPickup)) {
+        tile.groundItems[itemKey] -= amountToPickup;
+        if (tile.groundItems[itemKey] <= 0) delete tile.groundItems[itemKey];
+        player.notifications.push({ type: 'chat', message: `Vous avez ramassé ${amountToPickup} ${itemKey}.`, style: 'gain' });
     } else {
         player.notifications.push({ type: 'chat', message: `Inventaire plein ou erreur.`, style: 'system_error' });
+    }
+}
+
+/**
+ * Ramasse tous les objets posés sur la case courante en une seule action
+ * (bouton « Tout ramasser » du panneau Objets au sol).
+ */
+export function pickupAllItems(player) {
+    const tile = gameState.map[player.y][player.x];
+    const entries = Object.entries(tile.groundItems || {});
+    if (entries.length === 0) {
+        player.notifications.push({ type: 'chat', message: `Il n'y a rien à ramasser ici.`, style: 'system_warning' });
+        return;
+    }
+
+    let total = 0;
+    for (const [key, value] of entries) {
+        if (typeof value === 'object' && value.name) {
+            player.inventory[key] = value;
+            delete tile.groundItems[key];
+            total += 1;
+        } else if (Number(value) > 0) {
+            const amount = Number(value);
+            if (addItemToInventory(player, key, amount)) {
+                delete tile.groundItems[key];
+                total += amount;
+            }
+        }
+    }
+
+    if (total > 0) {
+        player.notifications.push({ type: 'chat', message: `🧺 Vous avez tout ramassé (${total} objet${total > 1 ? 's' : ''}).`, style: 'gain' });
+    }
+}
+
+/**
+ * Vide le coffre de la case courante dans le sac du joueur
+ * (bouton « Tout prendre » de la modale Coffre).
+ */
+export function takeAllItems(player) {
+    const tile = gameState.map[player.y][player.x];
+    const chest = (tile.buildings || []).find(b => TILE_TYPES[b.key]?.maxInventory);
+    if (!chest) return;
+    if (!chest.inventory) chest.inventory = {};
+
+    const entries = Object.entries(chest.inventory);
+    if (entries.length === 0) {
+        player.notifications.push({ type: 'chat', message: `Le coffre est déjà vide.`, style: 'system_info' });
+        return;
+    }
+
+    let total = 0;
+    for (const [key, value] of entries) {
+        if (typeof value === 'object' && value.name) {
+            player.inventory[key] = value;
+            delete chest.inventory[key];
+            total += 1;
+        } else {
+            const amount = Number(value) || 0;
+            if (amount > 0 && addItemToInventory(player, key, amount)) {
+                delete chest.inventory[key];
+                total += amount;
+            }
+        }
+    }
+
+    if (total > 0) {
+        player.notifications.push({ type: 'chat', message: `📦 Vous avez vidé le coffre (${total} objet${total > 1 ? 's' : ''}).`, style: 'gain' });
     }
 }
 
@@ -973,52 +1070,69 @@ export function sleep(player) {
 
 export function moveItem(player, data) {
     const { itemKey, quantity, source, target } = data;
+    // L'ancienne modale « Stockage Commun » parle encore de 'shared' :
+    // côté serveur, c'est le même coffre que 'building-inventory'.
+    const sourceOwner = source.owner === 'shared' ? 'building-inventory' : source.owner;
+    const targetOwner = target.owner === 'shared' ? 'building-inventory' : target.owner;
     const item = player.inventory[itemKey];
     const itemName = typeof item === 'object' ? item.name : itemKey;
 
     // This is a complex action. We'll handle a few cases.
     // Case 1: Inventory -> Equipment
-    if (source.owner === 'player-inventory' && target.owner === 'equipment') {
+    if (sourceOwner === 'player-inventory' && targetOwner === 'equipment') {
         equipItem(player, itemKey);
         return;
     }
     // Case 2: Equipment -> Inventory
-    if (source.owner === 'equipment' && target.owner === 'player-inventory') {
+    if (sourceOwner === 'equipment' && targetOwner === 'player-inventory') {
         unequipItem(player, source.slot);
         return;
     }
     // Case 3: Inventory -> Ground
-    if (source.owner === 'player-inventory' && target.owner === 'ground') {
+    if (sourceOwner === 'player-inventory' && targetOwner === 'ground') {
         dropItem(player, itemKey, quantity);
         return;
     }
     // Case 4: Ground -> Inventory
-    if (source.owner === 'ground' && target.owner === 'player-inventory') {
+    if (sourceOwner === 'ground' && targetOwner === 'player-inventory') {
         // Note: client sends itemName for ground items, not a key.
-        pickupItem(player, data.itemName, quantity);
+        pickupItem(player, data.itemName || itemKey, quantity);
         return;
     }
 
     // Case 5: Inventory -> Building
-    if (source.owner === 'player-inventory' && target.owner === 'building-inventory') {
+    if (sourceOwner === 'player-inventory' && targetOwner === 'building-inventory') {
         const tile = gameState.map[player.y][player.x];
         const building = tile.buildings[0];
         if (building && TILE_TYPES[building.key]?.maxInventory) {
             if (Object.keys(building.inventory).length < TILE_TYPES[building.key].maxInventory) {
-                if (removeItemFromInventory(player, itemKey, quantity)) {
+                if (typeof item === 'object') {
+                    // Objet unique : déposé tel quel (durabilité conservée)
+                    // plutôt que recompté comme une pile.
+                    if (removeItemFromInventory(player, itemKey, 1)) {
+                        building.inventory[itemKey] = item;
+                    }
+                } else if (removeItemFromInventory(player, itemKey, quantity)) {
                     building.inventory[itemKey] = (building.inventory[itemKey] || 0) + quantity;
                 }
+            } else {
+                player.notifications.push({ type: 'chat', message: `Le coffre est plein.`, style: 'system_warning' });
             }
         }
         return;
     }
 
     // Case 6: Building -> Inventory
-    if (source.owner === 'building-inventory' && target.owner === 'player-inventory') {
+    if (sourceOwner === 'building-inventory' && targetOwner === 'player-inventory') {
         const tile = gameState.map[player.y][player.x];
         const building = tile.buildings[0];
         if (building && building.inventory[itemKey]) {
-            if (addItemToInventory(player, itemName, quantity)) {
+            const stored = building.inventory[itemKey];
+            if (typeof stored === 'object' && stored.name) {
+                // Objet unique stocké : il revient dans le sac à l'identique.
+                player.inventory[itemKey] = stored;
+                delete building.inventory[itemKey];
+            } else if (addItemToInventory(player, itemName, quantity)) {
                 building.inventory[itemKey] -= quantity;
                 if (building.inventory[itemKey] <= 0) {
                     delete building.inventory[itemKey];
@@ -1027,8 +1141,6 @@ export function moveItem(player, data) {
         }
         return;
     }
-    
-    // TODO: Add cases for moving items to/from building inventories.
 
     player.notifications.push({ type: 'chat', message: `Déplacement d'objet non géré.`, style: 'system_warning' });
 }

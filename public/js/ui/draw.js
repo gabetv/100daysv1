@@ -1525,13 +1525,23 @@ export function drawCombatPlayerAvatar(canvas, player = {}, { defending = false,
 
 /** Dessine quelques objets laissés au sol pour relier l'inventaire au monde. */
 function drawGroundLoot(ctx, w, h, tile, scale) {
-    const entries = Object.entries(tile?.groundItems || {}).filter(([, amount]) => Number(amount) > 0).slice(0, 3);
+    // Les objets au sol sont soit des piles (nombre), soit des instances
+    // d'objets uniques (outil posé avec sa durabilité).
+    const entries = Object.entries(tile?.groundItems || {})
+        .map(([key, value]) => {
+            if (typeof value === 'object' && value && value.name) return { key, name: value.name, amount: 1 };
+            const amount = Number(value) || 0;
+            return amount > 0 ? { key, name: key, amount } : null;
+        })
+        .filter(Boolean)
+        .slice(0, 3);
     if (!entries.length) return;
 
     const positions = [0.24, 0.77, 0.14];
     const pulse = (Math.sin(Date.now() / 420) + 1) * 0.5;
 
-    entries.forEach(([name, amount], index) => {
+    entries.forEach((entry, index) => {
+        const { name, amount } = entry;
         const px = positions[index];
         const x = w * px;
         const size = Math.max(24, 34 * scale);
@@ -1543,14 +1553,15 @@ function drawGroundLoot(ctx, w, h, tile, scale) {
 
         // Ramassage au clic directement sur l'objet posé au sol.
         registerHotspot({
-            id: `loot:${name}`,
+            id: `loot:${entry.key}`,
             type: 'loot',
             itemName: name,
+            itemKey: entry.key,
             x,
             y: groundY - size * 0.45,
             w: size * 1.5,
             h: size * 1.6,
-            label: Number(amount) > 1 ? `${name} ×${amount}` : name,
+            label: amount > 1 ? `${name} ×${amount}` : name,
             hint: 'Ramasser',
             marker: 'loot',
             priority: 4,
