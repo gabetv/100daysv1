@@ -44,6 +44,17 @@ console.log('\n== Résolution : mobile verrouillé ==');
     // Échelle d'appareil plafonnée à 3.
     const res3 = computeSceneResolution({ cssWidth: 390, cssHeight: 844, dpr: 4, mobile: true });
     check('échelle d\'appareil plafonnée à 3', res3.width === Math.round(412 * 3) || res3.width <= 412 * 3 + 1, `obtenu ${res3.width}`);
+    // Coquille mobile forcée sur PC (réglage Auto / Mobile / PC du HUD) :
+    // le cadrage reste verrouillé à 412 logiques mais l'échelle de rendu
+    // grimpe pour remplir la grande zone affichée — sinon le jeu serait flou.
+    const forced = computeSceneResolution({ cssWidth: 1600, cssHeight: 833, dpr: 1, mobile: true });
+    const forcedShort = Math.min(forced.logicalWidth, forced.logicalHeight);
+    check('mobile forcé sur PC → petit côté logique toujours 412', forcedShort === 412, `obtenu ${forced.logicalWidth}×${forced.logicalHeight}`);
+    check('mobile forcé sur PC → échelle relevée pour couvrir la zone',
+        forced.renderScale >= 1.95 && forced.width >= 1550, `obtenu ${forced.width}×${forced.height} @${forced.renderScale}`);
+    // Rendez-vous des comportements inchangés : téléphone 1× reste à 1.
+    const oldPhone = computeSceneResolution({ cssWidth: 360, cssHeight: 640, dpr: 1, mobile: true });
+    check('téléphone 1× inchangé (échelle 1)', oldPhone.renderScale === 1, `obtenu ${oldPhone.renderScale}`);
 }
 
 console.log('\n== Résolution : PC plein écran ==');

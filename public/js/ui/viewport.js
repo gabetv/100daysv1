@@ -15,8 +15,11 @@
 // pour les très petites hauteurs ou simplement pour jouer en grand.
 
 import { setDayTimerScale } from './daytimer.js';
+import { isMobileActive, getLayoutMode, cycleLayoutMode, onLayoutModeChange } from './layout-mode.js';
+import { openTab as openMobileTab } from './mobile.js';
 
-const MOBILE_QUERY = '(max-width: 900px), (pointer: coarse) and (max-width: 1100px)';
+// La requête média mobile est définie une seule fois, dans layout-mode.js :
+// le réglage Auto / Mobile / PC prime toujours sur la détection d'écran.
 const COMPACT_MAX_WIDTH = 1180;
 const COMPACT_MAX_HEIGHT = 760;
 const STORAGE_KEY = 'shellPreferences';
@@ -57,7 +60,9 @@ function savePreferences() {
 }
 
 export function isMobileShell() {
-    return window.matchMedia(MOBILE_QUERY).matches;
+    // Le réglage d'affichage (Auto / Mobile / PC) prime sur la requête
+    // média : c'est lui qui décide si la version mobile s'affiche.
+    return isMobileActive();
 }
 
 /** Prévient la scène qu'elle doit se remesurer, une fois le layout stabilisé. */
@@ -278,6 +283,38 @@ function syncControls() {
     if (collapse) collapse.textContent = state.dockOpen ? '▾' : '▴';
 }
 
+/* ---------------------------------------------------------------------
+ * Bouton « Mode d'affichage » (Auto / Mobile / PC), logé dans le HUD à
+ * côté du son : visible dans les deux coquilles, donc toujours possible
+ * de revenir en arrière après avoir forcé la version mobile sur PC.
+ * ------------------------------------------------------------------- */
+
+const LAYOUT_TOGGLE_META = {
+    auto: {
+        text: 'Auto',
+        title: "Affichage automatique (selon l'écran) — cliquer pour afficher la version mobile",
+    },
+    mobile: {
+        text: 'Mobile',
+        title: 'Version mobile affichée partout — cliquer pour afficher la version PC',
+    },
+    pc: {
+        text: 'PC',
+        title: 'Version PC affichée partout — cliquer pour revenir à l\'affichage automatique',
+    },
+};
+
+function updateLayoutToggle() {
+    const btn = document.getElementById('layout-toggle');
+    if (!btn) return;
+    const meta = LAYOUT_TOGGLE_META[getLayoutMode()] || LAYOUT_TOGGLE_META.auto;
+    btn.dataset.mode = getLayoutMode();
+    btn.textContent = meta.text;
+    btn.title = meta.title;
+    btn.setAttribute('aria-label', meta.title);
+    btn.setAttribute('aria-pressed', String(getLayoutMode() !== 'auto'));
+}
+
 export function initViewport() {
     if (initialized) return;
     initialized = true;
@@ -287,7 +324,18 @@ export function initViewport() {
     document.getElementById('toggle-focus-btn')?.addEventListener('click', toggleFocus);
     document.getElementById('toggle-status-btn')?.addEventListener('click', toggleDrawer);
     document.getElementById('toggle-dock-btn')?.addEventListener('click', () => setDockOpen(!state.dockOpen));
+    document.getElementById('layout-toggle')?.addEventListener('click', cycleLayoutMode);
     document.getElementById('left-drawer-backdrop')?.addEventListener('click', () => setDrawerOpen(false));
+
+    // Changement de mode d'affichage : la coquille est recalculée, puis les
+    // feuilles mobiles et la scène se recalibrent sur l'événement resize.
+    onLayoutModeChange(() => {
+        updateLayoutToggle();
+        applyViewport();
+        openMobileTab('scene');
+        requestRelayout();
+    });
+    updateLayoutToggle();
 
     document.addEventListener('keydown', (event) => {
         if (event.ctrlKey || event.metaKey || event.altKey) return;

@@ -780,7 +780,7 @@ commandes au pouce et tiroirs
         min-width: 0;
         height: 31px;
         display: grid;
-        grid-template-columns: 19px minmax(0, 1fr);
+        grid-template-columns: 19px minmax(0, 1fr) auto;
         align-items: center;
         gap: 4px;
         padding: 3px 4px;
@@ -798,7 +798,17 @@ commandes au pouce et tiroirs
         background: #140c0a;
     }
     body.game-screen .mobile-vital-track i { display: block; width: 100%; height: 100%; background: var(--vital-color, var(--shell-green)); }
-    body.game-screen .mobile-vital b { display: none; }
+    /* La valeur chiffrée reste visible à côté des dix cases : l'information de
+       survie ne doit jamais être masquée. */
+    body.game-screen .mobile-vital b {
+        font-family: var(--pixel-font);
+        font-size: .5rem;
+        line-height: 1;
+        color: #fff0bc;
+        text-shadow: 1px 1px 0 #150c0a;
+        min-width: 2ch;
+        text-align: right;
+    }
     body.game-screen .mobile-vital[data-vital="health"] { --vital-color: #ea655b; }
     body.game-screen .mobile-vital[data-vital="thirst"] { --vital-color: #62c9e2; }
     body.game-screen .mobile-vital[data-vital="hunger"] { --vital-color: #e9a14c; }
@@ -829,12 +839,12 @@ commandes au pouce et tiroirs
     body.game-screen #game-info-hud p { margin: 0; }
     body.game-screen #day-display { gap: 3px; font-size: .43rem; line-height: 1.5; }
     body.game-screen #sound-toggle { margin-left: 0; padding: 0 3px; font-size: .73rem; }
-    body.game-screen #game-info-hud #event-display,
-    body.game-screen #game-info-hud #level-display,
-    body.game-screen #game-info-hud #time-display,
-    body.game-screen #game-info-hud #position-display-nav,
-    body.game-screen #game-info-hud #controls-hint,
-    body.game-screen #game-info-hud #xp-bar-container { display: none; }
+    body.game-screen #layout-toggle { margin-left: 0; padding: 1px 4px; font-size: .34rem; }
+    /* Toutes les informations du HUD restent affichées — niveau, barre d'XP,
+       survivants, position, événement. Seul l'indice de saisie (clavier /
+       glisser), sans valeur de jeu, reste masqué sur mobile. */
+    body.game-screen #game-info-hud #controls-hint { display: none; }
+    body.game-screen #game-info-hud #xp-bar-container { width: 100%; height: 6px; }
     body.game-screen #daytime-display { font-size: .56rem; }
 
     body.game-screen #objectives-hud {
@@ -859,8 +869,10 @@ commandes au pouce et tiroirs
         padding: 6px 7px;
         border-left: 3px solid var(--shell-gold);
     }
-    body.game-screen #tile-info-hud .context-kicker,
-    body.game-screen #tile-details-hud { display: none; }
+    /* La carte « Vous êtes ici » garde son titre, sa description (« la case
+       où se trouve le joueur »), son biome et sa position : tout s'affiche. */
+    body.game-screen #tile-info-hud .context-kicker { font-size: .38rem; }
+    body.game-screen #tile-details-hud { margin: 2px 0 0; font-size: .56rem; }
     body.game-screen #tile-info-hud h3 { margin: 0; font-size: .63rem; line-height: 1.35; }
     body.game-screen #tile-info-hud .tile-name-icon { font-size: .92rem; }
     body.game-screen #tile-info-hud .context-meta { margin-top: 3px; font-size: .48rem; }
@@ -1377,13 +1389,13 @@ même avec quatre jauges de front. */
     body.game-screen #mobile-vitals{ gap: 3px; }
 body.game-screen .mobile-vital{
         height: 34px;
-        grid-template-columns: 16px minmax(0, 1fr);
+        grid-template-columns: 16px minmax(0, 1fr) auto;
         gap: 3px;
         padding: 3px;
     }
 body.game-screen .mobile-vital img{ width: 16px; height: 16px; }
 body.game-screen .mobile-vital-track{ height: 14px; }
-body.game-screen .mobile-vital b{ display: none; }
+body.game-screen .mobile-vital b{ font-size: .44rem; }
 /* Dock d'actions : angle supérieur droit,
 sous les jauges. */
     body.game-screen #central-actions-panel{

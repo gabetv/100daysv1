@@ -21,9 +21,9 @@
 // Ce module ne dépend d'aucun autre : il est importé par la boucle de rendu
 // et par le redimensionnement de la scène sans risque de cycle.
 
-// Même requête que viewport.js / effects.js : la coquille mobile est déclarée
-// une seule fois pour tout le jeu.
-const MOBILE_QUERY = '(max-width: 900px), (pointer: coarse) and (max-width: 1100px)';
+// La coquille mobile est déclarée une seule fois pour tout le jeu :
+// layout-mode.js tient compte du réglage Auto / Mobile / PC du joueur.
+import { isMobileActive } from './layout-mode.js';
 
 /** Petit côté verrouillé de la scène mobile, en pixels logiques. */
 export const MOBILE_LOCK_SHORT_SIDE = 412;
@@ -46,7 +46,7 @@ const MIN_QUALITY = 0.55;
 const QUALITY_STEP = 0.25;
 
 export function isMobileShell() {
-    return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
+    return typeof window !== 'undefined' && isMobileActive();
 }
 
 /**
@@ -84,6 +84,17 @@ export function computeSceneResolution({ cssWidth, cssHeight, dpr, mobile, quali
             logicalHeight = Math.round(MOBILE_LOCK_SHORT_SIDE / aspect);
         }
         deviceScale = Math.min(MOBILE_MAX_DEVICE_SCALE, Math.max(1, Math.round(devicePixelRatio)));
+        if (devicePixelRatio < 2) {
+            // Coquille mobile forcée sur PC : le verrou 412 px, agrandi sur une
+            // grande dalle 1×, serait flou sans correction. On pousse l'échelle
+            // de rendu pour couvrir la zone réellement affichée (plafond 3×).
+            // Rien ne change sur téléphone : ceux en 1× conservent 1 (le
+            // facteur d'ajustement reste < 1) et ceux en 2×/3× sont hors du
+            // garde-fou `devicePixelRatio < 2`.
+            const fitScale = Math.min(safeW / logicalWidth, safeH / logicalHeight);
+            const upscaled = Math.floor(fitScale * 100) / 100;
+            deviceScale = Math.min(MOBILE_MAX_DEVICE_SCALE, Math.max(deviceScale, upscaled));
+        }
     } else {
         // PC : la scène occupe tout l'espace, la taille logique est celle de
         // la zone disponible — d'où l'effet « écran étiré » sur les dalles

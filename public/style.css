@@ -1858,6 +1858,18 @@ to{ transform: translateY(0); opacity: 1; } }
     vertical-align: middle; transition: border-color 0.15s, transform 0.1s;
 }
 #sound-toggle:hover{ border-color: #ffd700; transform: scale(1.1); }
+/* Reglages rapides groupes dans la carte Jour : affichage (Auto/Mobile/PC) + son. */
+.hud-toggles{ display: inline-flex; align-items: center; gap: 4px; }
+.hud-toggles #sound-toggle, .hud-toggles #layout-toggle{ margin-left: 0; }
+#layout-toggle{
+    background: none; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 6px;
+    cursor: pointer; padding: 2px 6px; margin-left: 6px;
+    font-family: var(--pixel-font, monospace); font-size: 0.42rem; line-height: 1.6;
+    color: #fff0bc; vertical-align: middle; transition: border-color 0.15s, transform 0.1s;
+}
+#layout-toggle:hover{ border-color: #ffd700; transform: scale(1.05); }
+#layout-toggle[data-mode='mobile'],
+#layout-toggle[data-mode='pc']{ border-color: #9cf0ae; color: #d9ffe0; }
 /* =======================================================================
    REFONTE MOBILE — layout plein écran,
 feuilles coulissantes,
@@ -2077,8 +2089,8 @@ body.sheet-open #mobile-sheet-backdrop{ opacity: 1; pointer-events: auto; }
         max-width: 46vw;
     }
 #tile-info-hud h3{ font-size: 0.85rem; margin-bottom: 2px; }
-#tile-info-hud #biome-display,
-#tile-info-hud #position-display{ display: none; }
+/* Le biome et la position de la case restent affiches sur mobile :
+   ce sont les informations "ou est le joueur", elles ne sont plus masquees. */
 #objectives-hud{ font-size: 0.8rem; padding: 10px 12px; }
 #objectives-hud h4{ font-size: 0.82rem; }
 #objectives-hud.collapsed{ padding: 8px 12px; }
@@ -2098,7 +2110,7 @@ body.sheet-open #mobile-sheet-backdrop{ opacity: 1; pointer-events: auto; }
         pointer-events: auto;
     }
 #game-info-hud p{ margin: 0; white-space: nowrap; }
-#game-info-hud #position-display-nav{ display: none; }
+/* #position-display-nav reste visible : la case du joueur ne doit pas disparaitre. */
 #game-info-hud #xp-bar-container{ width: 60px; height: 5px; }
 #sound-toggle{ font-size: 1rem; }
 /* --- D-pad tactile --- */

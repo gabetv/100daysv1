@@ -40,6 +40,33 @@ Dès que le panneau Statut n'est plus affiché en permanence (tiroir ou focus),
 les quatre jauges de survie remontent sur la scène : l'information n'est jamais
 perdue, seulement déplacée.
 
+### Mode d'affichage : Auto / Mobile / PC
+
+Un réglage persistant (bouton **Auto / Mobile / PC** dans la carte Jour du HUD,
+à côté du son) permet d'afficher la version mobile sur PC — ou l'inverse sur
+une machine tactile. Mémorisé dans `localStorage` sous la clé `layoutMode` :
+
+- **Auto** — la coquille suit l'écran (mobile ≤ 900 px ou tactile ≤ 1100 px) ;
+- **Mobile** — la coquille mobile (barre d'onglets, feuilles, d-pad) s'applique
+  partout, y compris sur un grand écran de bureau. Le rendu de la scène garde
+  le cadrage verrouillé 412 px des téléphones mais son échelle est relevée
+  pour rester nette sur une grande dalle ;
+- **PC** — la coquille bureau est forcée même sur écran tactile étroit.
+
+Techniquement, `js/ui/layout-mode.js` est la seule source de vérité
+(`isMobileActive()`) et réécrit le `mediaText` des blocs `@media` de la
+coquille mobile (`all` / `not all` / texte d'origine) : aucune règle CSS n'est
+dupliquée.
+
+### Rien ne se masque plus
+
+Les informations du joueur et du lieu restent affichées dans toutes les
+coquilles : carte « Vous êtes ici » (nom de la case, biome, position,
+description), niveau et barre d'XP, nombre de survivants, minuteurs complets
+(légende incluse), valeurs chiffrées des jauges de survie. Seuls les indices
+de saisie (`#controls-hint`) et, sous 460 px de haut en paysage, la longue
+description du lieu restent retirés.
+
 > **Règle à respecter** : tout nouveau panneau doit poser `min-width: 0` dans la
 > grille, sans quoi il repousse la scène hors de l'écran.
 

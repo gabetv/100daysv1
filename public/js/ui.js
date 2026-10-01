@@ -13,6 +13,7 @@ import * as ViewportModule from './ui/viewport.js';
 import * as HotspotsModule from './ui/hotspots.js';
 import * as NavigationModule from './ui/navigation.js';
 import * as CombatModule from './ui/combat.js';
+import * as LayoutModeModule from './ui/layout-mode.js';
 import { OBJECTIVE_IMAGES } from './ui/icons.js';
 
 // --- Ré-exporter explicitement les fonctions ---
@@ -103,6 +104,12 @@ export const initMobileUI = MobileModule.initMobileUI;
 export const openMobileTab = MobileModule.openTab;
 export const closeMobileSheets = MobileModule.closeSheets;
 export const isMobileLayout = MobileModule.isMobileLayout;
+
+// Depuis ./ui/layout-mode.js (réglage Auto / Mobile / PC)
+export const initLayoutMode = LayoutModeModule.initLayoutMode;
+export const getLayoutMode = LayoutModeModule.getLayoutMode;
+export const setLayoutMode = LayoutModeModule.setLayoutMode;
+export const cycleLayoutMode = LayoutModeModule.cycleLayoutMode;
 export const notifyChatMessage = MobileModule.notifyChatMessage;
 
 // Depuis ./ui/render.js

@@ -1,5 +1,7 @@
 // js/ui/mobile.js — Refonte de l'expérience mobile (onglets, gestes, ergonomie)
 
+import { isMobileActive } from './layout-mode.js';
+
 const TAB_TARGETS = {
     scene: [],
     actions: ['right-panel'],
@@ -22,7 +24,9 @@ let currentTab = 'scene';
 let initialized = false;
 
 export function isMobileLayout() {
-    return window.matchMedia('(max-width: 900px), (pointer: coarse) and (max-width: 1100px)').matches;
+    // La coquille mobile s'active aussi quand le joueur la force sur PC
+    // (réglage Auto / Mobile / PC du HUD).
+    return isMobileActive();
 }
 
 function vibrate(ms = 8) {
