@@ -20,7 +20,8 @@
     "test:layout": "node scripts/test-scene-layout.mjs",
     "test:item-actions": "node scripts/test-item-actions.mjs",
     "test:character-anim": "node scripts/test-character-anim.mjs",
-    "test:combat": "node scripts/test-combat.mjs"
+    "test:combat": "node scripts/test-combat.mjs",
+    "test:npc-ai": "node scripts/test-npc-ai.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
