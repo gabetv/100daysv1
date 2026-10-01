@@ -12,6 +12,7 @@ import * as DayTimerModule from './ui/daytimer.js';
 import * as ViewportModule from './ui/viewport.js';
 import * as HotspotsModule from './ui/hotspots.js';
 import * as NavigationModule from './ui/navigation.js';
+import * as CombatModule from './ui/combat.js';
 import { OBJECTIVE_IMAGES } from './ui/icons.js';
 
 // --- Ré-exporter explicitement les fonctions ---
@@ -46,9 +47,6 @@ export const updateEquipmentModal = ModalsModule.updateEquipmentModal;
 export const showCustomizationModal = ModalsModule.showCustomizationModal;
 export const hideCustomizationModal = ModalsModule.hideCustomizationModal;
 export const setupCustomizationListeners = ModalsModule.setupCustomizationListeners;
-export const showCombatModal = ModalsModule.showCombatModal;
-export const hideCombatModal = ModalsModule.hideCombatModal;
-export const updateCombatUI = ModalsModule.updateCombatUI;
 export const showQuantityModal = ModalsModule.showQuantityModal;
 export const hideQuantityModal = ModalsModule.hideQuantityModal;
 export const setupQuantityModalListeners = ModalsModule.setupQuantityModalListeners;
@@ -133,6 +131,10 @@ export const getHotspots = HotspotsModule.getHotspots;
 
 // Depuis ./ui/navigation.js — pavé directionnel
 export const initNavigation = NavigationModule.initNavigation;
+export const startSceneCombat = CombatModule.startSceneCombat;
+export const updateSceneCombat = CombatModule.updateSceneCombat;
+export const hideSceneCombat = CombatModule.hideSceneCombat;
+export const initSceneCombat = CombatModule.initSceneCombat;
 export const updateNavigation = NavigationModule.updateNavigation;
 export const canMove = NavigationModule.canMove;
 export const evaluateDirection = NavigationModule.evaluateDirection;

@@ -92,7 +92,11 @@ export function canMove(gameState, directionId) {
  */
 export function updateNavigation(gameState) {
     const player = gameState?.player;
-    const busy = !!(player?.isBusy || player?.animationState);
+    // Un combat en cours interdit le déplacement côté serveur (movePlayer le
+    // refuse) : les touches doivent le montrer, sinon le joueur croit pouvoir
+    // s'échapper à pied alors que seule la fuite le permet.
+    const inCombat = !!player?.combatState;
+    const busy = !!(player?.isBusy || player?.animationState || inCombat);
     let freeCount = 0;
 
     for (const dir of DIRECTIONS) {
@@ -112,7 +116,7 @@ export function updateNavigation(gameState) {
         button.classList.toggle('is-blocked', state === 'blocked');
         button.classList.toggle('is-busy', state === 'busy');
 
-        const suffix = busy ? 'Action en cours…' : result.detail;
+        const suffix = inCombat ? 'Combat en cours — fuyez pour partir' : (busy ? 'Action en cours…' : result.detail);
         button.title = `${dir.label} — ${suffix}`;
         button.setAttribute('aria-label', result.ok
             ? `Aller vers le ${dir.label} (${result.detail})`

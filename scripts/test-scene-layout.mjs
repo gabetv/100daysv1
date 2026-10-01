@@ -112,6 +112,32 @@ for (const [name, W, H] of SCENES) {
     console.log('');
 }
 
+// Pendant un combat, le bandeau occupe toute la largeur du bas. Il n'y a de
+// place que si le pavé directionnel et la carte du lieu s'effacent — ce que
+// le CSS doit faire, puisque le serveur refuse de toute façon les
+// déplacements tant que la rencontre dure.
+console.log('== Combat : le bas de la scène est libéré ==');
+{
+    const rule = CSS.match(/body\.game-screen\.in-combat[\s\S]*?\{([^}]*)\}/);
+    const selectors = CSS.slice(0, rule ? CSS.indexOf(rule[0]) + rule[0].length : 0);
+    const block = rule ? CSS.slice(CSS.lastIndexOf('body.game-screen.in-combat', CSS.indexOf(rule[0]) + 1)) : '';
+    const head = block.slice(0, block.indexOf('}') + 1);
+    const hides = /display:\s*none/.test(head);
+    for (const target of ['.nav-button-overlay', '#tile-info-hud', '#navigation-edge-panel::before']) {
+        if (head.includes(target)) ok(`${target} masqué pendant le combat`);
+        else fail(`${target} reste affiché pendant le combat`, 'il chevaucherait le bandeau');
+    }
+    if (hides) ok('la règle applique bien display:none');
+    else fail('la règle de combat ne masque rien', head.slice(0, 80));
+
+    // Le bandeau occupe la bande basse : on vérifie qu'il ne déborde pas.
+    const W = 489, H = 600, bandH = 92;
+    const band = { x: 12, y: H - 12 - bandH, w: W - 14 - 12, h: bandH };
+    if (band.x >= 0 && band.y >= 0 && band.x + band.w <= W && band.y + band.h <= H) ok('le bandeau de combat tient dans la scène');
+    else fail('le bandeau de combat déborde', JSON.stringify(band));
+}
+console.log('');
+
 // Le pavé doit rester carré et aligné sur sa planche : trois colonnes de
 // touches, sinon les sprites se décalent d'une demi-case.
 console.log('== Cohérence du pavé ==');

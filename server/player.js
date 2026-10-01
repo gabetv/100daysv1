@@ -233,6 +233,19 @@ export function addXp(player, amount) {
 // --- CORE ACTIONS (Existing + Refactored) ---
 
 export function movePlayer(player, direction) {
+    // On ne quitte pas un combat en marchant. Tant que la rencontre dure, la
+    // seule sortie est la fuite, qui se joue aux dés (COMBAT_CONFIG.FLEE_CHANCE) :
+    // sans ce garde-fou, le pavé directionnel affiché pendant le combat offrirait
+    // une échappatoire gratuite et le bouton Fuir ne servirait à rien.
+    if (player.combatState) {
+        player.notifications.push({
+            type: 'floatingText',
+            message: 'Impossible de partir en plein combat',
+            style: 'info',
+        });
+        return false;
+    }
+
     let { x, y } = player;
     const oldX = x;
     const oldY = y;

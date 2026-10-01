@@ -203,6 +203,14 @@ console.log('\n== Mise à jour des touches ==');
     check('action en cours → toutes les touches en busy', allBusy);
     check('busy ≠ blocked', !buttons['nav-south'].classList.contains('is-blocked'));
 
+    // Combat : le serveur refuse les déplacements, les touches doivent le dire.
+    updateNavigation({ map, player: { x: 2, y: 0, combatState: { turn: 'player' }, visitedTiles: new Set() } });
+    const allCombat = DIRECTIONS.every((d) => buttons[`nav-${d.id}`].dataset.navState === 'busy');
+    check('combat en cours → toutes les touches verrouillées', allCombat);
+    check('infobulle de combat explicite',
+        /Combat en cours/.test(buttons['nav-south'].title), buttons['nav-south'].title);
+    check('combat ≠ direction bloquée', !buttons['nav-south'].classList.contains('is-blocked'));
+
     // Îlot isolé : la classe de secours arrive sur <body>.
     const isolated = [
         [{ type: { name: 'Lagon', accessible: false } }, { type: { name: 'Lagon', accessible: false } }, { type: { name: 'Lagon', accessible: false } }],

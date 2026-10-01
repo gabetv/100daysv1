@@ -784,3 +784,151 @@ body.game-screen .mobile-tab .mt-icon { position: relative; }
         padding: 8px 10px;
     }
 }
+
+/* =====================================================================
+   COMBAT DANS LA SCÈNE
+   ---------------------------------------------------------------------
+   L'affrontement se jouait dans une fenêtre modale qui recouvrait l'île et
+   demandait un clic par tour pour une décision toujours identique. Il tient
+   maintenant dans un bandeau posé en bas de la scène : on voit le décor, on
+   voit l'ennemi fondre, et la seule décision qui compte reste sous le pouce.
+
+   Pendant le combat, le pavé directionnel s'efface : le serveur refuse les
+   déplacements (movePlayer), donc le laisser visible serait un mensonge.
+   La carte « Vous êtes ici » cède sa place au bandeau.
+   ===================================================================== */
+body.game-screen #scene-combat {
+    position: absolute;
+    left: 12px;
+    right: 14px;
+    bottom: 12px;
+    z-index: 10005;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 11px;
+    border: 10px solid transparent;
+    border-image: url('/assets/ui/panel-frame.png') 15 fill stretch;
+    image-rendering: pixelated;
+    box-shadow: 0 4px 0 rgba(26, 15, 12, .55);
+    pointer-events: auto;
+}
+body.game-screen #scene-combat.hidden { display: none; }
+
+/* Pendant le combat : pavé et carte du lieu s'effacent. */
+body.game-screen.in-combat #navigation-edge-panel::before,
+body.game-screen.in-combat #navigation-edge-panel::after,
+body.game-screen.in-combat .nav-button-overlay,
+body.game-screen.in-combat #tile-info-hud { display: none; }
+
+body.game-screen .combat-mini-portrait {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: 2px solid var(--shell-ink);
+    background: rgba(32, 18, 14, .55);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+body.game-screen .combat-mini-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+/* Secousse au moment où l'ennemi encaisse. */
+body.game-screen .combat-mini-portrait.hit { animation: combat-mini-hit .26s steps(3, end); }
+@keyframes combat-mini-hit {
+    0%   { transform: translateX(0); filter: none; }
+    40%  { transform: translateX(-4px); filter: brightness(2) saturate(.4); }
+    100% { transform: translateX(0); filter: none; }
+}
+/* Et un voile rouge quand c'est vous qui prenez le coup. */
+body.game-screen #scene-combat.player-hit { animation: combat-mini-ouch .3s steps(2, end); }
+@keyframes combat-mini-ouch {
+    50% { box-shadow: 0 4px 0 rgba(26, 15, 12, .55), inset 0 0 0 200px rgba(212, 71, 67, .22); }
+}
+
+body.game-screen .combat-mini-gauges { min-width: 0; }
+body.game-screen .combat-mini-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--pixel-font);
+    font-size: .46rem;
+    line-height: 1.5;
+    color: var(--shell-text);
+}
+body.game-screen .combat-mini-line strong { color: #f2b0a4; }
+body.game-screen .combat-mini-you { color: var(--shell-text-soft); }
+body.game-screen .combat-mini-hp { color: var(--shell-text-dim); font-size: .42rem; }
+body.game-screen .combat-mini-track {
+    height: 9px;
+    margin: 2px 0 5px;
+    border: 1px solid var(--shell-ink);
+    background: #3a2620;
+}
+body.game-screen .combat-mini-fill {
+    display: block;
+    height: 100%;
+    transition: width .22s linear;
+}
+body.game-screen .combat-mini-fill.enemy { background: linear-gradient(#d4584f, #8e2f2c); }
+body.game-screen .combat-mini-fill.player { background: linear-gradient(#78a95b, #4a6e39); }
+body.game-screen .combat-mini-fill.low { filter: saturate(1.3) brightness(1.1); }
+body.game-screen .combat-mini-fill.critical { animation: combat-mini-blink .7s steps(2, end) infinite; }
+@keyframes combat-mini-blink { 50% { opacity: .45; } }
+
+body.game-screen .combat-mini-log {
+    margin: 3px 0 0;
+    min-height: 1.1em;
+    font-size: .68rem;
+    color: var(--shell-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+body.game-screen .combat-mini-log.is-new { animation: combat-mini-slide .22s ease-out; }
+body.game-screen .combat-mini-log.crit { color: var(--shell-gold); }
+body.game-screen .combat-mini-log.damage { color: #f0a09a; }
+@keyframes combat-mini-slide { from { opacity: 0; transform: translateY(5px); } }
+
+/* Le bouton Fuir : petit, mais toujours au même endroit et toujours actif —
+   c'est la seule commande du combat, elle ne doit jamais être à chercher. */
+body.game-screen #scene-combat-flee {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    padding: 7px 10px;
+    border: 2px solid #59372b;
+    border-radius: 2px;
+    background: linear-gradient(#a8633e, #76462f);
+    box-shadow: inset 0 0 0 2px #d59a63, 0 3px 0 #38231e;
+    color: #fff0cf;
+    cursor: pointer;
+}
+body.game-screen #scene-combat-flee:hover { filter: brightness(1.12); }
+body.game-screen #scene-combat-flee:active { transform: translateY(2px); box-shadow: inset 0 0 0 2px #d59a63, 0 1px 0 #38231e; }
+body.game-screen #scene-combat-flee .flee-glyph { font-size: 1.1rem; line-height: 1; }
+body.game-screen #scene-combat-flee small { font-family: var(--pixel-font); font-size: .42rem; }
+body.game-screen #scene-combat-flee em { font-style: normal; font-size: .58rem; opacity: .8; }
+/* Fuite demandée pendant le tour adverse : elle partira dès la main rendue. */
+body.game-screen #scene-combat.fleeing #scene-combat-flee {
+    animation: combat-mini-blink .5s steps(2, end) infinite;
+}
+
+/* Téléphone : le bandeau reste en bas, au-dessus de la barre d'onglets. */
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    body.game-screen #scene-combat {
+        left: max(8px, var(--safe-l));
+        right: max(8px, var(--safe-r));
+        bottom: max(8px, var(--safe-b));
+        gap: 8px;
+        padding: 7px 8px;
+    }
+    body.game-screen .combat-mini-portrait { width: 42px; height: 42px; font-size: 1.3rem; }
+    body.game-screen .combat-mini-log { font-size: .6rem; }
+}

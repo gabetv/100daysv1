@@ -199,7 +199,7 @@ export function sendAction(actionId, data) {
 
 window.handleGlobalPlayerAction = sendAction;
 
-let combatModalVisible = false;
+let combatVisible = false;
 let victoryShown = false;
 let lastKnownHealth = null;
 
@@ -247,19 +247,20 @@ function fullUIUpdate() {
     }
     lastKnownHealth = gameState.player.health;
 
-    // --- Combat : afficher/mettre à jour/fermer la modale ---
+    // --- Combat : bandeau dans la scène, sans fenêtre modale ---
+    // Les coups s'enchaînent seuls (js/ui/combat.js) ; le joueur garde la
+    // scène sous les yeux et n'a qu'une décision à prendre : fuir ou non.
     const combatState = gameState.player.combatState;
     if (combatState) {
-        if (!combatModalVisible) {
-            UI.showCombatModal(combatState);
-            combatModalVisible = true;
-            sfx('combat');
+        if (!combatVisible) {
+            UI.startSceneCombat(combatState);
+            combatVisible = true;
         } else {
-            UI.updateCombatUI(combatState);
+            UI.updateSceneCombat(combatState);
         }
-    } else if (combatModalVisible) {
-        UI.hideCombatModal();
-        combatModalVisible = false;
+    } else if (combatVisible) {
+        UI.hideSceneCombat();
+        combatVisible = false;
     }
 
     // --- Bandeau d'événement du jour ---
@@ -377,8 +378,7 @@ function setupEventListeners() {
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
-        if (btn.id === 'combat-attack-btn') sfx('attack');
-        else if (btn.id !== 'sound-toggle') sfx('click');
+        if (btn.id !== 'sound-toggle') sfx('click');
     });
     const soundToggle = document.getElementById('sound-toggle');
     if (soundToggle) {
@@ -418,7 +418,7 @@ function setupEventListeners() {
         if (!dir || e.ctrlKey || e.metaKey || e.altKey) return;
         // Pas de déplacement si une modale est ouverte ou si le joueur est occupé
         const modalOpen = ['inventory-modal', 'equipment-modal', 'customize-modal', 'build-modal', 'workshop-modal',
-            'chest-modal', 'combat-modal', 'large-map-modal', 'quantity-modal', 'lock-modal', 'admin-modal', 'victory-overlay']
+            'chest-modal', 'large-map-modal', 'quantity-modal', 'lock-modal', 'admin-modal', 'victory-overlay']
             .some(id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); });
         if (modalOpen) return;
         e.preventDefault();
@@ -576,6 +576,7 @@ function init() {
 
 function setupUIListeners() {
     window.UI = UI; 
+    UI.initSceneCombat?.();
     if(UI.setupQuantityModalListeners) UI.setupQuantityModalListeners();
     if(UI.setupLockModalListeners) UI.setupLockModalListeners();
     if(UI.setupBuildModalListeners) UI.setupBuildModalListeners();
