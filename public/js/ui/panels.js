@@ -37,9 +37,11 @@ function updateMobileVital(type, value, maxValue) {
     const safeMax = Math.max(1, Number(maxValue) || 1);
     const safeValue = Math.max(0, Number(value) || 0);
     const percentage = Math.min(100, (safeValue / safeMax) * 100);
-    const fill = vital.querySelector('.mobile-vital-track i');
+    const track = vital.querySelector('.mobile-vital-track');
     const number = vital.querySelector('b');
-    if (fill) fill.style.width = `${percentage}%`;
+    // Même rendu que la fiche Statut : dix cases séparées, bien plus lisibles
+    // qu'une barre continue.
+    if (track) updateSquaresBar(track, safeValue, safeMax, type);
     if (number) number.textContent = String(Math.round(safeValue));
     vital.classList.toggle('is-low', percentage <= (type === 'health' ? 30 : 20));
     const labels = { health: 'Santé', thirst: 'Soif', hunger: 'Faim', sleep: 'Sommeil' };
@@ -291,12 +293,17 @@ export function updateBottomBarEquipmentPanel(player) {
     const slotsContainer = DOM.bottomBarEquipmentSlotsEl;
     slotsContainer.innerHTML = '';
     const slotTypes = ['head', 'weapon', 'shield', 'body', 'feet', 'bag'];
+    const slotLabels = { head: 'Tête', weapon: 'Arme', shield: 'Bouclier', body: 'Habits', feet: 'Chaussures', bag: 'Sac' };
     slotTypes.forEach(slotType => {
         const slotEl = document.createElement('div');
         slotEl.className = 'equipment-slot-small droppable';
         slotEl.dataset.slotType = slotType;
         slotEl.dataset.owner = 'equipment';
         const equippedItem = player.equipment[slotType];
+        // Le libellé de l'emplacement rend la fiche lisible même vide.
+        slotEl.dataset.slotLabel = equippedItem ? equippedItem.name : slotLabels[slotType];
+        slotEl.title = equippedItem ? `${slotLabels[slotType]} : ${equippedItem.name}` : `${slotLabels[slotType]} : vide`;
+        slotEl.classList.toggle('is-empty', !equippedItem);
         if (equippedItem) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
             slotEl.innerHTML = `<div class="inventory-item clickable" draggable="true" data-item-name="${equippedItem.name}" data-owner="equipment" data-slot-type="${slotType}" title="${equippedItem.name}">${itemIconHTML(equippedItem.name, itemDef.icon)}</div>`;
@@ -335,6 +342,37 @@ function actionIsRecommended(action, player, tile) {
     return false;
 }
 
+// Mots-clés permettant de relier un raccourci de la scène à l'action réelle
+// renvoyée par le serveur pour la case courante.
+const QUICK_ACTION_KEYWORDS = {
+    build: ['constru', 'bâtir', 'build'],
+    harvest: ['récol', 'harvest', 'extraire'],
+    search: ['fouill', 'chercher', 'recherch', 'search'],
+    interact: ['interag', 'ouvrir', 'parler', 'utilis', 'interact'],
+};
+
+/**
+ * Le bloc d'actions rapides est maintenant visible en permanence en haut à
+ * droite de la scène : il doit donc indiquer clairement ce qui est possible
+ * ici et maintenant.
+ */
+function updateQuickActionsDock(player, actions) {
+    const dock = document.getElementById('central-actions-panel');
+    if (!dock) return;
+    dock.querySelectorAll('.central-action-button').forEach(button => {
+        const keywords = QUICK_ACTION_KEYWORDS[button.dataset.action] || [];
+        const match = actions.find(item => keywords.some(keyword =>
+            String(item.name || '').toLowerCase().includes(keyword)));
+        const busy = !!player?.isBusy;
+        button.classList.toggle('is-available', !!match && !busy);
+        button.classList.toggle('is-unavailable', !match);
+        button.disabled = busy;
+        const baseTitle = button.querySelector('.central-action-label')?.textContent || button.dataset.action;
+        button.title = match ? match.name : `${baseTitle} : rien à faire ici`;
+    });
+    dock.classList.toggle('is-idle', actions.length === 0);
+}
+
 export function updateActionsPanel(gameState) {
     const actionsContainer = document.getElementById('actions-tab-content');
     if (!actionsContainer) return;
@@ -346,13 +384,15 @@ export function updateActionsPanel(gameState) {
     const screenLabel = document.getElementById('screen-action-label');
     const screenCount = document.getElementById('screen-action-count');
     if (screenCount) screenCount.textContent = String(actions.length);
-    if (screenLabel) screenLabel.textContent = actions.length ? 'Actions ici' : 'Observer';
+    if (screenLabel) screenLabel.textContent = actions.length ? 'Toutes les actions' : 'Observer';
     if (screenButton) {
         screenButton.classList.toggle('has-actions', actions.length > 0);
         screenButton.setAttribute('aria-label', actions.length
             ? `Afficher les ${actions.length} actions disponibles ici`
             : 'Observer le lieu');
     }
+
+    updateQuickActionsDock(player, actions);
 
     actionsContainer.innerHTML = '';
     const summary = document.createElement('div');

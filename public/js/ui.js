@@ -52,10 +52,13 @@ export const hideLargeMap = ModalsModule.hideLargeMap;
 export const showBuildModal = ModalsModule.showBuildModal;
 export const hideBuildModal = ModalsModule.hideBuildModal;
 export const populateBuildModal = ModalsModule.populateBuildModal;
+export const isBuildModalOpen = ModalsModule.isBuildModalOpen;
 export const showWorkshopModal = ModalsModule.showWorkshopModal;
 export const hideWorkshopModal = ModalsModule.hideWorkshopModal;
 export const populateWorkshopModal = ModalsModule.populateWorkshopModal;
 export const setupWorkshopModalListeners = ModalsModule.setupWorkshopModalListeners;
+export const refreshWorkshopAvailability = ModalsModule.refreshWorkshopAvailability;
+export const isWorkshopModalOpen = ModalsModule.isWorkshopModalOpen;
 export const showLockModal = ModalsModule.showLockModal;
 export const hideLockModal = ModalsModule.hideLockModal;
 export const setupLockModalListeners = ModalsModule.setupLockModalListeners;
@@ -146,6 +149,13 @@ export function updateAllUI(gameState) {
 
     // Panneau d'objectifs
     updateObjectivesPanel(player);
+
+    // L'atelier reste synchronisé : après chaque fabrication, le nouvel état
+    // serveur met à jour les stocks affichés dans chaque recette.
+    ModalsModule.refreshWorkshopAvailability(gameState);
+    if (ModalsModule.isBuildModalOpen && ModalsModule.isBuildModalOpen()) {
+        ModalsModule.populateBuildModal(gameState);
+    }
 }
 
 function updateObjectivesPanel(player) {
@@ -174,6 +184,18 @@ function updateObjectivesPanel(player) {
         li.appendChild(text);
         list.appendChild(li);
     });
+
+    // Compteur visible sur l'onglet : on sait s'il reste des quêtes sans
+    // devoir ouvrir le panneau.
+    const tabCount = document.getElementById('quests-tab-count');
+    if (tabCount) {
+        tabCount.textContent = `${doneCount}/${total}`;
+        tabCount.classList.toggle('is-complete', total > 0 && doneCount >= total);
+    }
+    const questsTabButton = document.querySelector('#right-panel-tabs .tab-button[data-tab="quests-tab"]');
+    if (questsTabButton) {
+        questsTabButton.classList.toggle('has-pending', total > doneCount);
+    }
 
     const title = document.getElementById('objectives-hud-title');
     if (title && hud) {

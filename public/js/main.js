@@ -444,12 +444,21 @@ function setupEventListeners() {
         });
     }
 
-    // --- Ouvrir la fiche Équipement en cliquant sur l'aperçu du bas ---
+    // --- Ouvrir la fiche Équipement en grand ---
+    const openEquipment = () => {
+        if (!window.gameState || !window.gameState.player) return;
+        // Sur mobile, la feuille doit se refermer : la modale prend tout l'écran.
+        if (UI.isMobileLayout && UI.isMobileLayout() && UI.closeMobileSheets) UI.closeMobileSheets();
+        UI.showEquipmentModal(window.gameState);
+    };
+    // Le double-clic n'est pas fiable au doigt : un bouton explicite le remplace.
+    document.getElementById('open-equipment-modal-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEquipment();
+    });
     const equipmentPanel = document.getElementById('bottom-bar-equipment-panel');
     if (equipmentPanel) {
-        equipmentPanel.addEventListener('dblclick', () => {
-            if (window.gameState && window.gameState.player) UI.showEquipmentModal(window.gameState);
-        });
+        equipmentPanel.addEventListener('dblclick', openEquipment);
         const preview = equipmentPanel.querySelector('.player-character-placeholder-small');
         if (preview) {
             preview.style.cursor = 'pointer';
@@ -466,18 +475,18 @@ function setupEventListeners() {
     if (screenInteractionButton) {
         screenInteractionButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            const quickActions = document.getElementById('central-actions-panel');
-            // Sur mobile, la feuille Actions est plus lisible. Sur ordinateur,
-            // le petit menu flottant permet d'agir sans quitter la scène.
+            // Les quatre raccourcis sont désormais toujours visibles sur la
+            // scène : ce bouton ouvre la liste complète des actions.
             if (UI.isMobileLayout && UI.isMobileLayout()) {
                 UI.openMobileTab('actions');
                 return;
             }
-            if (quickActions) {
-                quickActions.classList.toggle('hidden');
-                if (!quickActions.classList.contains('hidden')) {
-                    quickActions.querySelector('.central-action-button')?.focus();
-                }
+            const rightPanel = document.getElementById('right-panel');
+            document.querySelector('#right-panel-tabs .tab-button[data-tab="actions-tab"]')?.click();
+            if (rightPanel) {
+                rightPanel.classList.remove('interaction-focus');
+                void rightPanel.offsetWidth;
+                rightPanel.classList.add('interaction-focus');
             }
         });
     }
@@ -491,6 +500,7 @@ function setupEventListeners() {
         search: ['fouill', 'chercher', 'recherch', 'search'],
         interact: ['interag', 'ouvrir', 'parler', 'utilis', 'interact'],
     };
+    window.QUICK_ACTION_KEYWORDS = quickActionKeywords;
     document.querySelectorAll('.central-action-button').forEach(button => {
         button.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -507,11 +517,10 @@ function setupEventListeners() {
                 // complète pour conserver une explication à l'utilisateur.
                 document.getElementById('screen-interaction-button')?.click();
             }
-            document.getElementById('central-actions-panel')?.classList.add('hidden');
         });
     });
 
-    // Replier/déplier le panneau d'objectifs
+    // Replier/déplier la liste des quêtes dans son onglet
     const objectivesTitle = document.getElementById('objectives-hud-title');
     if (objectivesTitle) {
         objectivesTitle.addEventListener('click', (e) => {
@@ -526,6 +535,12 @@ function setupEventListeners() {
             }
         });
     }
+
+    // Le compteur de l'onglet Quêtes ouvre directement la liste.
+    document.getElementById('quests-tab-count')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelector('#right-panel-tabs .tab-button[data-tab="quests-tab"]')?.click();
+    });
 
     initInteractions();
 }

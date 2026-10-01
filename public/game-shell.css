@@ -381,13 +381,10 @@ body.game-screen #objectives-hud h4 {
     line-height: 1.6;
 }
 body.game-screen #objectives-hud {
-    top: 12px;
-    right: 12px;
-    left: auto;
-    width: min(260px, 32%);
-    min-width: 180px;
+    width: 100%;
+    min-width: 0;
     max-width: none;
-    padding: 9px 10px;
+    padding: 11px 12px;
 }
 body.game-screen #objectives-hud h4 > span:first-child { display: flex; align-items: center; gap: 6px; }
 body.game-screen .objective-title-icon { width: 22px; height: 22px; object-fit: contain; }
@@ -424,25 +421,6 @@ body.game-screen #screen-interaction-button .action-count-badge {
     font-family: "Poppins", sans-serif;
     text-shadow: none;
 }
-body.game-screen #central-actions-panel {
-    top: auto;
-    bottom: 76px;
-    padding: 7px;
-    gap: 7px;
-    border: 1px solid var(--shell-gold);
-    border-radius: 3px;
-    background: #0a2b34;
-}
-body.game-screen .central-action-button {
-    width: 52px;
-    height: 52px;
-    border: 1px solid #4a9691;
-    border-radius: 3px;
-    background: #1c555c;
-    box-shadow: 0 3px 0 #06171e;
-}
-body.game-screen .central-action-button img { width: 35px; height: 35px; object-fit: contain; }
-
 /* Navigation desktop : les flèches restent sur les bords de la scène. */
 body.game-screen .nav-button-overlay {
     width: 44px;
@@ -869,20 +847,16 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen #daytime-display { font-size: .56rem; }
 
     body.game-screen #objectives-hud {
-        top: calc(47px + var(--safe-t)) !important;
-        right: max(8px, var(--safe-r)) !important;
-        left: auto !important;
-        width: min(43vw, 164px);
+        width: 100%;
         min-width: 0;
-        max-width: none !important;
-        padding: 6px 7px !important;
-        font-size: .57rem !important;
+        max-width: none;
+        padding: 11px 12px;
+        font-size: .8rem;
     }
-    body.game-screen #objectives-hud h4 { font-size: .43rem !important; line-height: 1.45; }
-    body.game-screen .objective-title-icon { width: 17px; height: 17px; image-rendering: pixelated; }
-    body.game-screen #objectives-hud ul { max-height: 76px !important; margin-top: 4px; }
-    body.game-screen #objectives-hud li { margin: 2px 0; font-size: .55rem; line-height: 1.25; }
-    body.game-screen #objectives-hud.collapsed { width: auto; min-width: 0; }
+    body.game-screen #objectives-hud h4 { font-size: .52rem; line-height: 1.5; }
+    body.game-screen .objective-title-icon { width: 18px; height: 18px; image-rendering: pixelated; }
+    body.game-screen #objectives-hud ul { max-height: none; margin-top: 9px; }
+    body.game-screen #objectives-hud li { margin: 7px 0; font-size: .78rem; line-height: 1.4; }
 
     body.game-screen #tile-info-hud {
         top: auto;
@@ -967,19 +941,6 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen #screen-interaction-button .screen-action-icon { width: 26px; height: 26px; image-rendering: pixelated; }
     body.game-screen #screen-interaction-button #screen-action-label,
     body.game-screen #screen-interaction-button .action-count-badge { display: none; }
-    body.game-screen #central-actions-panel {
-        left: max(9px, var(--safe-l));
-        bottom: calc(70px + var(--safe-b));
-        width: 108px;
-        padding: 5px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 5px;
-        transform: none;
-    }
-    body.game-screen .central-action-button { width: 45px; height: 45px; }
-    body.game-screen .central-action-button img { width: 29px; height: 29px; image-rendering: pixelated; }
-
     /* Les modales gardent leur cadre pixel et restent atteignables en vertical. */
     body.game-screen #inventory-modal-content,
     body.game-screen #equipment-modal-content,
@@ -1001,7 +962,6 @@ body.game-screen #mobile-vitals { display: none; }
     body.game-screen .mobile-tab { font-size: .36rem; }
     body.game-screen .mobile-tab .mt-icon .icon-img { width: 22px; height: 22px; }
     body.game-screen #game-info-hud { width: 125px; }
-    body.game-screen #objectives-hud { width: 142px; }
     body.game-screen #tile-info-hud { width: 160px; }
 }
 
@@ -1315,4 +1275,416 @@ body.game-screen #combat-versus i {
     body.game-screen #combat-arena { min-height: 312px; }
     body.game-screen #combat-player-info,
     body.game-screen #combat-enemy-info { width: 49%; }
+}
+
+/* =====================================================================
+   REFONTE ERGONOMIE — jauges segmentées, actions sur la scène,
+   quêtes en onglet, équipement lisible et atelier chiffré.
+   ===================================================================== */
+
+/* --- 1. Jauges du haut : mêmes dix cases que la fiche Statut ---------- */
+body.game-screen .mobile-vital-track {
+    display: flex;
+    gap: 1px;
+    height: 11px;
+    width: 100%;
+    overflow: visible;
+    padding: 1px;
+    border: 1px solid rgba(248, 204, 105, .34);
+    border-radius: 0;
+    background: #061318;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55);
+}
+body.game-screen .mobile-vital-track .stat-square {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background-color: #17323c;
+    background-image: none;
+    box-shadow: none;
+    transition: background-color .18s linear;
+}
+body.game-screen .mobile-vital-track .stat-square.filled-health,
+body.game-screen .mobile-vital-track .stat-square.filled-thirst,
+body.game-screen .mobile-vital-track .stat-square.filled-hunger,
+body.game-screen .mobile-vital-track .stat-square.filled-sleep {
+    background-color: var(--vital-color, var(--shell-green));
+    background-image: none;
+    box-shadow: none;
+}
+
+/* --- 2. Dock d'actions rapides en haut à droite de la scène ----------- */
+body.game-screen #central-actions-panel {
+    position: absolute;
+    top: 12px;
+    right: 74px;        /* dégagé de la flèche Nord-Est sur ordinateur */
+    left: auto;
+    bottom: auto;
+    transform: none;
+    z-index: 10005;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: auto;
+    padding: 7px;
+    border: 1px solid var(--shell-gold);
+    border-radius: 3px;
+    background: rgba(10, 43, 52, .95);
+    box-shadow: 3px 3px 0 rgba(3, 12, 16, .66);
+    opacity: 1;
+    pointer-events: auto;
+    backdrop-filter: none;
+}
+body.game-screen .quick-actions-kicker {
+    display: block;
+    color: var(--shell-gold);
+    font-family: var(--pixel-font);
+    font-size: .4rem;
+    line-height: 1.5;
+    letter-spacing: .5px;
+    text-align: center;
+}
+body.game-screen .quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+body.game-screen .central-action-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 62px;
+    height: 60px;
+    padding: 4px 2px;
+    border: 1px solid #4a9691;
+    border-radius: 3px;
+    background: #1c555c;
+    box-shadow: 0 3px 0 #06171e;
+    color: #eff8ec;
+    cursor: pointer;
+    transition: filter .12s linear, opacity .12s linear;
+}
+body.game-screen .central-action-button img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+body.game-screen .central-action-label {
+    font-family: var(--pixel-font);
+    font-size: .36rem;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+}
+body.game-screen .central-action-button.is-available {
+    border-color: var(--shell-gold);
+    background: linear-gradient(#2a7079, #17525b);
+}
+body.game-screen .central-action-button.is-unavailable {
+    opacity: .4;
+    filter: grayscale(.7);
+}
+body.game-screen .central-action-button:hover:not(:disabled) { filter: brightness(1.12); }
+body.game-screen .central-action-button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #06171e; }
+body.game-screen .central-action-button:disabled { cursor: not-allowed; opacity: .35; }
+
+/* --- 3. Les quêtes vivent dans leur onglet ---------------------------- */
+body.game-screen #right-panel-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+body.game-screen #right-panel-tabs .tab-button {
+    position: relative;
+    padding: 9px 3px;
+    font-size: .45rem;
+    white-space: nowrap;
+}
+body.game-screen .tab-button .tab-count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    background: rgba(248, 204, 105, .18);
+    color: #ffe4a0;
+    font-family: "Poppins", sans-serif;
+    font-size: .58rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    vertical-align: middle;
+}
+body.game-screen .tab-button .tab-count.is-complete { background: rgba(105, 199, 137, .22); color: #b9f0c6; }
+body.game-screen .tab-button.has-pending::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    background: var(--shell-gold);
+}
+body.game-screen #quests-tab { display: none; }
+body.game-screen #quests-tab.active-tab { display: block; }
+/* L'onglet n'est qu'un conteneur : la carte des quêtes porte le décor. */
+body.game-screen #right-panel #quests-tab { padding: 0; background: none; box-shadow: none; }
+body.game-screen #quests-tab #objectives-hud {
+    position: static;
+    top: auto;
+    right: auto;
+    left: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    margin: 0;
+    padding: 11px 12px;
+    border: 1px solid rgba(248, 204, 105, .4);
+    border-radius: 3px;
+    background: #0d3038;
+    box-shadow: none;
+    font-size: .8rem;
+}
+body.game-screen #quests-tab #objectives-hud h4 { font-size: .52rem; cursor: pointer; }
+body.game-screen #quests-tab #objectives-hud ul { max-height: none; margin-top: 10px; }
+body.game-screen #quests-tab #objectives-hud li { font-size: .78rem; margin: 7px 0; line-height: 1.4; }
+body.game-screen #quests-tab #objectives-hud li .icon-img { width: 18px; height: 18px; }
+/* Replié ou non, la carte occupe tout l'onglet (plus de largeur de HUD). */
+body.game-screen #quests-tab #objectives-hud.collapsed { width: 100%; min-width: 0; padding: 11px 12px; }
+
+/* --- 4. Atelier : stocks réels et retour immédiat --------------------- */
+body.game-screen .workshop-recipe-card { position: relative; }
+body.game-screen .workshop-recipe-card.is-unavailable { opacity: .72; }
+body.game-screen .workshop-recipe-card.is-crafting { animation: workshop-craft-pulse .45s ease-out; }
+@keyframes workshop-craft-pulse {
+    0% { box-shadow: 0 0 0 2px rgba(248, 204, 105, .85); }
+    100% { box-shadow: 0 0 0 2px rgba(248, 204, 105, 0); }
+}
+.workshop-recipe-costs li.is-missing .cost-name { color: #ffb9ae; }
+.workshop-recipe-costs .cost-amount {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    background: rgba(105, 199, 137, .16);
+    color: #bdf0cb;
+}
+.workshop-recipe-costs .cost-amount.insufficient {
+    background: rgba(226, 94, 73, .18);
+    color: #ffb9ae;
+}
+.workshop-recipe-stock {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, .28);
+    font-size: .78rem;
+}
+.workshop-stock-ok { color: #9fe3b1; font-weight: 700; }
+.workshop-stock-ko { color: #ffb9ae; font-weight: 700; }
+.workshop-stock-owned { color: #9fc4ce; }
+.workshop-recipe-card .quantity-input-wrapper .quantity-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.workshop-max-btn {
+    padding: 5px 10px;
+    border: 1px solid rgba(248, 204, 105, .5);
+    border-radius: 4px;
+    background: rgba(248, 204, 105, .14);
+    color: #ffe4a0;
+    font-weight: 700;
+    font-size: .8rem;
+    cursor: pointer;
+}
+.workshop-max-btn:hover { background: rgba(248, 204, 105, .26); }
+.build-item-costs li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.build-item-costs li .build-cost-amount {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #bdf0cb;
+}
+.build-item-costs li.is-missing { color: #ffb9ae; }
+.build-item-costs li.is-missing .build-cost-amount { color: #ffb9ae; }
+
+/* --- 5. Fiche Équipement : enfin lisible ------------------------------ */
+body.game-screen .equipment-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+body.game-screen #open-equipment-modal-btn {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid rgba(248, 204, 105, .45);
+    border-radius: 2px;
+    background: rgba(248, 204, 105, .12);
+    color: #ffe4a0;
+    font-family: "Poppins", sans-serif;
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-shadow: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+body.game-screen #open-equipment-modal-btn:hover { background: rgba(248, 204, 105, .26); }
+
+body.game-screen #equipment-modal-content {
+    width: min(1180px, 96vw);
+    max-width: none;
+    min-height: min(640px, 88dvh);
+    max-height: 92dvh;
+    overflow-y: auto;
+}
+body.game-screen #equipment-grid {
+    grid-template-columns: minmax(250px, 300px) minmax(300px, 1fr) minmax(280px, 1fr);
+    gap: 20px;
+    overflow: visible;
+}
+body.game-screen #equipment-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+body.game-screen .equipment-slot { width: 100%; max-width: 128px; height: 112px; }
+body.game-screen .equipment-slot .inventory-item .inventory-icon img,
+body.game-screen .equipment-slot .inventory-item .inventory-icon .icon-img { width: 46px; height: 46px; }
+body.game-screen #equipment-avatar-canvas { width: 100%; height: auto; max-height: 260px; }
+
+@media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
+    /* Jauges : dix cases bien séparées, même avec quatre jauges de front. */
+    body.game-screen #mobile-vitals { gap: 3px; }
+    body.game-screen .mobile-vital {
+        height: 34px;
+        grid-template-columns: 16px minmax(0, 1fr);
+        gap: 3px;
+        padding: 3px;
+    }
+    body.game-screen .mobile-vital img { width: 16px; height: 16px; }
+    body.game-screen .mobile-vital-track { height: 14px; }
+    body.game-screen .mobile-vital b { display: none; }
+
+    /* Dock d'actions : angle supérieur droit, sous les jauges. */
+    body.game-screen #central-actions-panel {
+        top: calc(48px + var(--safe-t));
+        right: max(8px, var(--safe-r));
+        left: auto;
+        bottom: auto;
+        padding: 5px;
+        gap: 5px;
+    }
+    body.game-screen .quick-actions-grid { gap: 5px; }
+    body.game-screen .central-action-button {
+        width: 55px;
+        height: 54px;
+        padding: 3px 1px;
+        gap: 2px;
+    }
+    body.game-screen .central-action-button img { width: 23px; height: 23px; }
+    body.game-screen .central-action-label { font-size: .32rem; }
+    body.game-screen .quick-actions-kicker { font-size: .34rem; }
+
+    /* La fiche du lieu remonte : le bas de l'écran reste au d-pad. */
+    body.game-screen #tile-info-hud { bottom: calc(76px + var(--safe-b)); }
+
+    /* Huit onglets : on resserre sans perdre la cible tactile. */
+    body.game-screen #mobile-tabbar { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    body.game-screen .mobile-tab { font-size: clamp(.28rem, 1.25vw, .4rem); padding: 4px 1px; }
+    body.game-screen .mobile-tab .mt-icon .icon-img { width: 20px; height: 20px; }
+
+    body.game-screen #quests-tab #objectives-hud { background: #16404c; }
+
+    /* Équipement : la feuille s'ouvre presque en plein écran. */
+    body.game-screen.sheet-open #bottom-bar-equipment-panel.sheet-active {
+        right: max(7px, var(--safe-r));
+        bottom: calc(var(--tabbar-h) + var(--safe-b));
+        left: max(7px, var(--safe-l));
+        width: auto;
+        height: min(86dvh, 720px);
+        padding-top: 12px;
+    }
+    body.game-screen .equipment-preview-area {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        align-items: stretch;
+        gap: 12px;
+        overflow-y: auto;
+    }
+    body.game-screen .survivor-card {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        min-height: 0;
+        padding: 10px 12px;
+    }
+    body.game-screen #loadout-avatar-canvas { width: 110px; height: 132px; flex: 0 0 auto; }
+    body.game-screen #bottom-bar-equipment-slots {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        align-content: start;
+    }
+    body.game-screen .equipment-slot-small {
+        min-height: 82px;
+        height: auto;
+        flex-direction: column;
+        gap: 3px;
+        padding: 6px 4px;
+        border-style: solid;
+        border-color: rgba(248, 204, 105, .3);
+    }
+    body.game-screen .equipment-slot-small::after {
+        content: attr(data-slot-label);
+        display: block;
+        color: #8fb6bf;
+        font-family: var(--pixel-font);
+        font-size: .32rem;
+        line-height: 1.4;
+        text-align: center;
+    }
+    body.game-screen .equipment-slot-small .inventory-item {
+        flex: 1 1 auto;
+        min-height: 0;
+        width: 100%;
+        height: auto;
+    }
+    body.game-screen .equipment-slot-small .inventory-icon .icon-img { width: 34px; height: 34px; }
+    body.game-screen .equipment-slot-small.is-empty { border-style: dashed; opacity: .75; }
+    body.game-screen .equipment-slot-small.is-empty::before {
+        content: '+';
+        color: rgba(248, 204, 105, .45);
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+    body.game-screen #right-panel-tabs .tab-button { font-size: .48rem; min-height: 46px; }
+    body.game-screen #open-equipment-modal-btn { min-height: 34px; padding: 6px 10px; font-size: .68rem; }
+
+    /* Modale Équipement en plein écran sur mobile. */
+    body.game-screen #equipment-modal-content {
+        width: 100vw;
+        min-height: 0;
+        max-height: 94dvh;
+        padding: 14px 12px calc(14px + var(--safe-b));
+    }
+    body.game-screen #equipment-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    body.game-screen #equipment-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    body.game-screen .equipment-slot { max-width: none; height: 96px; }
+}
+
+@media (max-width: 400px) {
+    body.game-screen .central-action-button { width: 50px; height: 50px; }
+    body.game-screen .central-action-button img { width: 21px; height: 21px; }
+    body.game-screen .central-action-label { display: none; }
+    body.game-screen .quick-actions-kicker { display: none; }
+    body.game-screen #bottom-bar-equipment-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

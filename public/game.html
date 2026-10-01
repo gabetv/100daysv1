@@ -54,16 +54,16 @@
                     <div id="main-view-overlay">
                         <div id="mobile-vitals" aria-label="Jauges de survie">
                             <button class="mobile-vital" data-vital="health" type="button" aria-label="Ouvrir le statut : santé">
-                                <img src="/assets/icons/heart.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                                <img src="/assets/icons/heart.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="thirst" type="button" aria-label="Ouvrir le statut : soif">
-                                <img src="/assets/icons/waterdrop.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                                <img src="/assets/icons/waterdrop.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="hunger" type="button" aria-label="Ouvrir le statut : faim">
-                                <img src="/assets/icons/drumstick.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                                <img src="/assets/icons/drumstick.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="sleep" type="button" aria-label="Ouvrir le statut : sommeil">
-                                <img src="/assets/icons/moon.png" alt=""><span class="mobile-vital-track"><i></i></span><b>10</b>
+                                <img src="/assets/icons/moon.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                         </div>
                         <section id="tile-info-hud" aria-live="polite" aria-label="Lieu actuel">
@@ -75,10 +75,15 @@
                                 <span id="position-display">(0, 0)</span>
                             </div>
                         </section>
-                        <section id="objectives-hud" aria-label="Objectifs">
-                            <h4 id="objectives-hud-title"><span><img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes</span> <span id="objectives-toggle">▾</span></h4>
-                            <ul id="objectives-list"></ul>
-                        </section>
+                        <div id="central-actions-panel" aria-label="Actions rapides">
+                            <span class="quick-actions-kicker">ACTIONS ICI</span>
+                            <div class="quick-actions-grid">
+                                <button class="central-action-button" data-action="search" title="Fouiller la case"><img src="/assets/icons/magnifier.png" alt=""><span class="central-action-label">Fouiller</span></button>
+                                <button class="central-action-button" data-action="build" title="Construire"><img src="/assets/icons/tile_etabli.png" alt=""><span class="central-action-label">Construire</span></button>
+                                <button class="central-action-button" data-action="harvest" title="Récolter"><img src="/assets/icons/axe.png" alt=""><span class="central-action-label">Récolter</span></button>
+                                <button class="central-action-button" data-action="interact" title="Interagir"><img src="/assets/icons/compass.png" alt=""><span class="central-action-label">Interagir</span></button>
+                            </div>
+                        </div>
                         <div id="navigation-edge-panel">
                             <div id="game-info-hud">
                                 <p id="day-display"><span id="day-counter-text">Jour 1 / 100</span><button id="sound-toggle" title="Couper le son" aria-label="Couper ou réactiver le son">🔊</button></p>
@@ -100,13 +105,7 @@
                             <button class="nav-button-overlay" id="nav-south" title="Sud">↓</button>
                             <button class="nav-button-overlay" id="nav-se" title="Sud-Est">↘</button>
                         </div>
-                        <button id="screen-interaction-button" type="button" title="Afficher les actions disponibles ici" aria-label="Afficher les actions disponibles ici"><img class="screen-action-icon" src="/assets/ui/action-burst.png" alt=""><span id="screen-action-label">Actions ici</span><span id="screen-action-count" class="action-count-badge">0</span></button>
-                        <div id="central-actions-panel" class="hidden" aria-label="Actions rapides">
-                            <button class="central-action-button" data-action="build" title="Construire"><img src="/assets/icons/tile_etabli.png" alt=""></button>
-                            <button class="central-action-button" data-action="harvest" title="Récolter"><img src="/assets/icons/axe.png" alt=""></button>
-                            <button class="central-action-button" data-action="search" title="Fouiller"><img src="/assets/icons/magnifier.png" alt=""></button>
-                            <button class="central-action-button" data-action="interact" title="Interagir"><img src="/assets/icons/compass.png" alt=""></button>
-                        </div>
+                        <button id="screen-interaction-button" type="button" title="Afficher toutes les actions disponibles ici" aria-label="Afficher toutes les actions disponibles ici"><img class="screen-action-icon" src="/assets/ui/action-burst.png" alt=""><span id="screen-action-label">Toutes les actions</span><span id="screen-action-count" class="action-count-badge">0</span></button>
                     </div>
                 </div>
             </div>
@@ -115,8 +114,9 @@
             <div id="right-panel" class="ui-panel">
                 <div class="panel-identity"><span>COMMANDES</span><small>Choisis ton prochain geste</small></div>
                 <div id="right-panel-tabs">
-                    <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
                     <button class="tab-button active" data-tab="actions-tab">Actions</button>
+                    <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
+                    <button class="tab-button" data-tab="quests-tab">Quêtes <span id="quests-tab-count" class="tab-count">0/0</span></button>
                 </div>
                 <section id="inventory-tab" class="tab-content">
                     <h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
@@ -127,6 +127,12 @@
                 <section id="actions-tab" class="tab-content active-tab">
                     <h3>Actions Possibles</h3>
                     <div id="actions-tab-content"></div>
+                </section>
+                <section id="quests-tab" class="tab-content">
+                    <section id="objectives-hud" aria-label="Objectifs">
+                        <h4 id="objectives-hud-title"><span><img class="objective-title-icon" src="/assets/icons/scroll.png" alt=""> Quêtes</span> <span id="objectives-toggle">▾</span></h4>
+                        <ul id="objectives-list"></ul>
+                    </section>
                 </section>
             </div>
         </div>
@@ -140,7 +146,7 @@
             </div>
 
             <div id="bottom-bar-equipment-panel" class="bottom-bar-section">
-                <h4>Équipements</h4>
+                <h4 class="equipment-panel-title">Équipements<button id="open-equipment-modal-btn" type="button" title="Ouvrir la fiche complète">⛶ Agrandir</button></h4>
                 <div class="equipment-preview-area">
                     <button id="customize-character-btn" class="survivor-card" type="button" aria-label="Personnaliser mon survivant">
                         <canvas id="loadout-avatar-canvas" width="150" height="190" aria-hidden="true"></canvas>
@@ -173,6 +179,7 @@
         <nav id="mobile-tabbar" aria-label="Navigation mobile">
             <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon"><img class="icon-img" src="assets/icons/island.png" alt=""></span><span class="mt-label">Scène</span></button>
             <button class="mobile-tab" data-mtab="actions"><span class="mt-icon"><img class="icon-img" src="assets/icons/lightning.png" alt=""></span><span class="mt-label">Actions</span></button>
+            <button class="mobile-tab" data-mtab="quests"><span class="mt-icon"><img class="icon-img" src="assets/icons/scroll.png" alt=""></span><span class="mt-label">Quêtes</span></button>
             <button class="mobile-tab" data-mtab="inventory"><span class="mt-icon"><img class="icon-img" src="assets/icons/backpack.png" alt=""></span><span class="mt-label">Sac</span></button>
             <button class="mobile-tab" data-mtab="equipment"><span class="mt-icon"><img class="icon-img" src="assets/icons/tshirt.png" alt=""></span><span class="mt-label">Équip.</span></button>
             <button class="mobile-tab" data-mtab="status"><span class="mt-icon"><img class="icon-img" src="assets/icons/heart.png" alt=""></span><span class="mt-label">Statut</span></button>

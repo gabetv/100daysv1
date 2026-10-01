@@ -193,8 +193,10 @@ export function handlePlayerAction(actionId, data, playerId, broadcastToClients)
             if (data && data.structureKey) Player.buildStructure(player, data.structureKey);
             break;
         case ACTIONS.CRAFT_ITEM_WORKSHOP:
-            if (data && data.recipeName && data.costs && data.quantity) {
-                Player.craftItem(player, data.recipeName, data.costs, data.quantity);
+            // `data.costs` n'est plus requis ni utilisé : le serveur recalcule
+            // la recette lui-même à partir de son nom.
+            if (data && data.recipeName) {
+                Player.craftItem(player, data.recipeName, null, data.quantity);
             }
             break;
         case ACTIONS.SEARCH_ZONE:
