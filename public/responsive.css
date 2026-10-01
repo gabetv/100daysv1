@@ -162,11 +162,10 @@ html[data-shell='compact'] body.game-screen #actions-tab-content .action-button 
 }
 html[data-shell='compact'] body.game-screen .tab-button { min-height: 38px; }
 
-/* Très peu de hauteur : on retire le superflu du HUD, jamais le jeu. */
-html[data-short='on'] body.game-screen #controls-hint,
-html[data-vheight='tiny'] body.game-screen #position-display-nav,
-html[data-vheight='tiny'] body.game-screen #time-display { display: none; }
-html[data-vheight='tiny'] body.game-screen #tile-info-hud p { display: none; }
+/* Très peu de hauteur : on ne masque plus les informations (position,
+   survivants, description du lieu) — seul l'indice de saisie, sans valeur
+   de jeu, se retire. */
+html[data-short='on'] body.game-screen #controls-hint { display: none; }
 
 /* ------------------------------------------------------------------
    4. Mode Focus scène
@@ -203,7 +202,7 @@ html[data-shell='compact'] body.game-screen.show-scene-vitals .mobile-vital {
     min-width: 0;
     height: 30px;
     display: grid;
-    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr) auto;
     align-items: center;
     gap: 5px;
     padding: 3px 5px;
@@ -220,7 +219,16 @@ html[data-shell='compact'] body.game-screen.show-scene-vitals .mobile-vital img 
     object-fit: contain;
     image-rendering: pixelated;
 }
-body.game-screen.show-scene-vitals .mobile-vital b { display: none; }
+body.game-screen.show-scene-vitals .mobile-vital b {
+    display: block;
+    font-family: var(--pixel-font, monospace);
+    font-size: .5rem;
+    line-height: 1;
+    color: #fff0bc;
+    text-shadow: 1px 1px 0 #150c0a;
+    min-width: 2ch;
+    text-align: right;
+}
 body.game-screen.show-scene-vitals .mobile-vital.is-low { border-color: var(--shell-coral, #e25e49); }
 
 /* ------------------------------------------------------------------
@@ -487,7 +495,9 @@ body.game-screen .hotspot-ping {
     body.game-screen .day-timer-main { gap: 6px; }
     body.game-screen .day-timer-sprite { width: 26px; height: 26px; }
     body.game-screen #day-timer-countdown { font-size: .74rem; }
-    body.game-screen .day-timer-caption { display: none; }
+    /* La légende « avant le jour suivant » reste visible : elle fait partie
+       des informations utiles au joueur. */
+    body.game-screen .day-timer-caption { font-size: .46rem; }
     body.game-screen .day-timer-track { height: 7px; }
     body.game-screen .day-timer-phase-sprite { width: 18px; height: 18px; }
     body.game-screen .day-timer-phase #daytime-display { font-size: .52rem; }
@@ -513,7 +523,10 @@ body.game-screen .hotspot-ping {
 }
 
 /* Paysage très bas (téléphone à l'horizontale) : la scène doit rester
-   majoritaire, les tiroirs deviennent plus courts. */
+   majoritaire, les tiroirs deviennent plus courts. L'information, elle, ne
+   disparaît plus : la carte du lieu (« la case où se trouve le joueur »),
+   le niveau, les survivants et la position restent affichés — simplement
+   présentés de façon compacte. */
 @media (max-height: 460px) and (orientation: landscape) and (pointer: coarse) {
     body.game-screen #left-panel,
     body.game-screen #right-panel,
@@ -526,12 +539,16 @@ body.game-screen .hotspot-ping {
         width: min(38vw, 158px);
         max-width: min(38vw, 158px);
     }
-    /* En paysage la hauteur est la ressource rare : on ne garde que le
-       décompte, le niveau et l'événement en cours. */
-    body.game-screen #time-display,
-    body.game-screen #position-display-nav,
-    body.game-screen #controls-hint,
-    body.game-screen #tile-info-hud { display: none; }
+    /* Seuls l'indice de saisie et la longue description du lieu passent en
+       compact : le nom de la case, son biome et sa position restent. */
+    body.game-screen #controls-hint { display: none; }
+    body.game-screen #tile-info-hud {
+        bottom: calc(52px + var(--safe-b));
+        padding: 4px 6px;
+    }
+    body.game-screen #tile-info-hud .context-kicker,
+    body.game-screen #tile-details-hud { display: none; }
+    body.game-screen #tile-info-hud .context-meta { margin-top: 2px; font-size: .44rem; }
 }
 
 /* ------------------------------------------------------------------

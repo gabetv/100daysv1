@@ -565,6 +565,9 @@ function init() {
     console.log("Initializing game client...");
     UI.loadAssets(SPRITESHEET_PATHS).then(() => {
         console.log('Assets loaded.');
+        // Le mode d'affichage (Auto / Mobile / PC) doit être appliqué avant
+        // toute mesure : il décide de la coquille et de la résolution de scène.
+        UI.initLayoutMode();
         setupUIListeners();
 
         try {

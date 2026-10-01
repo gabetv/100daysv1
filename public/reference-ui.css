@@ -215,6 +215,13 @@ body.game-screen .quick-actions-kicker { color: #ffe0a0; }
         border-radius: 2px;
         color: #34231f;
     }
+    body.game-screen #layout-toggle {
+        border-color: #6b4937;
+        border-radius: 2px;
+        color: #34231f;
+    }
+    body.game-screen #layout-toggle[data-mode='mobile'],
+    body.game-screen #layout-toggle[data-mode='pc'] { border-color: #3f6d2c; color: #2c4d1e; }
 
     /* Panneau 2 × 2 des actions, au même niveau que la carte Jour. */
     body.game-screen #central-actions-panel {
@@ -425,9 +432,9 @@ body.game-screen .quick-actions-kicker { color: #ffe0a0; }
 @media (max-height: 620px) and (orientation: portrait) {
     body.game-screen #game-info-hud,
     body.game-screen #central-actions-panel { top: calc(48px + var(--safe-t)); }
-    body.game-screen #game-info-hud { max-height: 176px; overflow: hidden; }
-    body.game-screen .day-timer-caption,
-    body.game-screen #day-timer-eta { display: none; }
+    /* Plus de rognage (max-height + overflow) ni de masquage : la légende du
+       minuteur, le minuteur de phase, le niveau, la position, les survivants
+       et la carte du lieu restent affichés sur les petits écrans. */
     body.game-screen .central-action-button,
     body.game-screen .central-action-button.is-available { height: 49px; }
     body.game-screen #tile-info-hud { min-height: 62px; padding-top: 7px; padding-bottom: 7px; }
@@ -618,6 +625,9 @@ body.game-screen .mobile-tab .mt-icon { position: relative; }
         color: #fff0cf;
     }
     body.game-screen #sound-toggle { border-color: #6b4937; color: #34231f; }
+    body.game-screen #layout-toggle { border-color: #6b4937; color: #34231f; }
+    body.game-screen #layout-toggle[data-mode='mobile'],
+    body.game-screen #layout-toggle[data-mode='pc'] { border-color: #3f6d2c; color: #2c4d1e; }
     body.game-screen .shell-control {
         border: 1px solid #7a523a;
         background: rgba(60, 36, 27, .9);
@@ -932,3 +942,16 @@ body.game-screen #scene-combat.fleeing #scene-combat-flee {
     body.game-screen .combat-mini-portrait { width: 42px; height: 42px; font-size: 1.3rem; }
     body.game-screen .combat-mini-log { font-size: .6rem; }
 }
+
+/* =====================================================================
+   COQUILLE MOBILE SUR GRAND ÉCRAN (réglage Auto / Mobile / PC)
+   ---------------------------------------------------------------------
+   Quand la coquille mobile est forcée sur PC (data-shell="mobile" posé par
+   viewport.js), les règles « ordinateur » ci-dessus (requêtes min-width /
+   min-height) s'appliquent aussi : elles retiraient le dock d'actions
+   rapides et la ligne Position, pensés comme des doublons du layout bureau.
+   En coquille mobile, ce sont des éléments de la version mobile : on les
+   rétablit quelle que soit la taille de l'écran.
+   ===================================================================== */
+html[data-shell='mobile'] body.game-screen #central-actions-panel { display: flex; }
+html[data-shell='mobile'] body.game-screen #position-display-nav { display: block; }
