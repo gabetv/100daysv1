@@ -35,7 +35,9 @@ const player = State.gameState.players.p1;
 
 console.log('\n== Équiper / déséquiper : l' + 'usure est conservée ==');
 {
-    // Le joueur démarre avec une Hache (durabilité 50/50) : on l'use à 12.
+    // Le joueur démarre avec une Hache auto-équipée : on la remet d'abord
+    // dans le sac pour vérifier explicitement équiper → déséquiper.
+    if (player.equipment.weapon?.name === 'Hache') Player.unequipItem(player, 'weapon');
     const hacheKey = Object.keys(player.inventory).find(k => typeof player.inventory[k] === 'object' && player.inventory[k].name === 'Hache');
     check('hache de départ présente', !!hacheKey);
     player.inventory[hacheKey].currentDurability = 12;
@@ -80,10 +82,15 @@ console.log('\n== Poser au sol / ramasser : piles et objets uniques ==');
         !!groundSwordKey && typeof tile.groundItems[groundSwordKey] === 'object');
     check("son usure a suivi au sol (4)", tile.groundItems[groundSwordKey]?.currentDurability === 4);
     Player.pickupItem(player, groundSwordKey, 1);
-    const backSwordKey = Object.keys(player.inventory).find(k => player.inventory[k]?.name === 'Épée en bois');
+    const carriedSword = player.equipment.weapon?.name === 'Épée en bois'
+        ? player.equipment.weapon
+        : Object.values(player.inventory).find(it => it?.name === 'Épée en bois');
     check("ramassée : toujours usée (4/…), pas réparée",
-        player.inventory[backSwordKey]?.currentDurability === 4,
-        `obtenu ${player.inventory[backSwordKey]?.currentDurability}`);
+        carriedSword?.currentDurability === 4,
+        `obtenu ${carriedSword?.currentDurability}`);
+    // Auto-équipement : si le slot arme était vide, l'épée est passée en main.
+    // On la remet dans le sac pour les tests de coffre qui suivent.
+    if (player.equipment.weapon?.name === 'Épée en bois') Player.unequipItem(player, 'weapon');
 }
 
 console.log('\n== Coffre : dépôt, reprise, objets uniques, coffre plein ==');
@@ -125,9 +132,13 @@ console.log('\n== Coffre : dépôt, reprise, objets uniques, coffre plein ==');
 
     Player.moveItem(player, { itemKey: swordKey, itemName: 'Épée en bois', quantity: 1,
         source: { owner: 'building-inventory', slot: null }, target: { owner: 'player-inventory', slot: null } });
+    const returnedSword = player.equipment.weapon?.name === 'Épée en bois'
+        ? player.equipment.weapon
+        : player.inventory[swordKey];
     check("l'épée reprise du coffre conserve 4 de durabilité",
-        player.inventory[swordKey]?.currentDurability === 4,
-        `obtenu ${player.inventory[swordKey]?.currentDurability}`);
+        returnedSword?.currentDurability === 4,
+        `obtenu ${returnedSword?.currentDurability}`);
+    if (player.equipment.weapon?.name === 'Épée en bois') Player.unequipItem(player, 'weapon');
 
     // « Tout prendre » vide le coffre d'un coup.
     Player.takeAllItems(player);

@@ -301,13 +301,12 @@ export function updateEquipmentModal(gameState) {
     }
 
     if (playerStatAttackEl) {
-        playerStatAttackEl.textContent = (player.equipment.weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE);
+        const weaponDef = ITEM_TYPES[player.equipment.weapon?.name] || {};
+        playerStatAttackEl.textContent = (weaponDef.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE);
     }
     if (playerStatDefenseEl) {
-        playerStatDefenseEl.textContent = (player.equipment.body?.stats?.defense || 0) +
-                        (player.equipment.head?.stats?.defense || 0) +
-                        (player.equipment.feet?.stats?.defense || 0) +
-                        (player.equipment.shield?.stats?.defense || 0);
+        const stat = (slot) => (ITEM_TYPES[player.equipment[slot]?.name]?.stats?.defense || 0);
+        playerStatDefenseEl.textContent = stat('body') + stat('head') + stat('feet') + stat('shield');
     }
 }
 
