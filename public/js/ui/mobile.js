@@ -4,10 +4,18 @@ const TAB_TARGETS = {
     scene: [],
     actions: ['right-panel'],
     inventory: ['right-panel'],
+    quests: ['right-panel'],
     equipment: ['bottom-bar-equipment-panel'],
     status: ['left-panel'],
     chat: ['bottom-bar-chat-panel'],
     map: ['minimap-section'],
+};
+
+// Onglet interne du panneau de droite associé à chaque onglet mobile.
+const RIGHT_PANEL_TABS = {
+    actions: 'actions-tab',
+    inventory: 'inventory-tab',
+    quests: 'quests-tab',
 };
 
 let currentTab = 'scene';
@@ -38,9 +46,9 @@ export function openTab(tab, { toggle = false } = {}) {
     ids.forEach(id => document.getElementById(id)?.classList.add('sheet-active'));
     document.body.classList.toggle('sheet-open', ids.length > 0);
 
-    // Onglet interne du panneau de droite (Inventaire / Actions)
-    if (tab === 'inventory' || tab === 'actions') {
-        const target = tab === 'inventory' ? 'inventory-tab' : 'actions-tab';
+    // Onglet interne du panneau de droite (Actions / Inventaire / Quêtes)
+    const target = RIGHT_PANEL_TABS[tab];
+    if (target) {
         document.querySelectorAll('#right-panel-tabs .tab-button').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === target);
         });
@@ -114,7 +122,7 @@ function initSwipe(onMove) {
 
     zone.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) { tracking = false; return; }
-        if (e.target.closest('button, .mobile-tab, #objectives-hud')) { tracking = false; return; }
+        if (e.target.closest('button, .mobile-tab, #central-actions-panel, #objectives-hud')) { tracking = false; return; }
         tracking = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
@@ -203,7 +211,8 @@ export function initMobileUI({ onMove } = {}) {
     document.querySelectorAll('#right-panel-tabs .tab-button').forEach(btn => {
         btn.addEventListener('click', () => {
             if (!isMobileLayout()) return;
-            currentTab = btn.dataset.tab === 'inventory-tab' ? 'inventory' : 'actions';
+            const match = Object.entries(RIGHT_PANEL_TABS).find(([, id]) => id === btn.dataset.tab);
+            currentTab = match ? match[0] : 'actions';
             document.querySelectorAll('.mobile-tab').forEach(b => b.classList.toggle('active', b.dataset.mtab === currentTab));
         });
     });

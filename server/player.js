@@ -2,6 +2,7 @@
 
 import { gameState, endCombat, triggerRescueVictory, sanitizeAppearance } from './state.js';
 import { ITEM_TYPES, CONFIG, TILE_TYPES, SEARCH_ZONE_CONFIG, TREASURE_COMBAT_KIT, ACTIONS, ACTION_COST_CONFIG } from '../public/js/config.js';
+import { findRecipeByName, countInInventory, pickInventoryKeys } from '../public/js/recipes.js';
 
 // --- UTILITIES ---
 
@@ -531,22 +532,51 @@ export function buildStructure(player, structureKey) {
     addXp(player, 5);
 }
 
-export function craftItem(player, recipeName, costs, quantity) {
-    // Check resources
-    for (const resource in costs) {
-        if ((player.inventory[resource] || 0) < costs[resource] * quantity) {
-            player.notifications.push({ type: 'chat', message: `Ressources manquantes pour fabriquer ${quantity} ${recipeName}.`, style: 'system_error' });
+export function craftItem(player, recipeName, _clientCosts, quantity) {
+    // Les coûts ne viennent jamais du client : ils sont recalculés ici à partir
+    // du parchemin correspondant, avec des noms d'objets réellement présents
+    // dans l'inventaire (voir public/js/recipes.js).
+    const recipe = findRecipeByName(recipeName);
+    if (!recipe) {
+        player.notifications.push({ type: 'chat', message: `Recette inconnue : ${recipeName}.`, style: 'system_error' });
+        return;
+    }
+
+    const known = player.knownRecipes?.[recipeName] || gameState.knownRecipes?.[recipeName];
+    if (!known) {
+        player.notifications.push({ type: 'chat', message: `Vous ne connaissez pas encore la recette « ${recipeName} ».`, style: 'system_error' });
+        return;
+    }
+
+    const amount = Math.max(1, Math.min(999, Math.floor(Number(quantity) || 1)));
+
+    // Vérification puis consommation : on calcule d'abord toutes les clés à
+    // retirer afin de ne jamais consommer à moitié une recette impossible.
+    const plan = [];
+    for (const [resource, perUnit] of Object.entries(recipe.costs)) {
+        const required = perUnit * amount;
+        const picks = pickInventoryKeys(player.inventory, resource, required);
+        if (!picks) {
+            const owned = countInInventory(player.inventory, resource);
+            player.notifications.push({
+                type: 'chat',
+                message: `Ressources manquantes : il faut ${required} ${resource} (vous en avez ${owned}).`,
+                style: 'system_error',
+            });
             return;
         }
+        plan.push(...picks);
     }
-    // Deduct resources
-    for (const resource in costs) {
-        removeItemFromInventory(player, resource, costs[resource] * quantity);
+
+    for (const { key, amount: take } of plan) {
+        removeItemFromInventory(player, key, take);
     }
-    // Add crafted item
-    addItemToInventory(player, recipeName, quantity);
-    player.notifications.push({ type: 'floatingText', message: `Fabriqué : +${quantity} ${recipeName}`, style: 'gain' });
-    addXp(player, 2 * quantity);
+
+    const produced = recipe.yield * amount;
+    addItemToInventory(player, recipe.output, produced);
+    player.notifications.push({ type: 'floatingText', message: `Fabriqué : +${produced} ${recipe.output}`, style: 'gain' });
+    player.notifications.push({ type: 'chat', message: `🛠️ Vous fabriquez ${produced} × ${recipe.output}.`, style: 'gain' });
+    addXp(player, 2 * amount);
 }
 
 export function searchZone(player) {

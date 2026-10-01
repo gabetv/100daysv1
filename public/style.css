@@ -464,12 +464,9 @@ button::after {
 #minimap-container { width: 100%; height: 100%; border-radius: 8px; overflow: hidden; background-color: #000; border: 2px solid rgba(255, 255, 255, 0.2); box-shadow: 0 0 10px rgba(69, 123, 157, 0.5); aspect-ratio: 1 / 1; }
 #minimap-canvas { width: 100%; height: 100%; image-rendering: pixelated; }
 
-/* --- Panneau d'objectifs / Quêtes --- */
+/* --- Panneau d'objectifs / Quêtes (désormais dans l'onglet Quêtes) --- */
 #objectives-hud {
-    position: absolute;
-    top: 10px;
-    right: 75px; /* Dégagé de #nav-ne à right: 15px */
-    z-index: 50;
+    position: static;
     background: linear-gradient(160deg, rgba(8, 22, 34, 0.92), rgba(12, 30, 44, 0.84));
     border: 1px solid rgba(255, 215, 0, 0.45);
     border-radius: 12px;
@@ -700,27 +697,13 @@ button::after {
     background-color: var(--action-color);
 }
 
+/* Dock d'actions rapides : toujours visible sur la scène (position et style
+   définitifs dans game-shell.css). */
 #central-actions-panel {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 15px;
-    background-color: rgba(29, 53, 87, 0.7);
-    padding: 20px;
-    border-radius: 12px;
-    backdrop-filter: blur(5px);
     z-index: 10002;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-}
-
-#central-actions-panel:not(.hidden) {
-    opacity: 1;
+    display: flex;
+    gap: 10px;
     pointer-events: auto;
 }
 
@@ -2198,18 +2181,9 @@ button::after {
     #tile-info-hud h3 { font-size: 0.85rem; margin-bottom: 2px; }
     #tile-info-hud #biome-display, #tile-info-hud #position-display { display: none; }
 
-    #objectives-hud {
-        top: 8px !important;
-        right: 8px !important;
-        left: auto !important;
-        max-width: 48vw !important;
-        font-size: 0.72rem !important;
-        padding: 5px 8px !important;
-        z-index: 55 !important;
-    }
-    #objectives-hud h4 { font-size: 0.75rem !important; }
-    #objectives-hud ul { max-height: 130px !important; }
-    #objectives-hud.collapsed { padding: 4px 8px !important; }
+    #objectives-hud { font-size: 0.8rem; padding: 10px 12px; }
+    #objectives-hud h4 { font-size: 0.82rem; }
+    #objectives-hud.collapsed { padding: 8px 12px; }
 
     #game-info-hud {
         position: absolute;
@@ -2266,27 +2240,7 @@ button::after {
     body.compact-dpad #nav-nw, body.compact-dpad #nav-ne,
     body.compact-dpad #nav-sw, body.compact-dpad #nav-se { display: none; }
 
-    /* --- Actions rapides centrales : rangée flottante à gauche --- */
-    #central-actions-panel {
-        top: auto;
-        bottom: 14px;
-        left: 14px;
-        transform: none;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        background: none;
-        padding: 0;
-    }
-    #central-actions-panel.hidden { opacity: 0; pointer-events: none; }
-    .central-action-button {
-        width: 52px;
-        height: 52px;
-        font-size: 1.5em;
-        border-radius: 16px;
-        background: rgba(69, 123, 157, 0.82);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-    }
+    /* --- Actions rapides : dock permanent en haut à droite (voir game-shell.css) --- */
     .central-action-button:hover { transform: none; }
     .central-action-button:active { transform: scale(0.9); }
 
@@ -2679,22 +2633,20 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
 }
 
 /* --- Corrections d'ergonomie : objectifs hors de la scène et interaction directe --- */
-#right-panel > #objectives-hud {
-    position: relative;
-    top: auto;
-    right: auto;
+#quests-tab > #objectives-hud {
+    position: static;
     z-index: 1;
     width: 100%;
     min-width: 0;
     max-width: none;
     flex: 0 0 auto;
-    margin: 0 0 2px;
-    padding: 10px 12px;
-    font-size: 0.82rem;
+    margin: 0;
+    padding: 12px 14px;
+    font-size: 0.85rem;
     pointer-events: auto;
 }
-#right-panel > #objectives-hud ul { max-height: 130px; }
-#right-panel > #objectives-hud.collapsed { padding: 8px 12px; }
+#quests-tab > #objectives-hud ul { max-height: none; }
+#quests-tab > #objectives-hud.collapsed { padding: 10px 14px; }
 
 #screen-interaction-button {
     position: absolute;
@@ -2717,17 +2669,13 @@ button:disabled { filter: grayscale(0.5) brightness(0.8); }
 #screen-interaction-button:active:not(:disabled) { transform: translateX(-50%) translateY(1px); }
 
 @media (max-width: 900px), (pointer: coarse) and (max-width: 1100px) {
-    #right-panel > #objectives-hud {
-        top: auto !important;
-        right: auto !important;
-        left: auto !important;
-        max-width: none !important;
-        margin-bottom: 4px;
-        font-size: .84rem !important;
-        padding: 10px 12px !important;
+    #quests-tab > #objectives-hud {
+        max-width: none;
+        font-size: .86rem;
+        padding: 12px 14px;
         background: #1b3c4a;
     }
-    #right-panel > #objectives-hud ul { max-height: 120px; }
+    #quests-tab > #objectives-hud ul { max-height: none; }
     #screen-interaction-button {
         bottom: 14px;
         left: 14px;

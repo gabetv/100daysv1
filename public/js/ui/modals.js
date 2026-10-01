@@ -5,6 +5,7 @@ import * as Draw from './draw.js';
 import { sendAction } from '../main.js';
 import { sfx } from '../audio.js';
 import { itemIconHTML, tileIconHTML, ENEMY_IMAGES } from './icons.js';
+import { getWorkshopRecipes, maxCraftableAmount, countInInventory } from '../recipes.js';
 
 /** Vérifie un statut quel que soit son format (objet {Nom:{...}} ou tableau). */
 function hasStatus(player, statusName) {
@@ -513,6 +514,9 @@ export function showBuildModal(gameState) {
 export function hideBuildModal() {
     if (DOM.buildModal) DOM.buildModal.classList.add('hidden');
 }
+export function isBuildModalOpen() {
+    return !!DOM.buildModal && !DOM.buildModal.classList.contains('hidden');
+}
 export function setupBuildModalListeners() {
     DOM.closeBuildModalBtn?.addEventListener('click', hideBuildModal);
 }
@@ -520,6 +524,9 @@ export function populateBuildModal(gameState) {
     if (!DOM.buildModalGridEl || !gameState || !gameState.player || !gameState.map || !gameState.knownRecipes) return;
     const { player, map, knownRecipes, config } = gameState;
     const tile = map[player.y][player.x];
+    // On conserve la position de lecture : la liste est reconstruite à chaque
+    // état serveur pour refléter les ressources réellement disponibles.
+    const previousScroll = DOM.buildModalGridEl.scrollTop;
     DOM.buildModalGridEl.innerHTML = '';
     
     const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
@@ -561,9 +568,10 @@ export function populateBuildModal(gameState) {
         const costsList = document.createElement('ul');
         for (const item in costs) {
             const li = document.createElement('li');
-            const playerAmount = player.inventory[item] || 0;
-            li.textContent = `${costs[item]} ${item}`;
-            if (playerAmount < costs[item]) li.style.color = '#ff6b6b';
+            const playerAmount = countInInventory(player.inventory, item);
+            // Afficher ce que l'on possède évite d'ouvrir le sac pour vérifier.
+            li.innerHTML = `<span>${item}</span><span class="build-cost-amount">${playerAmount} / ${costs[item]}</span>`;
+            if (playerAmount < costs[item]) li.classList.add('is-missing');
             costsList.appendChild(li);
         }
         costsDiv.appendChild(costsList);
@@ -594,6 +602,8 @@ export function populateBuildModal(gameState) {
         card.append(header, description, costsDiv, toolsDiv, actionDiv);
         DOM.buildModalGridEl.appendChild(card);
     });
+
+    DOM.buildModalGridEl.scrollTop = previousScroll;
 }
 
 export function showWorkshopModal(gameState) {
@@ -604,55 +614,34 @@ export function showWorkshopModal(gameState) {
 export function hideWorkshopModal() {
     if (DOM.workshopModal) DOM.workshopModal.classList.add('hidden');
 }
+export function isWorkshopModalOpen() {
+    return !!DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden');
+}
+
 export function populateWorkshopModal(gameState) {
     if (!DOM.workshopRecipesContainerEl || !gameState || !gameState.player || !gameState.knownRecipes) return;
-    
-    currentWorkshopRecipes = [];
-    for (const itemName in ITEM_TYPES) {
-        const itemDef = ITEM_TYPES[itemName];
-        if (itemDef.teachesRecipe && gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) {
-            const costs = {};
-            let yieldAmount = 1;
-            const description = itemDef.description || "";
-            const match = description.match(/Transformer\s+(.+?)\s*=\s*(?:(\d+)\s+)?(.+)/i);
-
-            if (match) {
-                const ingredientsString = match[1];
-                if (match[2]) yieldAmount = parseInt(match[2], 10) || 1;
-                ingredientsString.split(/\s+(?:et|\+)\s+/i).forEach(part => {
-                    const partMatch = part.trim().match(/(\d+)\s+(.+)/);
-                    if (partMatch) costs[partMatch[2].trim()] = parseInt(partMatch[1], 10);
-                });
-            } else { continue; }
-
-            if (Object.keys(costs).length > 0) {
-                 currentWorkshopRecipes.push({
-                    name: itemDef.teachesRecipe,
-                    icon: ITEM_TYPES[itemDef.teachesRecipe]?.icon || '🛠️',
-                    costs: costs,
-                    yield: yieldAmount,
-                    category: (ITEM_TYPES[itemDef.teachesRecipe]?.type || 'other'),
-                    sourceParchemin: itemName
-                });
-            }
-        }
-    }
-    currentWorkshopRecipes.sort((a,b) => a.name.localeCompare(b.name));
-    renderWorkshopRecipes(gameState.player, gameState.map[gameState.player.y][gameState.player.x]);
+    // Les coûts sont résolus vers les vraies clés d'inventaire (voir recipes.js),
+    // sinon l'atelier comparait "bois" (texte du parchemin) à "Bois" (sac).
+    currentWorkshopRecipes = getWorkshopRecipes(gameState.knownRecipes);
+    renderWorkshopRecipes(gameState.player);
 }
-function renderWorkshopRecipes(player, tile) {
+
+function renderWorkshopRecipes(player) {
     if (!DOM.workshopRecipesContainerEl) return;
-    DOM.workshopRecipesContainerEl.innerHTML = '';
+    const container = DOM.workshopRecipesContainerEl;
+    container.innerHTML = '';
 
     const searchTerm = DOM.workshopSearchInputEl?.value.toLowerCase() || '';
     const categoryFilter = DOM.workshopCategoryFilterEl?.value || 'all';
 
-    const filteredRecipes = currentWorkshopRecipes.filter(recipe => 
+    const filteredRecipes = currentWorkshopRecipes.filter(recipe =>
         recipe.name.toLowerCase().includes(searchTerm) && (categoryFilter === 'all' || recipe.category === categoryFilter)
     );
 
     if (filteredRecipes.length === 0) {
-        DOM.workshopRecipesContainerEl.innerHTML = '<p class="inventory-empty">Aucune recette ne correspond.</p>';
+        container.innerHTML = currentWorkshopRecipes.length === 0
+            ? '<p class="inventory-empty">Aucune recette connue. Ouvrez des parchemins pour en apprendre.</p>'
+            : '<p class="inventory-empty">Aucune recette ne correspond.</p>';
         return;
     }
 
@@ -661,65 +650,124 @@ function renderWorkshopRecipes(player, tile) {
         card.className = 'workshop-recipe-card';
         card.dataset.recipeName = recipe.name;
 
-        const header = `<div class="workshop-recipe-header">${itemIconHTML(recipe.name, recipe.icon, 'workshop-recipe-icon')}<span class="workshop-recipe-name">${recipe.name}</span></div>`;
-        const yieldEl = `<div class="workshop-recipe-yield">Produit: <strong>${recipe.yield}</strong></div>`;
-        
-        let costsHtml = '<div class="workshop-recipe-costs"><h5>Coûts (par unité):</h5><ul>';
+        const producedLabel = recipe.yield > 1
+            ? `${recipe.yield} × ${recipe.output}`
+            : recipe.output;
+
+        const header = `<div class="workshop-recipe-header">${itemIconHTML(recipe.output, recipe.icon, 'workshop-recipe-icon')}<span class="workshop-recipe-name">${recipe.name}</span></div>`;
+        const yieldEl = `<div class="workshop-recipe-yield">Produit : <strong>${producedLabel}</strong></div>`;
+
+        let costsHtml = '<div class="workshop-recipe-costs"><h5>Ressources nécessaires</h5><ul>';
         for (const itemName in recipe.costs) {
             const itemIcon = ITEM_TYPES[itemName]?.icon || '';
             costsHtml += `<li data-item-name="${itemName}"><span class="cost-name">${itemIconHTML(itemName, itemIcon, 'item-icon')}${itemName}</span><span class="cost-amount"></span></li>`;
         }
         costsHtml += '</ul></div>';
-        
-        const quantityInput = `<div class="quantity-input-wrapper"><label>Quantité:</label><input type="number" min="1" value="1" data-recipe-name="${recipe.name}"></div>`;
-        const actionButton = `<div class="workshop-recipe-action"><button>Transformer</button></div>`;
-        
-        card.innerHTML = header + yieldEl + costsHtml + quantityInput + actionButton;
-        DOM.workshopRecipesContainerEl.appendChild(card);
-        
-        card.querySelector('input[type="number"]').addEventListener('input', (e) => handleWorkshopQuantityChange(e, player, recipe, tile));
-        card.querySelector('button').addEventListener('click', () => {
-            const qty = parseInt(card.querySelector('input').value, 10);
-            sendAction('craft_item_workshop', { recipeName: recipe.name, costs: recipe.costs, quantity: qty });
+
+        const quantityInput = `<div class="quantity-input-wrapper">`
+            + `<label>Quantité</label>`
+            + `<span class="quantity-field"><input type="number" min="1" value="1" data-recipe-name="${recipe.name}">`
+            + `<button type="button" class="workshop-max-btn" title="Fabriquer le maximum possible">Max</button></span>`
+            + `</div>`;
+        const stockLine = `<div class="workshop-recipe-stock"></div>`;
+        const actionButton = `<div class="workshop-recipe-action"><button type="button">Transformer</button></div>`;
+
+        card.innerHTML = header + yieldEl + costsHtml + quantityInput + stockLine + actionButton;
+        container.appendChild(card);
+
+        const input = card.querySelector('input[type="number"]');
+        const maxBtn = card.querySelector('.workshop-max-btn');
+
+        input.addEventListener('input', () => refreshWorkshopCard(card, recipe, currentPlayer()));
+        maxBtn.addEventListener('click', () => {
+            const max = maxCraftableAmount(currentPlayer()?.inventory, recipe.costs);
+            input.value = String(Math.max(1, max));
+            refreshWorkshopCard(card, recipe, currentPlayer());
         });
-        
-        handleWorkshopQuantityChange({ target: card.querySelector('input[type="number"]') }, player, recipe, tile);
+        card.querySelector('.workshop-recipe-action button').addEventListener('click', () => {
+            const p = currentPlayer();
+            const max = maxCraftableAmount(p?.inventory, recipe.costs);
+            const qty = Math.min(Math.max(1, parseInt(input.value, 10) || 1), Math.max(1, max));
+            if (max < 1) return;
+            // Le serveur recalcule lui-même les coûts à partir du nom de recette.
+            sendAction('craft_item_workshop', { recipeName: recipe.name, quantity: qty });
+            // Retour immédiat : on n'attend pas l'état serveur pour montrer que
+            // les ressources ont été consommées.
+            card.classList.add('is-crafting');
+            setTimeout(() => card.classList.remove('is-crafting'), 450);
+        });
+
+        refreshWorkshopCard(card, recipe, player);
     });
 }
-function handleWorkshopQuantityChange(event, player, recipe, tile) {
-    const inputElement = event.target;
-    const quantityToCraft = parseInt(inputElement.value, 10);
-    const recipeCard = inputElement.closest('.workshop-recipe-card');
-    const transformButton = recipeCard.querySelector('button');
 
-    if (isNaN(quantityToCraft) || quantityToCraft <= 0) {
-        if (transformButton) transformButton.disabled = true;
-        return;
-    }
+function currentPlayer() {
+    return window.gameState?.player || null;
+}
 
-    let canCraft = true;
-    recipeCard.querySelectorAll('.workshop-recipe-costs li').forEach(li => {
+/** Met à jour une carte : stocks, maximum fabricable et état du bouton. */
+function refreshWorkshopCard(card, recipe, player) {
+    if (!card || !recipe) return;
+    const input = card.querySelector('input[type="number"]');
+    const button = card.querySelector('.workshop-recipe-action button');
+    const stockLine = card.querySelector('.workshop-recipe-stock');
+    const inventory = player?.inventory || {};
+
+    const max = maxCraftableAmount(inventory, recipe.costs);
+    if (input) input.max = String(Math.max(1, max));
+
+    let quantity = parseInt(input?.value, 10);
+    if (!Number.isFinite(quantity) || quantity <= 0) quantity = 1;
+
+    let canCraft = max >= 1 && quantity <= max;
+
+    card.querySelectorAll('.workshop-recipe-costs li').forEach(li => {
         const itemName = li.dataset.itemName;
         const costAmountEl = li.querySelector('.cost-amount');
-        const required = recipe.costs[itemName] * quantityToCraft;
-        const available = player.inventory[itemName] || 0;
-        
+        const required = (recipe.costs[itemName] || 0) * quantity;
+        const available = countInInventory(inventory, itemName);
+
         costAmountEl.textContent = `${available} / ${required}`;
-        if (available < required) {
-            costAmountEl.classList.add('insufficient');
-            canCraft = false;
-        } else {
-            costAmountEl.classList.remove('insufficient');
-        }
+        const missing = available < required;
+        costAmountEl.classList.toggle('insufficient', missing);
+        li.classList.toggle('is-missing', missing);
+        if (missing) canCraft = false;
     });
-    if (transformButton) transformButton.disabled = !canCraft || player.isBusy;
+
+    if (stockLine) {
+        const owned = countInInventory(inventory, recipe.output);
+        stockLine.innerHTML = max > 0
+            ? `<span class="workshop-stock-ok">Fabricable : ${max}×</span><span class="workshop-stock-owned">Dans le sac : ${owned}</span>`
+            : `<span class="workshop-stock-ko">Ressources insuffisantes</span><span class="workshop-stock-owned">Dans le sac : ${owned}</span>`;
+    }
+
+    card.classList.toggle('is-unavailable', max < 1);
+    if (button) {
+        button.disabled = !canCraft || !!player?.isBusy;
+        button.textContent = quantity > 1 ? `Transformer ×${quantity}` : 'Transformer';
+    }
 }
+
+/**
+ * Rafraîchit les quantités affichées sans reconstruire les cartes : appelé à
+ * chaque état serveur, donc après chaque clic sur « Transformer ».
+ */
+export function refreshWorkshopAvailability(gameState) {
+    if (!isWorkshopModalOpen() || !DOM.workshopRecipesContainerEl) return;
+    const player = gameState?.player || currentPlayer();
+    if (!player) return;
+    DOM.workshopRecipesContainerEl.querySelectorAll('.workshop-recipe-card').forEach(card => {
+        const recipe = currentWorkshopRecipes.find(r => r.name === card.dataset.recipeName);
+        if (recipe) refreshWorkshopCard(card, recipe, player);
+    });
+}
+
 export function setupWorkshopModalListeners() {
     // Utilise l'état de jeu courant au moment de l'événement (et non celui de l'initialisation)
     const update = () => {
         const gs = window.gameState;
-        if (!gs || !gs.player || !gs.map) return;
-        renderWorkshopRecipes(gs.player, gs.map[gs.player.y][gs.player.x]);
+        if (!gs || !gs.player) return;
+        renderWorkshopRecipes(gs.player);
     };
     DOM.closeWorkshopModalBtn?.addEventListener('click', hideWorkshopModal);
     DOM.workshopSearchInputEl?.addEventListener('input', update);
