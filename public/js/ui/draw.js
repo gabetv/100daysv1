@@ -240,6 +240,10 @@ function scenePerspectiveScale(tile, xNorm = 0.5) {
     return 1 - Math.abs(clamp01(xNorm) - 0.5) * 0.10;
 }
 
+function baseEnemyName(name) {
+    return String(name || '').replace(/\s+alpha$/i, '');
+}
+
 function paintBackgroundImage(ctx, img, w, h, alpha, zoom, framing = null) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     const canvasAspect = w / h;
@@ -587,7 +591,7 @@ const PROP_FOR_BUILDING = {
     ETABLI: { scale: 0.16, x: 0.76, preferTileImage: true },
     FORGE: { scale: 0.20, x: 0.22, preferTileImage: true },
     PETIT_PUIT: { scale: 0.17, x: 0.72, preferTileImage: true },
-    PUITS_PROFOND: { scale: 0.22, x: 0.72, preferTileImage: true },
+    PUIT_PROFOND: { scale: 0.22, x: 0.72, preferTileImage: true },
     BIBLIOTHEQUE: { scale: 0.22, x: 0.24, preferTileImage: true },
     LABORATOIRE: { scale: 0.24, x: 0.24, preferTileImage: true },
     OBSERVATOIRE: { scale: 0.22, x: 0.74, preferTileImage: true },
@@ -601,6 +605,178 @@ function drawGroundShadow(ctx, cx, baseY, width, height, alpha = 0.28) {
     ctx.beginPath();
     ctx.ellipse(cx, baseY, width, Math.max(2, height), 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+}
+
+function drawPixelCross(ctx, x, y, unit, color, alpha = 1) {
+    const u = Math.max(1, Math.round(unit));
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x - u * 2), Math.round(y), u * 5, u);
+    ctx.fillRect(Math.round(x), Math.round(y - u * 2), u, u * 5);
+    ctx.restore();
+}
+
+function drawPixelSmoke(ctx, x, y, unit, seed = 0, color = '#d8d0bd', strength = 1) {
+    const t = Date.now() / 1000;
+    ctx.save();
+    for (let i = 0; i < 5; i++) {
+        const life = (t * 0.18 + i * 0.21 + seed) % 1;
+        const drift = Math.sin(t * 0.9 + i * 1.7 + seed * 6) * unit * 2.2;
+        const px = snapPixel(x + drift + (life - 0.5) * unit * 4, unit);
+        const py = snapPixel(y - life * unit * 18, unit);
+        const size = Math.max(unit, Math.round(unit * (1.5 + life * 2.6)));
+        ctx.globalAlpha = (1 - life) * 0.32 * strength;
+        ctx.fillStyle = color;
+        ctx.fillRect(px - size / 2, py - size / 2, size, size);
+        if (life > 0.35) ctx.fillRect(px + unit, py, Math.max(unit, size - unit), unit);
+    }
+    ctx.restore();
+}
+
+function drawTinyFarmAnimal(ctx, kind, cx, baseY, unit, t, phase = 0) {
+    const bob = Math.sin(t * 5 + phase) * unit;
+    const walk = Math.sin(t * 3.2 + phase);
+    const x = snapPixel(cx + walk * unit * 2.8, unit);
+    const y = snapPixel(baseY + bob, unit);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (kind === 'pig') {
+        ctx.fillStyle = '#2a1719';
+        ctx.fillRect(x - unit * 4, y - unit * 3, unit * 8, unit * 4);
+        ctx.fillStyle = '#e9a0a7';
+        ctx.fillRect(x - unit * 4, y - unit * 4, unit * 7, unit * 4);
+        ctx.fillRect(x + unit * 2, y - unit * 5, unit * 3, unit * 3);
+        ctx.fillStyle = '#f3b6bb';
+        ctx.fillRect(x - unit * 3, y - unit * 4, unit * 5, unit * 2);
+        ctx.fillStyle = '#5b3036';
+        ctx.fillRect(x + unit * 3, y - unit * 4, unit, unit);
+        ctx.fillRect(x + unit * 4, y - unit * 3, unit, unit);
+        ctx.fillRect(x - unit * 3, y, unit, unit * 2);
+        ctx.fillRect(x + unit * 2, y, unit, unit * 2);
+    } else {
+        ctx.fillStyle = '#2b211b';
+        ctx.fillRect(x - unit * 3, y - unit * 4, unit * 7, unit * 5);
+        ctx.fillStyle = '#fff4d7';
+        ctx.fillRect(x - unit * 3, y - unit * 5, unit * 6, unit * 4);
+        ctx.fillStyle = '#ffd166';
+        ctx.fillRect(x + unit * 3, y - unit * 4, unit * 2, unit);
+        ctx.fillStyle = '#e04f3f';
+        ctx.fillRect(x - unit, y - unit * 7, unit * 2, unit * 2);
+        ctx.fillStyle = '#302018';
+        ctx.fillRect(x + unit, y - unit * 4, unit, unit);
+        ctx.fillStyle = '#d88b33';
+        ctx.fillRect(x - unit * 2, y, unit, unit * 2);
+        ctx.fillRect(x + unit, y, unit, unit * 2);
+    }
+    ctx.restore();
+}
+
+function drawBuildingAmbience(ctx, key, cx, baseY, targetH, targetW = targetH, opts = {}) {
+    if (!key || !targetH) return;
+    const now = Date.now();
+    const t = now / 1000;
+    const unit = Math.max(2, Math.round(targetH / 42));
+    const left = cx - targetW / 2;
+    const top = baseY - targetH;
+    const phase = (hashString(`${key}:${Math.round(cx)}:${opts.background ? 'bg' : 'fg'}`) % 1000) / 1000;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    if (key === 'CAMPFIRE') {
+        drawPixelSmoke(ctx, cx + targetW * 0.05, top + targetH * 0.22, unit, phase, '#d8ccb2', 0.85);
+        for (let i = 0; i < 5; i++) {
+            const life = (t * 0.9 + i * 0.19 + phase) % 1;
+            const px = snapPixel(cx + Math.sin(t * 2 + i) * unit * 8, unit);
+            const py = snapPixel(baseY - targetH * (0.18 + life * 0.42), unit);
+            drawPixelCross(ctx, px, py, unit, i % 2 ? '#ffb347' : '#fff0a6', (1 - life) * 0.55);
+        }
+    } else if (['SHELTER_INDIVIDUAL', 'SHELTER_COLLECTIVE', 'FORTERESSE'].includes(key)) {
+        drawPixelSmoke(ctx, cx + targetW * 0.17, top + targetH * 0.18, unit, phase, '#c9c2ad', 0.65);
+        const warm = 0.42 + Math.sin(t * 3.1 + phase) * 0.12;
+        ctx.globalAlpha = warm;
+        ctx.fillStyle = '#ffd66e';
+        ctx.fillRect(snapPixel(cx - targetW * 0.10, unit), snapPixel(baseY - targetH * 0.39, unit), unit * 4, unit * 3);
+        ctx.globalAlpha = 1;
+    } else if (key === 'MINE') {
+        ctx.globalCompositeOperation = 'lighter';
+        const glow = ctx.createRadialGradient(cx - targetW * 0.16, baseY - targetH * 0.36, 0, cx - targetW * 0.16, baseY - targetH * 0.36, targetH * 0.36);
+        glow.addColorStop(0, `rgba(255, 186, 94, ${0.24 + Math.sin(t * 5) * 0.05})`);
+        glow.addColorStop(1, 'rgba(255, 186, 94, 0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(left, top, targetW, targetH);
+        ctx.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < 6; i++) {
+            const fall = (t * 0.35 + i * 0.17 + phase) % 1;
+            ctx.globalAlpha = (1 - fall) * 0.42;
+            ctx.fillStyle = i % 2 ? '#b8a07a' : '#6d6b62';
+            ctx.fillRect(snapPixel(cx + (i - 2.5) * unit * 5, unit), snapPixel(top + targetH * (0.22 + fall * 0.55), unit), unit, unit);
+        }
+        ctx.globalAlpha = 1;
+    } else if (['ETABLI', 'ATELIER', 'FORGE', 'LABORATOIRE'].includes(key)) {
+        const hot = key === 'FORGE';
+        const lab = key === 'LABORATOIRE';
+        const workX = cx + targetW * (hot ? -0.05 : 0.12);
+        const workY = baseY - targetH * (hot ? 0.47 : 0.55);
+        if (hot) {
+            ctx.globalCompositeOperation = 'lighter';
+            const g = ctx.createRadialGradient(workX, workY, 0, workX, workY, targetH * 0.38);
+            g.addColorStop(0, `rgba(255, 91, 40, ${0.30 + Math.sin(t * 8) * 0.08})`);
+            g.addColorStop(1, 'rgba(255, 91, 40, 0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(left, top, targetW, targetH);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        for (let i = 0; i < (lab ? 4 : 5); i++) {
+            const pulse = (Math.sin(t * (lab ? 2.6 : 7.5) + i * 1.4 + phase * 6) + 1) * 0.5;
+            const px = workX + Math.cos(i * 2.1 + phase) * targetW * 0.18;
+            const py = workY - pulse * targetH * 0.16 + Math.sin(i + t) * unit;
+            drawPixelCross(ctx, px, py, unit, lab ? '#8ff6ff' : (hot ? '#ffdc72' : '#f1d07a'), 0.18 + pulse * 0.58);
+        }
+    } else if (['PETIT_PUIT', 'PUIT_PROFOND'].includes(key)) {
+        ctx.fillStyle = '#9ee8ff';
+        for (let i = 0; i < 4; i++) {
+            const life = (t * 0.42 + i * 0.25 + phase) % 1;
+            ctx.globalAlpha = (1 - life) * 0.58;
+            ctx.fillRect(snapPixel(cx - targetW * 0.10 + i * unit * 2, unit), snapPixel(baseY - targetH * (0.30 + life * 0.28), unit), unit, unit * 2);
+        }
+        ctx.globalAlpha = 1;
+        drawPixelCross(ctx, cx, baseY - targetH * 0.25, unit, '#ccfbff', 0.25 + Math.sin(t * 4) * 0.12);
+    } else if (['BANANERAIE', 'COCOTERAIE', 'SUCRERIE'].includes(key)) {
+        const colors = key === 'BANANERAIE' ? ['#9ad15d', '#f2d65a'] : key === 'COCOTERAIE' ? ['#4f9c5b', '#c08b55'] : ['#96d06a', '#fff3b0'];
+        for (let i = 0; i < 7; i++) {
+            const stemX = cx + (i - 3) * targetW * 0.055;
+            const stemY = baseY - targetH * (0.18 + (i % 3) * 0.04);
+            drawPixelTuft(ctx, stemX, stemY, targetH * 0.18, Math.sin(t * 2.3 + i + phase) * unit * 1.6, colors[i % colors.length], 0.62, unit);
+        }
+    } else if (key === 'POULAILLER') {
+        drawTinyFarmAnimal(ctx, 'chicken', cx + targetW * 0.22, baseY - unit * 2, unit, t, phase * 6);
+    } else if (key === 'ENCLOS_COCHONS') {
+        drawTinyFarmAnimal(ctx, 'pig', cx + targetW * 0.16, baseY - unit * 2, unit, t, phase * 6);
+    } else if (key === 'PANNEAU_SOLAIRE') {
+        const sweep = (t * 0.28 + phase) % 1;
+        drawPixelCross(ctx, left + targetW * (0.18 + sweep * 0.64), baseY - targetH * 0.58, unit, '#fff6a8', 0.35 + Math.sin(t * 5) * 0.12);
+    } else if (key === 'OBSERVATOIRE') {
+        drawPixelCross(ctx, cx + Math.sin(t * 1.6) * targetW * 0.18, top + targetH * 0.18 + Math.cos(t * 1.6) * unit * 3, unit, '#dff8ff', 0.42);
+    } else if (key === 'BIBLIOTHEQUE') {
+        for (let i = 0; i < 3; i++) {
+            const flap = Math.sin(t * 3.4 + i + phase * 4);
+            ctx.globalAlpha = 0.28 + Math.abs(flap) * 0.36;
+            ctx.fillStyle = '#f3e0b9';
+            ctx.fillRect(snapPixel(cx + (i - 1) * unit * 5, unit), snapPixel(baseY - targetH * (0.55 + Math.abs(flap) * 0.10), unit), unit * 3, unit * 2);
+        }
+        ctx.globalAlpha = 1;
+    } else if (key === 'TREASURE_CHEST') {
+        drawPixelCross(ctx, cx + Math.sin(t * 2.2 + phase) * targetW * 0.22, baseY - targetH * 0.72, unit, '#ffe071', 0.48 + Math.sin(t * 5) * 0.16);
+    } else {
+        // Respiration discrète pour les constructions moins spécialisées : un
+        // pixel de poussière ou une luciole suffit à éviter l'effet décor mort.
+        const pulse = (Math.sin(t * 2 + phase * 6) + 1) * 0.5;
+        drawPixelCross(ctx, cx + targetW * 0.18, baseY - targetH * 0.58, unit, '#fff0a8', 0.12 + pulse * 0.24);
+    }
+
     ctx.restore();
 }
 
@@ -636,7 +812,7 @@ function getAutoImageTrim(img) {
     }
 }
 
-function drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim = null, shadow = true } = {}) {
+function drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim = null, shadow = true, flipX = false, alpha = 1 } = {}) {
     if (!img || !img.complete || !img.naturalWidth) return false;
     const resolvedTrim = trim === 'auto' ? getAutoImageTrim(img) : trim;
     const sx = resolvedTrim ? resolvedTrim[0] : 0;
@@ -647,9 +823,16 @@ function drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim = null, shadow =
     if (shadow) drawGroundShadow(ctx, cx, baseY, targetW * 0.36, targetH * 0.055, 0.30);
     ctx.save();
     ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha *= alpha;
     ctx.shadowColor = 'rgba(0,0,0,0.42)';
     ctx.shadowBlur = Math.max(4, targetH * 0.035);
-    ctx.drawImage(img, sx, sy, sw, sh, cx - targetW / 2, baseY - targetH, targetW, targetH);
+    if (flipX) {
+        ctx.translate(cx, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, sx, sy, sw, sh, -targetW / 2, baseY - targetH, targetW, targetH);
+    } else {
+        ctx.drawImage(img, sx, sy, sw, sh, cx - targetW / 2, baseY - targetH, targetW, targetH);
+    }
     ctx.restore();
     return true;
 }
@@ -766,6 +949,7 @@ function drawTileProps(ctx, w, h, tile) {
                 ctx.fillRect(0, 0, w, h);
                 ctx.restore();
             }
+            drawBuildingAmbience(ctx, building.key, w * bgX, bgBase, bgSize, bgSize * 1.1, { background: true });
             return;
         }
 
@@ -782,16 +966,23 @@ function drawTileProps(ctx, w, h, tile) {
             // Le feu animé est ancré par sa base au sol, sans carré noir issu
             // de l'illustration pleine page.
             const drewAnimated = drawAnimatedCampfire(ctx, cx, baseY, targetW, targetH);
+            drawBuildingAmbience(ctx, building.key, cx, baseY, targetH, targetW);
             if (drewAnimated) return;
         }
 
         const img = (!prop.preferTileImage && prop.asset) ? loadedAssets[prop.asset] : null;
-        if (drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim: prop.trim })) return;
+        if (drawAnchoredImage(ctx, img, cx, baseY, targetH, { trim: prop.trim })) {
+            drawBuildingAmbience(ctx, building.key, cx, baseY, targetH, targetH * 1.05);
+            return;
+        }
 
         // Fallback propre et transparent : l'icône de tuile devient un repère
         // de scène posé sur le sol, jamais une bulle flottante.
         const tileImg = getTileImage(def.name);
-        if (drawAnchoredImage(ctx, tileImg, cx, baseY, targetH, { shadow: true, trim: 'auto' })) return;
+        if (drawAnchoredImage(ctx, tileImg, cx, baseY, targetH, { shadow: true, trim: 'auto' })) {
+            drawBuildingAmbience(ctx, building.key, cx, baseY, targetH, targetH * 1.05);
+            return;
+        }
 
         const size = Math.max(34, targetH * 0.7);
         drawGroundShadow(ctx, cx, baseY, size * 0.42, size * 0.06, 0.28);
@@ -802,6 +993,7 @@ function drawTileProps(ctx, w, h, tile) {
         ctx.textBaseline = 'bottom';
         ctx.fillText(def.icon || '🏗️', cx, baseY + 2);
         ctx.restore();
+        drawBuildingAmbience(ctx, building.key, cx, baseY, targetH, targetH * 1.05);
     });
 }
 
@@ -979,11 +1171,22 @@ function toolTypeForItem(item) {
     if (/hache/i.test(name)) return 'axe';
     if (/pioche/i.test(name)) return 'pick';
     if (/pelle/i.test(name)) return 'shovel';
-    if (/épée|lame|sabre|katana|gourdin/i.test(name)) return 'sword';
+    if (/épée|lame|sabre|katana/i.test(name)) return 'sword';
+    if (/gourdin/i.test(name)) return 'club';
     if (/lance|harpon/i.test(name)) return 'spear';
     if (/canne|rod/i.test(name)) return 'rod';
     if (/filet/i.test(name)) return 'net';
     if (/marteau/i.test(name)) return 'hammer';
+    if (/torche/i.test(name)) return 'torch';
+    if (/seau/i.test(name)) return 'bucket';
+    if (/boussole/i.test(name)) return 'compass';
+    if (/pistolet/i.test(name)) return 'gun';
+    if (/téléphone|telephone/i.test(name)) return 'phone';
+    if (/radio/i.test(name)) return 'radio';
+    if (/guitare/i.test(name)) return 'guitar';
+    if (/loupe/i.test(name)) return 'magnifier';
+    if (/briquet|allumette/i.test(name)) return 'lighter';
+    if (/sifflet/i.test(name)) return 'whistle';
     return null;
 }
 
@@ -1077,6 +1280,58 @@ function drawHeldTool(ctx, type, hx, hy, angle, p, C) {
         block(hx - 1.4, hy - 1.3, 2.9, 2.3, outline);
         block(hx - 1.1, hy - 1, 2.3, 1.7, C('#d19a5b'));
         block(hx - 1.1, hy - 1, 2.3, 0.6, C('#e8bd85'));
+    } else if (type === 'club') {
+        handle(-0.4, 6.8, C('#6b4324'), 1.45);
+        const tip = at(6.8);
+        block(tip.x - 1.6, tip.y - 1.8, 3.2, 3.6, outline);
+        block(tip.x - 1.15, tip.y - 1.4, 2.3, 2.8, C('#8b5a32'));
+    } else if (type === 'torch') {
+        handle(0, 5.6, C('#7a5636'), 0.9);
+        const tip = at(5.6);
+        block(tip.x - 1.2, tip.y - 1.2, 2.4, 2.4, outline);
+        block(tip.x - 0.9, tip.y - 0.9, 1.8, 1.8, C('#ff8a2a'));
+        block(tip.x - 0.45, tip.y - 1.8, 0.9, 1.5, C('#ffe071'));
+    } else if (type === 'bucket') {
+        block(hx - 2, hy - 0.8, 4, 3.6, outline);
+        block(hx - 1.55, hy - 0.4, 3.1, 2.8, C('#7f9aa4'));
+        block(hx - 1.1, hy - 0.2, 2.2, 0.7, C('#b8d4df'));
+    } else if (type === 'compass') {
+        block(hx - 1.7, hy - 1.7, 3.4, 3.4, outline);
+        block(hx - 1.25, hy - 1.25, 2.5, 2.5, C('#d7b75a'));
+        block(hx - 0.25, hy - 1.0, 0.5, 2, C('#e75045'));
+        block(hx - 1.0, hy - 0.25, 2, 0.5, C('#eef8ff'));
+    } else if (type === 'gun') {
+        block(hx - 0.8, hy - 1.2, 4.8, 1.8, outline);
+        block(hx - 0.4, hy - 0.9, 3.8, 1.2, C('#66737c'));
+        block(hx + 2.7, hy - 0.5, 1.8, 0.6, C('#d7e0e5'));
+        block(hx + 0.2, hy + 0.2, 1.0, 2.1, outline);
+        block(hx + 0.45, hy + 0.3, 0.6, 1.6, C('#6b4a2c'));
+    } else if (type === 'phone') {
+        block(hx - 1.2, hy - 2.0, 2.4, 4.0, outline);
+        block(hx - 0.8, hy - 1.5, 1.6, 3.0, C('#1d3340'));
+        block(hx - 0.5, hy - 1.1, 1.0, 1.7, C('#55c7ff'));
+    } else if (type === 'radio') {
+        block(hx - 2.0, hy - 1.6, 4.0, 3.3, outline);
+        block(hx - 1.6, hy - 1.2, 3.2, 2.5, C('#5b6670'));
+        block(hx - 1.2, hy - 0.6, 1.0, 1.0, C('#202b31'));
+        block(hx + 0.4, hy - 0.7, 0.9, 0.9, C('#d7b75a'));
+        stampLine(ctx, P(hx + 1.3), P(hy - 1.3), P(hx + 3.1), P(hy - 4.2), Math.max(1, p * 0.35), C('#d7e0e5'));
+    } else if (type === 'magnifier') {
+        ctx.strokeStyle = outline;
+        ctx.lineWidth = Math.max(2, Math.round(p * 0.6));
+        ctx.beginPath();
+        ctx.arc(P(hx), P(hy - 1), Math.max(2, P(1.6)), 0, Math.PI * 2);
+        ctx.stroke();
+        handle(1.2, 4.6, C('#8a6238'), 0.7);
+        block(hx - 0.8, hy - 1.8, 1.6, 1.6, C('rgba(160, 220, 255, .75)'));
+    } else if (type === 'lighter') {
+        block(hx - 1.0, hy - 1.2, 2.0, 2.7, outline);
+        block(hx - 0.65, hy - 0.8, 1.3, 2.0, C('#b7c3c8'));
+        block(hx - 0.4, hy - 2.0, 0.8, 1.0, C('#ff8a2a'));
+    } else if (type === 'whistle') {
+        block(hx - 1.7, hy - 0.8, 3.4, 1.8, outline);
+        block(hx - 1.25, hy - 0.45, 2.5, 1.1, C('#d7b75a'));
+        block(hx + 0.8, hy - 0.2, 0.9, 0.5, C('#6b4a2c'));
     } else if (type === 'guitar') {
         // Tenu en diagonale contre le buste, manche vers l'avant-haut.
         stampLine(ctx, P(hx - 1), P(hy + 1.6), P(hx + 2.4), P(hy - 3.4), Math.max(1.6, p), C('#6b4a2c'));
@@ -1150,9 +1405,15 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
         pose.lean = 0.09;
     }
 
+    const bodyGear = equippedName(character, 'body');
+    const feetGear = equippedName(character, 'feet');
+    const headGear = equippedName(character, 'head');
+    const bagGear = equippedName(character, 'bag');
     const outfit = look.outfit || character.color || '#287c9d';
-    const pants = shadeColor(outfit, -64);
-    const boots = shadeColor(pants, -26);
+    const pants = /pagne|feuillu/i.test(bodyGear) ? '#426d36' : shadeColor(outfit, -64);
+    const boots = /sandalette/i.test(feetGear)
+        ? shadeColor(look.skin, -48)
+        : (feetGear ? '#2f3a42' : shadeColor(pants, -26));
     const outline = '#122029';
     const tint = pose.tint;
     const C = tint > 0 ? (c => mixColors(c, '#ff4b45', tint * 0.6)) : (c => c);
@@ -1221,11 +1482,19 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
     limb(shB, { x: armB.jx, y: armB.jy }, SKELETON.ARM.w, shadeColor(outfit, -30));
     limb({ x: armB.jx, y: armB.jy }, { x: armB.ex, y: armB.ey }, SKELETON.ARM.w - 0.3, shadeColor(look.skin, -18));
 
-    // 3. Sac à dos (équipé, ou propre au joueur).
-    if (character.equipment?.bag || isPlayer) {
-        block(shoulderCX - SKELETON.TORSO_W / 2 - 2.1, shoulderY + 1, 3.2, 6.4, outline);
-        block(shoulderCX - SKELETON.TORSO_W / 2 - 1.75, shoulderY + 1.35, 2.5, 5.7, C('#65442c'));
-        block(shoulderCX - SKELETON.TORSO_W / 2 - 1.75, shoulderY + 2.8, 2.5, 1.1, C('#bd8341'));
+    // 3. Sac à dos : petit ballot par défaut, vrai sac si équipé.
+    if (bagGear || isPlayer) {
+        const big = /grand/i.test(bagGear);
+        const small = !bagGear;
+        const bagW = big ? 4.5 : small ? 2.4 : 3.4;
+        const bagH = big ? 8.4 : small ? 4.6 : 6.6;
+        const bagX = shoulderCX - SKELETON.TORSO_W / 2 - (big ? 3.2 : small ? 1.7 : 2.3);
+        const bagY = shoulderY + (big ? 0.0 : 1.0);
+        const bagColor = big ? '#7b4f33' : small ? '#6d5136' : '#65442c';
+        block(bagX - 0.35, bagY - 0.35, bagW + 0.7, bagH + 0.7, outline);
+        block(bagX, bagY, bagW, bagH, C(bagColor));
+        block(bagX, bagY + bagH * 0.28, bagW, 1.05, C(big ? '#d09a4e' : '#bd8341'));
+        if (big) block(bagX + bagW - 1.0, bagY + 1.0, 0.7, bagH - 2, C('#593923'));
     }
 
     // 4. Boucle de cheveux longue, derrière le buste.
@@ -1241,6 +1510,13 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
     limb(hipF, { x: legF.jx, y: legF.jy }, SKELETON.LEG.w, pants);
     limb({ x: legF.jx, y: legF.jy }, { x: legF.ex, y: legF.ey }, SKELETON.LEG.w - 0.3, pants);
     block(legF.ex - 1.7, legF.ey - 0.6, 3.4, 1.9, C(boots));
+    if (/sandalette/i.test(feetGear)) {
+        block(legB.ex - 1.5, legB.ey - 0.2, 3.0, 0.45, C('#6b4a2c'));
+        block(legF.ex - 1.5, legF.ey - 0.2, 3.0, 0.45, C('#6b4a2c'));
+    } else if (feetGear) {
+        block(legB.ex - 1.2, legB.ey - 0.4, 2.4, 0.55, C('#9eb0b8'));
+        block(legF.ex - 1.2, legF.ey - 0.4, 2.4, 0.55, C('#9eb0b8'));
+    }
 
     // 6. Buste : colonne cisaillée selon l'inclinaison. Le contour est posé
     //    en premier passe complète, sinon chaque rangée mord sur la teinte de
@@ -1268,6 +1544,27 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
     block(hipCX - 0.65, beltY - 0.1, 1.3, 1.5, C('#e1b84a'));
     block(shoulderCX - torsoTopW / 2, shoulderY, torsoTopW, 1, C(shadeColor(outfit, 26)));
     block(shoulderCX - torsoTopW / 2 + 0.4, shoulderY + 1, 1.6, SKELETON.TORSO_H - 2.5, C(shadeColor(outfit, 18)));
+
+    // Tenue équipée, lisible directement sur le personnage.
+    if (/cuir/i.test(bodyGear)) {
+        block(shoulderCX - torsoTopW / 2 - 0.35, shoulderY + 1.2, torsoTopW + 0.7, SKELETON.TORSO_H - 2.1, outline);
+        block(shoulderCX - torsoTopW / 2 + 0.1, shoulderY + 1.6, torsoTopW - 0.2, SKELETON.TORSO_H - 2.9, C('#7a4f31'));
+        block(shoulderCX - 0.65, shoulderY + 1.4, 1.3, SKELETON.TORSO_H - 2.6, C('#a87343'));
+        block(shoulderCX - torsoTopW / 2 - 1.0, shoulderY + 1.3, 2.2, 2.0, C('#5a3825'));
+        block(shoulderCX + torsoTopW / 2 - 1.2, shoulderY + 1.3, 2.2, 2.0, C('#5a3825'));
+    } else if (/pagne|feuillu/i.test(bodyGear)) {
+        for (let i = -3; i <= 3; i++) {
+            const leafX = hipCX + i * 1.05;
+            const leafY = beltY + 1.0 + (Math.abs(i) % 2) * 0.55;
+            block(leafX - 0.65, leafY, 1.3, 2.5, outline);
+            block(leafX - 0.45, leafY + 0.15, 0.9, 2.0, C(i % 2 ? '#4f8f45' : '#6daa4b'));
+        }
+        block(shoulderCX - torsoTopW / 2 + 0.2, shoulderY + 2.0, torsoTopW - 0.4, 1.0, C('#6daa4b'));
+        block(shoulderCX - torsoTopW / 2 + 0.7, shoulderY + 3.2, 1.2, 3.2, C('#4f8f45'));
+    } else if (/vêtement|vetement|habits/i.test(bodyGear)) {
+        block(shoulderCX - torsoTopW / 2 + 0.2, shoulderY + 1.1, torsoTopW - 0.4, 1.0, C('#e8d7bd'));
+        block(shoulderCX + torsoTopW / 2 - 1.4, shoulderY + 2.2, 1.0, SKELETON.TORSO_H - 4.0, C('#e8d7bd'));
+    }
 
     // 7. Cou.
     block(shoulderCX - 1, shoulderY - 1.4, 2, 1.9, C(shadeColor(look.skin, -22)));
@@ -1327,12 +1624,31 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
     // 10. Chevelure et accessoire cosmétique.
     drawCharacterHair(ctx, look, headCX, headCY, HW, HH, block, C, pose, outfit);
 
-    // 11. Équipement de tête (casque / chapeau) par-dessus la chevelure.
-    if (character.equipment?.head) {
-        block(headCX - HW - 0.9, headCY - HH - 1.2, HW * 2 + 1.8, 1, outline);
-        block(headCX - HW - 0.5, headCY - HH - 0.8, HW * 2 + 1, 0.8, C('#9b7132'));
-        block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 2.4, C('#e4c36b'));
-        block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 0.8, C('#f2d98b'));
+    // 11. Équipement de tête par-dessus la chevelure.
+    if (headGear) {
+        if (/lunette/i.test(headGear)) {
+            // Deux verres + pont : les lunettes restent visibles même de profil.
+            block(headCX + 0.0 + glance * 0.6, eyeY - 0.45, 1.7, 0.45, C('#d7c76a'));
+            block(headCX + 0.0 + glance * 0.6, eyeY + 0.95, 1.7, 0.45, C('#d7c76a'));
+            block(headCX + 0.0 + glance * 0.6, eyeY - 0.45, 0.45, 1.85, C('#d7c76a'));
+            block(headCX + 1.3 + glance * 0.6, eyeY - 0.45, 0.45, 1.85, C('#d7c76a'));
+            block(headCX + 2.0 + glance * 0.6, eyeY - 0.45, 1.7, 0.45, C('#d7c76a'));
+            block(headCX + 2.0 + glance * 0.6, eyeY + 0.95, 1.7, 0.45, C('#d7c76a'));
+            block(headCX + 3.3 + glance * 0.6, eyeY - 0.45, 0.45, 1.85, C('#d7c76a'));
+            block(headCX + 1.65 + glance * 0.6, eyeY + 0.25, 0.7, 0.4, C('#d7c76a'));
+        } else if (/feuillu/i.test(headGear)) {
+            block(headCX - HW - 0.5, headCY - HH - 1.2, HW * 2 + 1, 1.0, outline);
+            for (let i = -4; i <= 4; i++) {
+                const lx = headCX + i * 0.95;
+                block(lx - 0.45, headCY - HH - 2.0 - (Math.abs(i) % 2) * 0.35, 0.9, 1.8, C(i % 2 ? '#4f8f45' : '#75aa4d'));
+            }
+        } else {
+            const straw = /chapeau/i.test(headGear);
+            block(headCX - HW - 0.9, headCY - HH - 1.2, HW * 2 + 1.8, 1, outline);
+            block(headCX - HW - 0.5, headCY - HH - 0.8, HW * 2 + 1, 0.8, C(straw ? '#9b7132' : '#6b7580'));
+            block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 2.4, C(straw ? '#e4c36b' : '#8fa1aa'));
+            block(headCX - HW + 0.3, headCY - HH - 3, HW * 2 - 0.6, 0.8, C(straw ? '#f2d98b' : '#c5d2d6'));
+        }
     }
 
     // 12. Bras avant + main, puis outil et bouclier.
@@ -1346,7 +1662,7 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
         const forearmAngle = pose.armFront.s + pose.armFront.e;
         // Au repos, l'outil équipé pend le long de la cuisse ; en action, la
         // pose impose son alignement pour que le fer suive l'arc du geste.
-        const REST_BIAS = { axe: 0.5, pick: 0.55, sword: -0.12, spear: -0.05, rod: 0.25, shovel: 0.45, hammer: 0.5, net: -0.35 };
+        const REST_BIAS = { axe: 0.5, pick: 0.55, sword: -0.12, club: 0.12, spear: -0.05, rod: 0.25, shovel: 0.45, hammer: 0.5, net: -0.35, torch: 0.12, bucket: 0.35, compass: 0.05, gun: -0.35, phone: 0.05, radio: 0.2, guitar: 0.1, magnifier: 0.2, lighter: 0.05, whistle: 0.05 };
         const bias = pose.tool ? (pose.tool.angleBias ?? 0.12) : (REST_BIAS[activeTool] ?? 0.15);
         drawHeldTool(ctx, activeTool, armF.ex, armF.ey, forearmAngle + bias, p, C);
         // Seconde main sur le manche des outils à deux mains.
@@ -1359,9 +1675,11 @@ export function drawPixelCharacter(ctx, character, x, y, isPlayer = false, anima
     }
     if (character.equipment?.shield) {
         const sx = armB.ex, sy = armB.jy + (armB.ey - armB.jy) * 0.4;
+        const shieldName = equippedName(character, 'shield');
+        const metal = /fer/i.test(shieldName);
         block(sx - 1.8, sy - 2.6, 3.6, 5.2, outline);
-        block(sx - 1.4, sy - 2.2, 2.8, 4.4, C('#657983'));
-        block(sx - 0.7, sy - 1.4, 1.4, 2.8, C('#9ebdc4'));
+        block(sx - 1.4, sy - 2.2, 2.8, 4.4, C(metal ? '#657983' : '#8a5b34'));
+        block(sx - 0.7, sy - 1.4, 1.4, 2.8, C(metal ? '#9ebdc4' : '#c28a4d'));
     }
 
     // 13. Particules du personnage (poussière, Z, notes…).
@@ -1461,6 +1779,10 @@ function drawCharacterHair(ctx, look, cx, cy, HW, HH, block, C, pose, outfit) {
         block(cx - HW - 0.6, cy - HH - 2.6, 0.8, 2.4, C('#d9824f'));
         block(cx - HW - 1.2, cy - HH - 3.2, 1, 1.2, C('#e8a06c'));
     }
+}
+
+function equippedName(character, slot) {
+    return String(character?.equipment?.[slot]?.name || '');
 }
 
 function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0, scale = 1, opts = {}) {
@@ -1742,6 +2064,267 @@ function drawSceneForeground(ctx, w, h, tile, scale) {
     ctx.restore();
 }
 
+const combatDuelVisual = {
+    key: null,
+    lastEnemyHealth: null,
+    lastPlayerHealth: null,
+    lastLogHead: '',
+    playerAttackAt: 0,
+    enemyAttackAt: 0,
+    enemyHitAt: 0,
+    playerHitAt: 0,
+    introAt: 0,
+    fleeAt: 0,
+};
+
+function resetCombatDuelVisual() {
+    combatDuelVisual.key = null;
+    combatDuelVisual.lastEnemyHealth = null;
+    combatDuelVisual.lastPlayerHealth = null;
+    combatDuelVisual.lastLogHead = '';
+    combatDuelVisual.playerAttackAt = 0;
+    combatDuelVisual.enemyAttackAt = 0;
+    combatDuelVisual.enemyHitAt = 0;
+    combatDuelVisual.playerHitAt = 0;
+    combatDuelVisual.introAt = 0;
+    combatDuelVisual.fleeAt = 0;
+}
+
+function combatPhase(start, duration) {
+    if (!start) return { active: false, u: 1, k: 0 };
+    const u = (Date.now() - start) / duration;
+    if (u < 0 || u >= 1) return { active: false, u: 1, k: 0 };
+    return { active: true, u, k: Math.sin(u * Math.PI) };
+}
+
+function duelEaseOut(t) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3); }
+
+function duelLunge(u) {
+    if (u < 0.38) return duelEaseOut(u / 0.38);
+    if (u < 0.64) return 1;
+    return 1 - duelEaseOut((u - 0.64) / 0.36);
+}
+
+function updateCombatDuelVisual(player, combatState) {
+    const enemy = combatState?.enemy || {};
+    const key = `${player?.id || 'player'}:${combatState?.enemyId || enemy.name || 'enemy'}`;
+    const now = Date.now();
+    const enemyHealth = Number(enemy.currentHealth ?? enemy.health ?? 0);
+    const playerHealth = Number(player?.health ?? 0);
+
+    if (combatDuelVisual.key !== key) {
+        resetCombatDuelVisual();
+        combatDuelVisual.key = key;
+        combatDuelVisual.lastEnemyHealth = enemyHealth;
+        combatDuelVisual.lastPlayerHealth = playerHealth;
+        combatDuelVisual.lastLogHead = (combatState?.log || [])[0] || '';
+        combatDuelVisual.introAt = now;
+        return combatDuelVisual;
+    }
+
+    if (combatDuelVisual.lastEnemyHealth != null && enemyHealth < combatDuelVisual.lastEnemyHealth - 0.01) {
+        combatDuelVisual.enemyHitAt = now;
+        combatDuelVisual.playerAttackAt = now;
+        triggerCharacterAnim(player, 'attack', { force: true });
+    }
+    if (combatDuelVisual.lastPlayerHealth != null && playerHealth < combatDuelVisual.lastPlayerHealth - 0.01) {
+        combatDuelVisual.playerHitAt = now;
+        combatDuelVisual.enemyAttackAt = now;
+    }
+
+    const head = (combatState?.log || [])[0] || '';
+    if (head && head !== combatDuelVisual.lastLogHead) {
+        if (/vous infligez|critique/i.test(head)) {
+            combatDuelVisual.playerAttackAt = now;
+            combatDuelVisual.enemyHitAt = now;
+        }
+        if (/vous inflige\b|bloquez|esquivez|attaque de|protection de test|ne vous inflige/i.test(head)) {
+            combatDuelVisual.enemyAttackAt = now;
+        }
+        if (/fuite|fuir/i.test(head)) combatDuelVisual.fleeAt = now;
+        combatDuelVisual.lastLogHead = head;
+    }
+
+    combatDuelVisual.lastEnemyHealth = enemyHealth;
+    combatDuelVisual.lastPlayerHealth = playerHealth;
+    return combatDuelVisual;
+}
+
+function drawCombatActorBar(ctx, label, hp, maxHp, x, y, width, accent, scale) {
+    const barH = Math.max(6, 7 * scale);
+    const fs = Math.max(10, 11 * scale);
+    const safeMax = maxHp > 0 ? maxHp : hp || 1;
+    const ratio = Math.max(0, Math.min(1, hp / safeMax));
+    ctx.save();
+    ctx.font = `700 ${fs}px Poppins, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const labelW = ctx.measureText(label).width;
+    const w = Math.max(width, labelW + 18 * scale);
+    roundedRectPath(ctx, x - w / 2, y - fs - barH - 9 * scale, w, fs + barH + 12 * scale, 7 * scale);
+    ctx.fillStyle = 'rgba(8, 16, 22, 0.66)';
+    ctx.fill();
+    ctx.fillStyle = '#f5ebdc';
+    ctx.fillText(label, x, y - barH - 7 * scale);
+    ctx.fillStyle = 'rgba(18, 32, 41, 0.88)';
+    roundedRectPath(ctx, x - w / 2 + 6 * scale, y - barH - 3 * scale, w - 12 * scale, barH, 3 * scale);
+    ctx.fill();
+    ctx.fillStyle = accent;
+    roundedRectPath(ctx, x - w / 2 + 7 * scale, y - barH - 2 * scale, Math.max(2, (w - 14 * scale) * ratio), barH - 2 * scale, 2 * scale);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawCombatSlash(ctx, x, y, scale, fromLeft, color = '#ffd37a', alpha = 1) {
+    const dir = fromLeft ? 1 : -1;
+    const s = Math.max(0.8, scale);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.globalCompositeOperation = 'lighter';
+    const thick = Math.max(2, 4 * s);
+    stampLine(ctx, x - dir * 28 * s, y - 18 * s, x + dir * 22 * s, y + 9 * s, thick, color);
+    stampLine(ctx, x - dir * 20 * s, y - 4 * s, x + dir * 28 * s, y - 28 * s, thick * 0.72, '#fff3be');
+    stampLine(ctx, x - dir * 10 * s, y + 18 * s, x + dir * 18 * s, y + 0 * s, thick * 0.5, '#ff6d4f');
+    ctx.restore();
+}
+
+function drawCombatDuelStage(ctx, w, h, tile, playerX, enemyX, groundY, scale, state) {
+    const now = Date.now();
+    const intro = combatPhase(state.introAt, 900);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const centerX = (playerX + enemyX) / 2;
+    const aura = ctx.createRadialGradient(centerX, groundY - h * 0.22, 0, centerX, groundY - h * 0.22, Math.min(w, h) * 0.38);
+    aura.addColorStop(0, `rgba(255, 104, 73, ${0.10 + (intro.active ? intro.k * 0.08 : 0)})`);
+    aura.addColorStop(0.46, 'rgba(255, 184, 84, 0.055)');
+    aura.addColorStop(1, 'rgba(255, 104, 73, 0)');
+    ctx.fillStyle = aura;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    const unit = scenePixelUnit(w, h);
+    const rand = seededRandom(getTileSeed(tile) ^ 0xC0FFEE);
+    ctx.save();
+    for (let i = 0; i < 13; i++) {
+        const pulse = (Math.sin(now / 260 + i * 0.9) + 1) * 0.5;
+        const x = playerX + (enemyX - playerX) * (0.12 + rand() * 0.76);
+        const y = groundY - unit * (1 + rand() * 8) - pulse * unit * 2;
+        ctx.globalAlpha = 0.10 + pulse * 0.20;
+        ctx.fillStyle = i % 3 === 0 ? '#ffc46b' : '#c99761';
+        ctx.fillRect(snapPixel(x, unit), snapPixel(y, unit), unit, unit);
+    }
+    ctx.restore();
+}
+
+function drawCombatEnemy(ctx, enemy, x, baseY, size, state, scale) {
+    const now = Date.now();
+    const attack = combatPhase(state.enemyAttackAt, 560);
+    const hurt = combatPhase(state.enemyHitAt, 420);
+    const bob = Math.sin(now / 250) * 2.2 * scale;
+    const drawH = size * 1.35;
+    const centerY = baseY - drawH / 2;
+    const squash = attack.active ? 1.10 : (hurt.active ? 0.92 : 1);
+    const stretch = attack.active ? 0.94 : (hurt.active ? 1.06 : 1);
+    const tint = hurt.active ? `rgba(255, 235, 220, ${0.55 * hurt.k})` : null;
+
+    drawGroundShadow(ctx, x, baseY, size * 0.46, size * 0.08, 0.36);
+
+    ctx.save();
+    const aura = ctx.createRadialGradient(x, centerY, 0, x, centerY, size * (hurt.active ? 1.12 : 0.88));
+    aura.addColorStop(0, hurt.active ? `rgba(255, 76, 64, ${0.22 * hurt.k})` : 'rgba(220, 40, 40, 0.20)');
+    aura.addColorStop(1, 'rgba(220, 40, 40, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(x, centerY, size * 0.96, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const drewAnimated = drawAnimatedCreature(ctx, enemy.name, x, centerY, size, bob, {
+        facing: -1,
+        squash,
+        stretch,
+        tint,
+    });
+    if (!drewAnimated) {
+        const spriteKey = ENEMY_SPRITES[enemy.name] || ENEMY_SPRITES[baseEnemyName(enemy.name)];
+        const sprite = spriteKey ? loadedAssets[spriteKey] : null;
+        if (sprite && sprite.complete && sprite.naturalWidth) {
+            drawAnchoredImage(ctx, sprite, x, baseY + bob * 0.3, drawH, { trim: 'auto', shadow: false, flipX: true, alpha: hurt.active ? 0.72 + hurt.k * 0.28 : 1 });
+        } else {
+            ctx.save();
+            ctx.font = `${Math.round(size)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(enemy.icon || '❓', x, baseY + 2 + bob * 0.3);
+            ctx.restore();
+        }
+    }
+
+    if (hurt.active) drawCombatSlash(ctx, x, centerY, scale, true, '#fff0a6', 0.85 * hurt.k);
+}
+
+function drawCombatDuel(ctx, w, h, tile, player, scale) {
+    const combatState = player?.combatState;
+    const enemy = combatState?.enemy;
+    if (!combatState || !enemy) return;
+
+    const state = updateCombatDuelVisual(player, combatState);
+    const mobile = isMobileShell() || w < 560;
+    const duelScale = scale * (mobile ? 1.02 : 1.14);
+    const playerNorm = mobile ? 0.33 : 0.36;
+    const enemyNorm = mobile ? 0.68 : 0.64;
+    const playerX0 = w * playerNorm;
+    const enemyX0 = w * enemyNorm;
+    const playerGround = sceneGroundY(tile, w, h, playerNorm, 'player');
+    const enemyGround = sceneGroundY(tile, w, h, enemyNorm, 'enemy');
+    const playerBaseY = characterAnchorForGround(playerGround, duelScale);
+    const enemyBaseY = enemyGround;
+    const enemySize = Math.max(50, Math.min(h * (mobile ? 0.19 : 0.22), 88 * duelScale));
+
+    const pAttack = combatPhase(state.playerAttackAt, 520);
+    const eAttack = combatPhase(state.enemyAttackAt, 560);
+    const pHurt = combatPhase(state.playerHitAt, 460);
+    const eHurt = combatPhase(state.enemyHitAt, 420);
+    const pDX = (pAttack.active ? duelLunge(pAttack.u) * Math.min(w * 0.075, 34 * duelScale) : 0)
+        - (pHurt.active ? pHurt.k * 18 * duelScale : 0);
+    const eDX = -(eAttack.active ? duelLunge(eAttack.u) * Math.min(w * 0.075, 36 * duelScale) : 0)
+        + (eHurt.active ? eHurt.k * 19 * duelScale : 0);
+    const playerX = playerX0 + pDX;
+    const enemyX = enemyX0 + eDX;
+    const midX = (playerX + enemyX) / 2;
+    const midY = Math.min(playerGround, enemyGround) - enemySize * 0.42;
+
+    drawCombatDuelStage(ctx, w, h, tile, playerX0, enemyX0, Math.max(playerGround, enemyGround), duelScale, state);
+
+    // Repère discret au sol : les deux adversaires occupent une vraie arène
+    // dans le décor, pas une fenêtre séparée.
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.ellipse(midX, Math.max(playerGround, enemyGround) + 3 * duelScale, Math.abs(enemyX0 - playerX0) * 0.58, 10 * duelScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Le survivant regarde toujours la bête. On garde le vrai équipement et le
+    // moteur d'animation existant : l'attaque automatique se lit sur son corps.
+    drawCharacter(ctx, { ...player, combatState }, playerX, playerBaseY, true, 0, duelScale, {
+        showLabel: false,
+        faceHint: enemyX0 - playerX0,
+    });
+
+    drawCombatEnemy(ctx, enemy, enemyX, enemyBaseY, enemySize, state, duelScale);
+
+    if (pAttack.active) drawCombatSlash(ctx, midX + 8 * duelScale, midY, duelScale, true, pAttack.u < 0.62 ? '#ffd37a' : '#ff7a55', pAttack.k);
+    if (eAttack.active) drawCombatSlash(ctx, midX - 8 * duelScale, midY + 8 * duelScale, duelScale, false, '#ff8a68', eAttack.k);
+
+    const enemyHp = enemy.currentHealth ?? enemy.health ?? 1;
+    const enemyMax = enemy.health ?? enemy.maxHealth ?? enemyHp;
+    drawCombatActorBar(ctx, 'Vous', player.health ?? 0, player.maxHealth ?? 1,
+        playerX0, playerBaseY - 80 * duelScale, Math.max(72, 78 * duelScale), '#78a95b', duelScale);
+    drawCombatActorBar(ctx, enemy.name || 'Créature', enemyHp, enemyMax,
+        enemyX0, enemyBaseY - enemySize * 1.35 - 10 * duelScale, Math.max(82, enemySize * 1.10), '#d4584f', duelScale);
+}
 
 export function drawSceneCharacters(gameState) {
     if (!gameState || !gameState.player) return;
@@ -1763,6 +2346,16 @@ export function drawSceneCharacters(gameState) {
 
     // Les objets déposés deviennent visibles directement dans la scène.
     drawGroundLoot(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
+
+    if (player.combatState) {
+        drawCombatDuel(charactersCtx, canvasWidth, canvasHeight, currentTile, player, scale);
+        drawSceneForeground(charactersCtx, canvasWidth, canvasHeight, currentTile, scale);
+        drawActiveEffects(charactersCtx);
+        commitHotspotFrame();
+        drawHotspotMarkers(charactersCtx, scale);
+        return;
+    }
+    resetCombatDuelVisual();
 
     // Position de base : les pieds sont ancrés à la ligne de sol du fond actif.
     const playerBaseX = canvasWidth / 2;
@@ -1932,12 +2525,14 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.fill();
 
         // Créature : l'animation reste, mais la base du sprite colle au sol.
-        const drewAnimated = drawAnimatedCreature(charactersCtx, enemy.name, enemyX, centerY, size, 0);
+        const drewAnimated = drawAnimatedCreature(charactersCtx, enemy.name, enemyX, centerY, size, 0, {
+            facing: playerBaseX - enemyX,
+        });
         if (!drewAnimated) {
-            const spriteKey = ENEMY_SPRITES[enemy.name];
+            const spriteKey = ENEMY_SPRITES[enemy.name] || ENEMY_SPRITES[baseEnemyName(enemy.name)];
             const sprite = spriteKey ? loadedAssets[spriteKey] : null;
             if (sprite && sprite.complete && sprite.naturalWidth) {
-                drawAnchoredImage(charactersCtx, sprite, enemyX, enemyBaseY, drawH, { trim: 'auto', shadow: false });
+                drawAnchoredImage(charactersCtx, sprite, enemyX, enemyBaseY, drawH, { trim: 'auto', shadow: false, flipX: playerBaseX < enemyX });
             } else {
                 charactersCtx.font = `${Math.round(size)}px sans-serif`;
                 charactersCtx.textAlign = 'center';

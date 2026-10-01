@@ -27,6 +27,7 @@ function addItemToInventory(player, itemName, quantity) {
                 currentDurability: itemDef.durability,
             };
             player.inventory[newKey] = itemInstance;
+            maybeAutoEquipInventoryKey(player, newKey);
         }
     } else { // For stackable items
         player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
@@ -55,6 +56,130 @@ function removeItemFromInventory(player, itemKey, quantity = 1) {
         delete player.inventory[itemKey];
     }
     return true;
+}
+
+const RARITY_SCORE = { common: 0, uncommon: 2, rare: 5, veryRare: 8, offtable: 10 };
+const AUTO_EQUIP_SLOTS = new Set(['weapon', 'shield', 'body', 'head', 'feet', 'bag']);
+
+function itemNameOf(item, fallback = '') {
+    return typeof item === 'object' && item ? item.name : (fallback || '');
+}
+
+function itemScore(itemOrName, slotHint = null) {
+    const name = typeof itemOrName === 'string' ? itemOrName : itemNameOf(itemOrName);
+    const def = ITEM_TYPES[name];
+    if (!def) return -Infinity;
+    const slot = slotHint || def.slot;
+    const stats = def.stats || {};
+    const durability = def.durability || def.uses || 0;
+    const rarity = RARITY_SCORE[def.rarity] || 0;
+
+    if (slot === 'weapon') {
+        // Le slot arme sert aussi aux outils. On privilégie la survie en combat,
+        // puis la puissance utilitaire afin qu'une vraie arme remplace un outil
+        // faible sans jeter ce dernier (il retourne dans le sac).
+        const pvp = Array.isArray(def.pvpEffects) ? def.pvpEffects.length * 5 : 0;
+        const utility = def.power || (def.action ? 1 : 0);
+        return (stats.damage || 0) * 100 + pvp + utility * 3 + rarity + durability * 0.02;
+    }
+    if (slot === 'shield') return (stats.defense || 0) * 100 + rarity + durability * 0.03;
+    if (slot === 'bag') return (stats.maxInventory || 0) * 2 + rarity;
+    if (slot === 'body' || slot === 'head' || slot === 'feet') {
+        return (stats.defense || 0) * 100
+            + (stats.maxHealth || 0) * 18
+            + (stats.maxSleep || 0) * 14
+            + (stats.maxThirst || 0) * 12
+            + (stats.maxHunger || 0) * 12
+            + rarity
+            + durability * 0.03;
+    }
+    return rarity;
+}
+
+function restoreEquippedToInventory(player, slot, avoidKey = null, notify = false) {
+    const equippedItem = player.equipment?.[slot];
+    if (!equippedItem) return null;
+    const itemName = itemNameOf(equippedItem);
+    let restoreKey = typeof equippedItem === 'object' ? equippedItem.inventoryKey : null;
+    if (!restoreKey || restoreKey === avoidKey || player.inventory[restoreKey] !== undefined) {
+        restoreKey = `${itemName}_${Date.now()}_${Math.random()}`;
+    }
+    if (typeof equippedItem === 'object') equippedItem.inventoryKey = restoreKey;
+    player.inventory[restoreKey] = equippedItem;
+    player.equipment[slot] = null;
+    if (notify) player.notifications.push({ type: 'chat', message: `Vous avez déséquipé : ${itemName}.`, style: 'cost' });
+    return itemName;
+}
+
+function equipInventoryKey(player, itemKey, { automatic = false, notify = true } = {}) {
+    if (!player?.inventory) return false;
+    const itemToEquip = player.inventory[itemKey];
+    if (!itemToEquip) return false;
+
+    const itemName = itemNameOf(itemToEquip, itemKey);
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef || !itemDef.slot) return false;
+
+    if (!player.equipment) player.equipment = {};
+    const slot = itemDef.slot;
+    const previousName = restoreEquippedToInventory(player, slot, itemKey, notify && !automatic);
+
+    player.equipment[slot] = itemToEquip;
+    // On retient la clé d'origine : au déséquipement, l'objet retrouvera sa
+    // place (et son usure) au lieu d'être recréé neuf.
+    if (typeof itemToEquip === 'object') itemToEquip.inventoryKey = itemKey;
+    removeItemFromInventory(player, itemKey);
+
+    if (notify) {
+        if (automatic) {
+            const detail = previousName ? ` (remplace ${previousName}, gardé dans le sac)` : '';
+            player.notifications.push({ type: 'chat', message: `⚙️ Auto-équipé : ${itemName}${detail}.`, style: 'gain' });
+            player.notifications.push({ type: 'floatingText', message: `Équipé : ${itemName}`, style: 'gain' });
+        } else {
+            player.notifications.push({ type: 'chat', message: `Vous avez équipé : ${itemName}.`, style: 'gain' });
+        }
+    }
+    return true;
+}
+
+function maybeAutoEquipInventoryKey(player, itemKey, { notify = true } = {}) {
+    const item = player?.inventory?.[itemKey];
+    const itemName = itemNameOf(item, itemKey);
+    const def = ITEM_TYPES[itemName];
+    const slot = def?.slot;
+    if (!slot || !AUTO_EQUIP_SLOTS.has(slot)) return false;
+    const current = player.equipment?.[slot];
+    if (!current) return equipInventoryKey(player, itemKey, { automatic: true, notify });
+    return itemScore(itemName, slot) > itemScore(current, slot) + 0.01
+        ? equipInventoryKey(player, itemKey, { automatic: true, notify })
+        : false;
+}
+
+function autoEquipBestLoadout(player, { notify = false } = {}) {
+    if (!player?.inventory) return;
+    let changed = true;
+    // Plusieurs passages : si un objet meilleur remplace l'ancien, l'ancien
+    // revient dans le sac mais ne doit pas être rééquipé au tour suivant.
+    const seen = new Set();
+    while (changed) {
+        changed = false;
+        let best = null;
+        for (const [key, item] of Object.entries(player.inventory)) {
+            if (seen.has(key)) continue;
+            const name = itemNameOf(item, key);
+            const slot = ITEM_TYPES[name]?.slot;
+            if (!slot || !AUTO_EQUIP_SLOTS.has(slot)) continue;
+            const current = player.equipment?.[slot];
+            if (!current || itemScore(name, slot) > itemScore(current, slot) + 0.01) {
+                const gain = itemScore(name, slot) - (current ? itemScore(current, slot) : -100000);
+                if (!best || gain > best.gain) best = { key, gain };
+            }
+        }
+        if (best) {
+            seen.add(best.key);
+            changed = maybeAutoEquipInventoryKey(player, best.key, { notify }) || changed;
+        }
+    }
 }
 
 // --- MODE TEST OUVERT À TOUS ---
@@ -296,42 +421,11 @@ export function customizeAppearance(player, appearance) {
 }
 
 export function equipItem(player, itemKey) {
-    const itemToEquip = player.inventory[itemKey];
-    if (!itemToEquip) return;
-    
-    const itemName = typeof itemToEquip === 'object' ? itemToEquip.name : itemKey;
-    const itemDef = ITEM_TYPES[itemName];
-    if (!itemDef || !itemDef.slot) return;
-
-    if (player.equipment[itemDef.slot]) {
-        unequipItem(player, itemDef.slot);
-    }
-
-    player.equipment[itemDef.slot] = itemToEquip;
-    // On retient la clé d'origine : au déséquipement, l'objet retrouvera sa
-    // place (et son usure) au lieu d'être recréé neuf.
-    if (typeof itemToEquip === 'object' && !itemToEquip.inventoryKey) {
-        itemToEquip.inventoryKey = itemKey;
-    }
-    removeItemFromInventory(player, itemKey);
-
-    player.notifications.push({ type: 'chat', message: `Vous avez équipé : ${itemName}.`, style: 'gain' });
+    equipInventoryKey(player, itemKey, { automatic: false, notify: true });
 }
 
 export function unequipItem(player, slot) {
-    const equippedItem = player.equipment[slot];
-    if (!equippedItem) return;
-
-    const itemName = equippedItem.name;
-    // L'instance équipée retourne telle quelle dans le sac : sa durabilité
-    // usée est conservée (aucune « réparation » par va-et-vient).
-    let restoreKey = typeof equippedItem === 'object' ? equippedItem.inventoryKey : null;
-    if (!restoreKey || player.inventory[restoreKey] !== undefined) {
-        restoreKey = `${itemName}_${Date.now()}_${Math.random()}`;
-    }
-    player.inventory[restoreKey] = equippedItem;
-    player.equipment[slot] = null;
-    player.notifications.push({ type: 'chat', message: `Vous avez déséquipé : ${itemName}.`, style: 'cost' });
+    restoreEquippedToInventory(player, slot, null, true);
 }
 
 export function dropItem(player, itemKey, quantity = 1) {
@@ -369,7 +463,13 @@ export function pickupItem(player, itemKey, quantity = 1) {
     if (typeof entry === 'object' && entry.name) {
         player.inventory[itemKey] = entry;
         delete tile.groundItems[itemKey];
-        player.notifications.push({ type: 'chat', message: `Vous avez ramassé ${entry.name}.`, style: 'gain' });
+        const equipped = maybeAutoEquipInventoryKey(player, itemKey, { notify: false });
+        player.notifications.push({
+            type: 'chat',
+            message: equipped ? `Vous avez ramassé ${entry.name} et il est équipé automatiquement.` : `Vous avez ramassé ${entry.name}.`,
+            style: 'gain'
+        });
+        if (equipped) player.notifications.push({ type: 'floatingText', message: `Équipé : ${entry.name}`, style: 'gain' });
         return;
     }
 
@@ -402,6 +502,7 @@ export function pickupAllItems(player) {
         if (typeof value === 'object' && value.name) {
             player.inventory[key] = value;
             delete tile.groundItems[key];
+            maybeAutoEquipInventoryKey(player, key);
             total += 1;
         } else if (Number(value) > 0) {
             const amount = Number(value);
@@ -438,6 +539,7 @@ export function takeAllItems(player) {
         if (typeof value === 'object' && value.name) {
             player.inventory[key] = value;
             delete chest.inventory[key];
+            maybeAutoEquipInventoryKey(player, key);
             total += 1;
         } else {
             const amount = Number(value) || 0;
@@ -1132,6 +1234,7 @@ export function moveItem(player, data) {
                 // Objet unique stocké : il revient dans le sac à l'identique.
                 player.inventory[itemKey] = stored;
                 delete building.inventory[itemKey];
+                maybeAutoEquipInventoryKey(player, itemKey);
             } else if (addItemToInventory(player, itemName, quantity)) {
                 building.inventory[itemKey] -= quantity;
                 if (building.inventory[itemKey] <= 0) {

@@ -154,31 +154,55 @@ export function drawAnimatedCampfire(ctx, cx, baseY, targetW, targetH) {
 /**
  * Dessine une créature hostile animée en pixel art
  */
-export function drawAnimatedCreature(ctx, enemyName, x, y, size, bob = 0) {
+export function drawAnimatedCreature(ctx, enemyName, x, y, size, bob = 0, options = {}) {
+    // Compat : anciens appels drawAnimatedCreature(ctx, name, x, y, size, { ... }).
+    if (bob && typeof bob === 'object') {
+        options = bob;
+        bob = options.bob || 0;
+    }
+
     const img = getAsset(SPRITE_DEFS.creatures.asset);
     const def = SPRITE_DEFS.creatures;
-    const row = def.rows[enemyName];
+    const normalizedName = String(enemyName || '').replace(/\s+alpha$/i, '');
+    const row = def.rows[enemyName] ?? def.rows[normalizedName];
 
     if (img && img.complete && img.naturalWidth && row !== undefined) {
         const now = Date.now();
-        const frameIdx = Math.floor((now / 1000) * def.fps) % def.frameCount;
+        const frameOffset = options.frameOffset || 0;
+        const frameIdx = (Math.floor((now / 1000) * def.fps) + frameOffset) % def.frameCount;
         const sx = frameIdx * def.frameW;
         const sy = row * def.frameH;
 
+        const facing = options.facing == null ? 1 : Math.sign(options.facing) || 1;
+        const squash = Math.max(0.72, Math.min(1.32, options.squash ?? 1));
+        const stretch = Math.max(0.72, Math.min(1.32, options.stretch ?? 1));
+        const alpha = options.alpha ?? 1;
+
         ctx.save();
         ctx.imageSmoothingEnabled = false;
+        ctx.globalAlpha *= alpha;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
         ctx.shadowBlur = 8;
 
-        const drawH = size * 1.35;
-        const drawW = drawH;
+        const drawH = size * 1.35 * stretch;
+        const drawW = size * 1.35 * squash;
 
+        // Les sprites de la planche regardent tous le même côté. En combat on
+        // les miroite pour que la bête fixe vraiment le survivant.
+        ctx.translate(Math.round(x), Math.round(y + bob));
+        if (facing < 0) ctx.scale(-1, 1);
         ctx.drawImage(
             img,
             sx, sy, def.frameW, def.frameH,
-            x - drawW / 2, y + bob - drawH / 2,
+            -drawW / 2, -drawH / 2,
             drawW, drawH
         );
+        if (options.tint) {
+            ctx.shadowBlur = 0;
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.fillStyle = options.tint;
+            ctx.fillRect(-drawW / 2, -drawH / 2, drawW, drawH);
+        }
         ctx.restore();
         return true;
     }

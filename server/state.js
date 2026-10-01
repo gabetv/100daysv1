@@ -417,6 +417,21 @@ export function addNewPlayer(playerId, username = null, savedData = null) {
         newPlayer.notifications.push({ type: 'chat', message: "💡 Conseil : mangez, buvez et dormez pour rester en vie. Parlez aux survivants (💬), ils récompensent les coups de main.", style: 'system_info' });
     }
 
+    // Les nouveaux survivants commencent avec l'outil de départ déjà en main.
+    // Les autres objets trouvés/fabriqués seront auto-équipés côté serveur dès
+    // leur acquisition (server/player.js).
+    if (!newPlayer.equipment || typeof newPlayer.equipment !== 'object') {
+        newPlayer.equipment = { head: null, body: null, feet: null, weapon: null, shield: null, bag: null };
+    }
+    for (const slot of ['head', 'body', 'feet', 'weapon', 'shield', 'bag']) {
+        if (!(slot in newPlayer.equipment)) newPlayer.equipment[slot] = null;
+    }
+    if (!newPlayer.equipment.weapon && newPlayer.inventory.Hache?.name === 'Hache') {
+        newPlayer.inventory.Hache.inventoryKey = 'Hache';
+        newPlayer.equipment.weapon = newPlayer.inventory.Hache;
+        delete newPlayer.inventory.Hache;
+    }
+
     gameState.players[playerId] = newPlayer;
     console.log(`Player ${playerId} added to the game.`);
 }

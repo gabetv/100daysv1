@@ -109,7 +109,8 @@ export function updateSceneCombat(combatState) {
     // Portrait : la même image que celle utilisée ailleurs dans l'interface.
     const portrait = el('scene-combat-portrait');
     if (portrait) {
-        const src = ENEMY_IMAGES[enemy.name];
+        const baseName = String(enemy.name || '').replace(/\s+alpha$/i, '');
+        const src = ENEMY_IMAGES[enemy.name] || ENEMY_IMAGES[baseName];
         if (src) {
             if (!portrait.querySelector(`img[src="${src}"]`)) {
                 portrait.innerHTML = `<img src="${src}" alt="">`;
