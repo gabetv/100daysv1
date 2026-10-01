@@ -6,8 +6,8 @@
   "scope": "/",
   "display": "fullscreen",
   "orientation": "portrait",
-  "background_color": "#06171e",
-  "theme_color": "#0b2028",
+  "background_color": "#2b1b18",
+  "theme_color": "#5b392d",
   "icons": [
     {
       "src": "/assets/icons/island.png",

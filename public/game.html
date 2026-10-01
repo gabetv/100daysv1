@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0c1720">
+    <meta name="theme-color" content="#2b1b18">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Île des 100 Jours</title>
@@ -13,8 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="game-shell.css">
-    <!-- Dernière couche : adaptation à la résolution, minuteurs et interactions. -->
+    <!-- Adaptation à la résolution, minuteurs et interactions. -->
     <link rel="stylesheet" href="responsive.css">
+    <!-- Peau finale bois/parchemin inspirée de la maquette de référence. -->
+    <link rel="stylesheet" href="reference-ui.css">
 </head>
 <body class="game-screen">
     <div id="game-container">
@@ -59,16 +61,16 @@
                     <div id="main-view-overlay">
                         <div id="mobile-vitals" aria-label="Jauges de survie">
                             <button class="mobile-vital" data-vital="health" type="button" aria-label="Ouvrir le statut : santé">
-                                <img src="/assets/icons/heart.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
+                                <i class="mobile-ui-icon icon-health" aria-hidden="true"></i><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="thirst" type="button" aria-label="Ouvrir le statut : soif">
-                                <img src="/assets/icons/waterdrop.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
+                                <i class="mobile-ui-icon icon-thirst" aria-hidden="true"></i><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="hunger" type="button" aria-label="Ouvrir le statut : faim">
-                                <img src="/assets/icons/drumstick.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
+                                <i class="mobile-ui-icon icon-hunger" aria-hidden="true"></i><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                             <button class="mobile-vital" data-vital="sleep" type="button" aria-label="Ouvrir le statut : sommeil">
-                                <img src="/assets/icons/moon.png" alt=""><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
+                                <i class="mobile-ui-icon icon-sleep" aria-hidden="true"></i><span class="mobile-vital-track stat-squares-container" aria-hidden="true"></span><b>10</b>
                             </button>
                         </div>
                         <section id="tile-info-hud" aria-live="polite" aria-label="Lieu actuel">
@@ -83,10 +85,10 @@
                         <div id="central-actions-panel" aria-label="Actions rapides">
                             <span class="quick-actions-kicker">ACTIONS ICI</span>
                             <div class="quick-actions-grid">
-                                <button class="central-action-button" data-action="search" title="Fouiller la case"><img src="/assets/icons/magnifier.png" alt=""><span class="central-action-label">Fouiller</span></button>
-                                <button class="central-action-button" data-action="build" title="Construire"><img src="/assets/icons/tile_etabli.png" alt=""><span class="central-action-label">Construire</span></button>
-                                <button class="central-action-button" data-action="harvest" title="Récolter"><img src="/assets/icons/axe.png" alt=""><span class="central-action-label">Récolter</span></button>
-                                <button class="central-action-button" data-action="interact" title="Interagir"><img src="/assets/icons/compass.png" alt=""><span class="central-action-label">Interagir</span></button>
+                                <button class="central-action-button" data-action="search" title="Fouiller la case"><i class="mobile-ui-icon icon-search" aria-hidden="true"></i><span class="central-action-label">Fouiller</span></button>
+                                <button class="central-action-button" data-action="build" title="Construire"><i class="mobile-ui-icon icon-build" aria-hidden="true"></i><span class="central-action-label">Construire</span></button>
+                                <button class="central-action-button" data-action="harvest" title="Récolter"><i class="mobile-ui-icon icon-harvest" aria-hidden="true"></i><span class="central-action-label">Récolter</span></button>
+                                <button class="central-action-button" data-action="interact" title="Interagir"><i class="mobile-ui-icon icon-interact" aria-hidden="true"></i><span class="central-action-label">Interagir</span></button>
                             </div>
                         </div>
                         <div id="navigation-edge-panel">
@@ -205,14 +207,14 @@
 
         <!-- ### BARRE D'ONGLETS MOBILE ### -->
         <nav id="mobile-tabbar" aria-label="Navigation mobile">
-            <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon"><img class="icon-img" src="assets/icons/island.png" alt=""></span><span class="mt-label">Scène</span></button>
-            <button class="mobile-tab" data-mtab="actions"><span class="mt-icon"><img class="icon-img" src="assets/icons/lightning.png" alt=""></span><span class="mt-label">Actions</span></button>
-            <button class="mobile-tab" data-mtab="quests"><span class="mt-icon"><img class="icon-img" src="assets/icons/scroll.png" alt=""></span><span class="mt-label">Quêtes</span></button>
-            <button class="mobile-tab" data-mtab="inventory"><span class="mt-icon"><img class="icon-img" src="assets/icons/backpack.png" alt=""></span><span class="mt-label">Sac</span></button>
-            <button class="mobile-tab" data-mtab="equipment"><span class="mt-icon"><img class="icon-img" src="assets/icons/tshirt.png" alt=""></span><span class="mt-label">Équip.</span></button>
-            <button class="mobile-tab" data-mtab="status"><span class="mt-icon"><img class="icon-img" src="assets/icons/heart.png" alt=""></span><span class="mt-label">Statut</span></button>
-            <button class="mobile-tab" data-mtab="chat"><span class="mt-icon"><img class="icon-img" src="assets/icons/chatbubble.png" alt=""></span><span class="mt-label">Chat</span></button>
-            <button class="mobile-tab" data-mtab="map"><span class="mt-icon"><img class="icon-img" src="assets/icons/map.png" alt=""></span><span class="mt-label">Carte</span></button>
+            <button class="mobile-tab active" data-mtab="scene"><span class="mt-icon"><i class="mobile-ui-icon icon-scene" aria-hidden="true"></i></span><span class="mt-label">Scène</span></button>
+            <button class="mobile-tab" data-mtab="actions"><span class="mt-icon"><i class="mobile-ui-icon icon-actions" aria-hidden="true"></i></span><span class="mt-label">Actions</span></button>
+            <button class="mobile-tab" data-mtab="quests"><span class="mt-icon"><i class="mobile-ui-icon icon-quests" aria-hidden="true"></i></span><span class="mt-label">Quêtes</span></button>
+            <button class="mobile-tab" data-mtab="inventory"><span class="mt-icon"><i class="mobile-ui-icon icon-inventory" aria-hidden="true"></i></span><span class="mt-label">Sac</span></button>
+            <button class="mobile-tab" data-mtab="equipment"><span class="mt-icon"><i class="mobile-ui-icon icon-equipment" aria-hidden="true"></i></span><span class="mt-label">Équip.</span></button>
+            <button class="mobile-tab" data-mtab="status"><span class="mt-icon"><i class="mobile-ui-icon icon-status" aria-hidden="true"></i></span><span class="mt-label">Statut</span></button>
+            <button class="mobile-tab" data-mtab="chat"><span class="mt-icon"><i class="mobile-ui-icon icon-chat" aria-hidden="true"></i></span><span class="mt-label">Chat</span></button>
+            <button class="mobile-tab" data-mtab="map"><span class="mt-icon"><i class="mobile-ui-icon icon-map" aria-hidden="true"></i></span><span class="mt-label">Carte</span></button>
         </nav>
 
     <!-- MODALES COMPLETES -->

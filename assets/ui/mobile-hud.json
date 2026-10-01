@@ -1,0 +1,29 @@
+{
+  "generatedBy": "scripts/generate_mobile_hud_sheet.js",
+  "file": "assets/ui/sheet-mobile-hud.png",
+  "frameW": 48,
+  "frameH": 48,
+  "columns": 8,
+  "rows": {
+    "vitalsAndActions": [
+      "health",
+      "thirst",
+      "hunger",
+      "sleep",
+      "search",
+      "build",
+      "harvest",
+      "interact"
+    ],
+    "navigation": [
+      "scene",
+      "actions",
+      "quests",
+      "inventory",
+      "equipment",
+      "status",
+      "chat",
+      "map"
+    ]
+  }
+}
